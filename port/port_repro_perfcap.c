@@ -12,9 +12,10 @@
  * captures gIoMem + gVram + gBgPltt + gObjPltt + gOamMem, so the snapshot is
  * fully renderable offline by the microbench with no engine running.
  *
- * Dump format (all little-endian, host order):
- *   magic   "PPU1"            (4 bytes)
+ * Dump format (all little-endian, independent of C struct layout):
+ *   magic   "PPU2"            (4 bytes)
  *   sizes   u32 x5            (io, vram, bgpal, objpal, oam — in bytes)
+ *   geometry u32 x3           (width, height, pitch — in pixels)
  *   data    concatenated region bytes in that order
  *
  * With TMC_PROFILE set the harness keeps running after the dump so the
@@ -31,6 +32,7 @@
 #include "port_gba_mem.h" /* gIoMem, gVram, gBgPltt, gObjPltt, gOamMem */
 #include "room.h"         /* gRoomControls, gRoomVars.properties[] */
 #include "port_debug_actions.h"
+#include "ppu_snapshot.h"
 #include "virtuappu.h" /* virtuappu_frame_buffer, virtuappu_registers (Tier B hash) */
 
 extern int Port_CaptureBaseFramebufferPNG(const char* path); /* shim in port_bugreport.cpp */
@@ -45,7 +47,7 @@ extern int Port_CaptureBaseFramebufferPNG(const char* path); /* shim in port_bug
 static uint64_t perfcap_frame_hash(void) {
     int w = virtuappu_registers.frame_width ? virtuappu_registers.frame_width : 240;
     int pitch = virtuappu_registers.frame_pitch ? virtuappu_registers.frame_pitch : w;
-    const int h = 160;
+    const int h = virtuappu_registers.frame_height ? virtuappu_registers.frame_height : 160;
     uint64_t hsh = 1469598103934665603ULL;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
@@ -67,16 +69,14 @@ static void perfcap_dump(const char* path) {
         fprintf(stderr, "[perfcap] dump open failed: %s\n", path);
         return;
     }
-    const char magic[4] = { 'P', 'P', 'U', '1' };
-    const uint32_t sizes[5] = { 0x400u, 0x18000u, 0x200u, 0x200u, 0x400u };
-    fwrite(magic, 1, 4, f);
-    fwrite(sizes, sizeof(uint32_t), 5, f);
-    fwrite(gIoMem, 1, 0x400u, f);
-    fwrite(gVram, 1, 0x18000u, f);
-    fwrite(gBgPltt, 1, 0x200u, f);
-    fwrite(gObjPltt, 1, 0x200u, f);
-    fwrite(gOamMem, 1, 0x400u, f);
-    fclose(f);
+    VirtuaPPUMode1GbaMemory memory = { gIoMem, gVram, gBgPltt, gObjPltt, gOamMem };
+    int ok = virtuappu_snapshot_write(f, &memory, &virtuappu_registers);
+    if (fclose(f) != 0) ok = 0;
+    if (!ok) {
+        remove(path);
+        fprintf(stderr, "[perfcap] snapshot write failed: %s\n", path);
+        return;
+    }
     if (getenv("TMC_PAL_TRACE")) {
         extern uint16_t gPaletteBuffer[];
         fprintf(

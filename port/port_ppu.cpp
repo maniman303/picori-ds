@@ -105,6 +105,10 @@ static int Port_PPU_WindowBaseWidth(void) {
     return Port_Viewport_ProfileForAspect(Port_Config_EffectiveAspectMode())->width;
 }
 
+static int Port_PPU_WindowBaseHeight(void) {
+    return Port_Viewport_ProfileForAspect(Port_Config_EffectiveAspectMode())->height;
+}
+
 #ifdef launcher
 static SDL_Window* sBootstrapWindow = nullptr;
 #endif
@@ -216,13 +220,13 @@ static SDL_Texture* Port_PPU_EnsureTexture(SDL_Texture** slot, int* curW, int* c
 }
 
 static const uint32_t* Port_PPU_SelectPresentFrame(int* outW, int* outH, int* outPitchBytes) {
-    const int visibleW = Port_PPU_VisibleFrameWidth();
+    const int visibleW = virtuappu_mode1_frame_width();
     if (outW)
         *outW = visibleW;
     if (outH)
-        *outH = MODE1_GBA_HEIGHT;
+        *outH = virtuappu_mode1_frame_height();
     if (outPitchBytes) {
-        *outPitchBytes = MODE1_GBA_WIDTH * static_cast<int>(sizeof(uint32_t));
+        *outPitchBytes = virtuappu_mode1_frame_pitch() * static_cast<int>(sizeof(uint32_t));
     }
     return virtuappu_frame_buffer;
 }
@@ -332,7 +336,7 @@ static void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int fbH, 
     *frameH = fh;
 }
 
-extern "C" const uint32_t* Port_PPU_GetOverlayFrame(float stage[4], float frame[4], int* width, int* pitchPixels) {
+extern "C" const uint32_t* Port_PPU_GetOverlayFrame(float stage[4], float frame[4], int* width, int* heightOut, int* pitchPixels) {
     int pixelW = 0, pixelH = 0, logicalW = 0, logicalH = 0;
     if (!sWindow || !SDL_GetWindowSizeInPixels(sWindow, &pixelW, &pixelH) ||
         !SDL_GetWindowSize(sWindow, &logicalW, &logicalH) || pixelW <= 0 || pixelH <= 0)
@@ -344,6 +348,7 @@ extern "C" const uint32_t* Port_PPU_GetOverlayFrame(float stage[4], float frame[
     const float scaleX = (float)logicalW / pixelW, scaleY = (float)logicalH / pixelH;
     stage[0] = sx * scaleX; stage[1] = sy * scaleY; stage[2] = sw * scaleX; stage[3] = sh * scaleY;
     frame[0] = fx * scaleX; frame[1] = fy * scaleY; frame[2] = fw * scaleX; frame[3] = fh * scaleY;
+    *heightOut = height;
     *pitchPixels = pitchBytes / (int)sizeof(uint32_t);
     return pixels;
 }
@@ -518,9 +523,9 @@ static void Port_PPU_PresentSurfaceFrame(void) {
         return;
     }
 
-    const int frameW = Port_PPU_VisibleFrameWidth();
-    Port_PPU_FitAspectRect(windowSurface->w, windowSurface->h, frameW, MODE1_GBA_HEIGHT, &x, &y, &w, &h);
-    srcRect = { 0, 0, frameW, MODE1_GBA_HEIGHT };
+    const int frameW = virtuappu_mode1_frame_width();
+    Port_PPU_FitAspectRect(windowSurface->w, windowSurface->h, frameW, virtuappu_mode1_frame_height(), &x, &y, &w, &h);
+    srcRect = { 0, 0, frameW, virtuappu_mode1_frame_height() };
     dstRect = { x, y, w, h };
     SDL_FillSurfaceRect(windowSurface, nullptr, 0);
     SDL_BlitSurfaceScaled(sFrameSurface, &srcRect, windowSurface, &dstRect, SDL_SCALEMODE_NEAREST);
@@ -692,6 +697,16 @@ extern "C" void Port_PPU_ColorCorrectBuffer(uint32_t* buf, int count) {
  * `pixelCount` ABGR8888 pixels of virtuappu_frame_buffer. Called on the main
  * thread after the OpenMP scanline render has joined, so no locking needed. */
 static void Port_PPU_ApplyDisplayPostProcess(int pixelCount) {
+    static int previousW = 0, previousH = 0, previousPitch = 0;
+    const int width = virtuappu_mode1_frame_width();
+    const int height = virtuappu_mode1_frame_height();
+    const int pitch = virtuappu_mode1_frame_pitch();
+    if (previousW != width || previousH != height || previousPitch != pitch) {
+        sPersistAccumValid = false;
+        previousW = width;
+        previousH = height;
+        previousPitch = pitch;
+    }
     if (pixelCount <= 0) {
         return;
     }
@@ -986,7 +1001,9 @@ bind_virtuappu_memory: {
 
     virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
     virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
+    virtuappu_registers.frame_height = Port_Viewport_Get()->canvas.height;
     virtuappu_registers.mode = 1;
+    virtuappu_mode1_set_frame_geometry(&virtuappu_registers);
 
     /* GBA-LCD display transforms. Source of truth is the persisted config
      * (F8 Display menu); the TMC_* env vars override it for headless A/B.
@@ -1020,7 +1037,7 @@ bind_virtuappu_memory: {
 
     if (sBackend == RenderBackend::None) {
         sFrameSurface =
-            SDL_CreateSurfaceFrom(MODE1_GBA_WIDTH, MODE1_GBA_HEIGHT, SDL_PIXELFORMAT_ABGR8888, virtuappu_frame_buffer,
+            SDL_CreateSurfaceFrom(MODE1_GBA_WIDTH, MODE1_MAX_RENDER_HEIGHT, SDL_PIXELFORMAT_ABGR8888, virtuappu_frame_buffer,
                                   MODE1_GBA_WIDTH * static_cast<int>(sizeof(uint32_t)));
         if (!sFrameSurface) {
             printf("Port_PPU_Init: SDL_CreateSurfaceFrom failed: %s\n", SDL_GetError());
@@ -1198,6 +1215,10 @@ static bool Port_PPU_GlesEnsure(void) {
 /* Rasterize the current frame on the GPU into virtuappu_frame_buffer. Returns
  * false so the caller runs the CPU rasterizer instead. */
 static bool Port_PPU_TryGpuRaster(void) {
+    // Shader window/OAM semantics and IO buffers still implement 160 lines.
+    // GPU presentation can display the taller software-rasterized canvas.
+    if (virtuappu_mode1_frame_height() != MODE1_GBA_HEIGHT)
+        return false;
     if (!Port_Config_GetGpuRaster()) {
         return false;
     }
@@ -1250,7 +1271,7 @@ static bool Port_PPU_TryGpuRaster(void) {
     PortGpuRasterFrame f;
     std::memset(&f, 0, sizeof(f));
     f.frame_width = virtuappu_mode1_frame_width();
-    f.frame_height = MODE1_GBA_HEIGHT;
+    f.frame_height = virtuappu_mode1_frame_height();
     f.frame_pitch = virtuappu_mode1_frame_pitch();
     f.mode = virtuappu_registers.mode;
     f.affine = (virtuappu_registers.mode == 2);
@@ -1372,6 +1393,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
 
     virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
     virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
+    virtuappu_registers.frame_height = Port_Viewport_Get()->canvas.height;
 
     dispcnt = (uint16_t)(gIoMem[0x00] | (gIoMem[0x01] << 8));
     gbaMode = (uint8_t)(dispcnt & 0x07);
@@ -1409,6 +1431,10 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * inside the PPU can't see idempotent writes). */
     virtuappu_mode1_bg2x_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x28, gIoMem + 0x2C) != 0;
     virtuappu_mode1_bg2y_hdma_strobe = port_hdma_dest_overlaps(gIoMem + 0x2C, gIoMem + 0x30) != 0;
+
+    virtuappu_mode1_set_frame_geometry(&virtuappu_registers);
+    // Carry the effective aperture through uploads, captures and overlays.
+    virtuappu_registers.frame_height = (uint16_t)virtuappu_mode1_frame_height();
 
     {
         bool gpu_ok = false;
@@ -1477,6 +1503,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
             PPUMemory nativePlaneGeometry = virtuappu_registers;
             nativePlaneGeometry.frame_width = W;
             nativePlaneGeometry.frame_pitch = W;
+            nativePlaneGeometry.frame_height = H;
             virtuappu_mode1_set_frame_geometry(&nativePlaneGeometry);
             for (int line = 0; line < H; ++line) {
                 virtuappu_mode1_render_text_bg_line(1, line, &bg1Plane[line * W], pri);
@@ -1519,10 +1546,10 @@ extern "C" void Port_PPU_PresentFrame(void) {
 
     /* GBA-LCD display transforms (colour correction + persistence) over the
      * final composited frame, after any shm publish so published planes stay
-     * raw game data. No-ops when disabled. Operates on the native render extent
-     * (stride MODE1_GBA_WIDTH x MODE1_GBA_HEIGHT); present-side upscale/xBRZ run
+     * raw game data. No-ops when disabled. Operates on the normalized render
+     * height and pitch; present-side upscale/xBRZ run
      * afterwards on the transformed pixels. */
-    Port_PPU_ApplyDisplayPostProcess(MODE1_GBA_WIDTH * MODE1_GBA_HEIGHT);
+    Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() * virtuappu_mode1_frame_height());
 
     int presentW = 0;
     int presentH = 0;
@@ -1780,7 +1807,7 @@ extern "C" void Port_PPU_ApplyWindowScale(void) {
     SDL_Window* w = Port_PPU_ActiveWindow();
     if (w && !Port_PPU_IsFullscreen()) {
         const u8 scale = Port_Config_WindowScale();
-        SDL_SetWindowSize(w, Port_PPU_WindowBaseWidth() * scale, MODE1_GBA_HEIGHT * scale);
+        SDL_SetWindowSize(w, Port_PPU_WindowBaseWidth() * scale, Port_PPU_WindowBaseHeight() * scale);
         SDL_SyncWindow(w);
     }
 }

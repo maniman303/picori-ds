@@ -16,6 +16,7 @@
 #include <SDL3/SDL.h>
 #include <png.h>
 #include <virtuappu.h>
+#include <cpu/mode1.h>
 
 #include <atomic>
 #include <chrono>
@@ -73,7 +74,6 @@ namespace {
  * MODE1_GBA_WIDTH for the whole target; 240 = native). Reading at the wrong
  * stride shears the capture, so this MUST match virtuappu_frame_buffer. */
 constexpr int kFrameW = MODE1_GBA_WIDTH;
-constexpr int kFrameH = 160;
 
 std::string TimestampString() {
     auto now = std::chrono::system_clock::now();
@@ -132,9 +132,7 @@ const char* GameRegionString() {
 }
 
 bool WriteScreenshotPNG(const std::filesystem::path& path) {
-    /* virtuappu_frame_buffer is stride kFrameW. Runtime-disabled widescreen
-     * captures only the native 240 columns so F9/repro output matches what
-     * the presenter shows; active true-wide gameplay captures the full frame. */
+    /* Capture exactly the last rendered extent, using its normalized pitch. */
     FILE* fp = std::fopen(path.string().c_str(), "wb");
     if (!fp) {
         std::fprintf(stderr, "[BUG] PNG fopen failed: %s\n", path.string().c_str());
@@ -159,17 +157,18 @@ bool WriteScreenshotPNG(const std::filesystem::path& path) {
         return false;
     }
 
-    const int outW =
-        (Port_Widescreen_IsActive() && Port_Widescreen_ShadowsLive()) ? Port_Widescreen_EffectiveViewWidth() : 240;
+    const int outW = virtuappu_mode1_frame_width();
+    const int outH = virtuappu_mode1_frame_height();
+    const int pitch = virtuappu_mode1_frame_pitch();
 
     png_init_io(png, fp);
-    png_set_IHDR(png, info, outW, kFrameH, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
+    png_set_IHDR(png, info, outW, outH, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
 
     uint8_t row[kFrameW * 3];
-    for (int y = 0; y < kFrameH; y++) {
-        const uint32_t* src = &virtuappu_frame_buffer[y * kFrameW];
+    for (int y = 0; y < outH; y++) {
+        const uint32_t* src = &virtuappu_frame_buffer[y * pitch];
         for (int x = 0; x < outW; x++) {
             uint32_t p = src[x];
             row[x * 3 + 0] = static_cast<uint8_t>(p & 0xFF);         /* R (ABGR LE: byte0=R) */

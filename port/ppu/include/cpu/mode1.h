@@ -58,6 +58,11 @@ extern virtuappu_mode1_pre_line_fn virtuappu_mode1_pre_line_callback;
  * extension in the engine. */
 enum {
     MODE1_GBA_HEIGHT = 160,
+#ifdef TMC_N64
+    MODE1_MAX_RENDER_HEIGHT = 160,
+#else
+    MODE1_MAX_RENDER_HEIGHT = 192,
+#endif
     MODE1_GBA_BG_COUNT = 4,
     MODE1_GBA_OAM_COUNT = 128,
     MODE1_IO_MEM_SIZE = 0x400,
@@ -151,6 +156,7 @@ void virtuappu_mode1_bind_gba_memory(const VirtuaPPUMode1GbaMemory* memory);
 void virtuappu_mode1_get_bound_gba_memory(VirtuaPPUMode1GbaMemory* memory);
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu);
 int virtuappu_mode1_frame_width(void);
+int virtuappu_mode1_frame_height(void);
 int virtuappu_mode1_frame_pitch(void);
 uint16_t virtuappu_mode1_io_read16(uint16_t offset);
 uint32_t virtuappu_mode1_io_read32(uint16_t offset);
@@ -167,10 +173,15 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu);
  * the per-line HDMA callback + IO snapshot, per-line DISPCNT, and the affine
  * per-line reference precompute — into caller-owned buffers, WITHOUT the CPU
  * parallel render. The GPU rasterizer (port/port_gpu_raster.*) consumes these
- * to render the frame on the GPU. Buffers must hold MODE1_GBA_HEIGHT entries:
- *   io_per_line      : MODE1_GBA_HEIGHT * MODE1_IO_MEM_SIZE bytes
- *   dispcnt_per_line : MODE1_GBA_HEIGHT uint16_t
- *   aff_ref_x/y      : MODE1_GBA_HEIGHT int32_t (filled only when affine)
+ * to render the frame on the GPU. Buffers must hold max(MODE1_GBA_HEIGHT,
+ * normalized frame height) entries (at most MODE1_MAX_RENDER_HEIGHT):
+ *   io_per_line      : entry count * MODE1_IO_MEM_SIZE bytes
+ *   dispcnt_per_line : entry count uint16_t
+ *   aff_ref_x/y      : entry count int32_t (filled only when affine)
+ * With uniform IO only row zero is written. Callbacks still run exactly the
+ * original 160 rows. Until extension policies are classified, an active
+ * callback caps the effective render height at 160; query frame_height after
+ * setup. No game table is read for an extra render row.
  * `out_frame_dispcnt` receives the frame-start DISPCNT. Returns nonzero if
  * forced-blank is set (the GPU shader handles it, but the host may skip). */
 int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, uint16_t* dispcnt_per_line,

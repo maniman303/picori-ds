@@ -70,15 +70,28 @@ or tile alignment. Native-content centering continues to use floor offsets.
   resizing must affect presentation only. Preserve room/transition safety.
 - [x] Remove widescreen toggle state, config entry/API, UI and indirect gates;
   erase the legacy JSON key on save and pin capture tools to explicit profiles.
-- [ ] Add visible height to the PPU contract and version snapshot formats;
-  audit allocations before increasing build capacity to 569 by 192.
+- [x] Add bounded visible height to `PPUMemory` separately from hardware timing,
+  with zero retaining the native default and N64 remaining capped at 160.
+- [x] Version static captures as PPU2 with explicit width/height/pitch; update
+  both readers and retain native PPU1 compatibility. Validate malformed inputs.
+- [x] Carry normalized height through software rendering, post-processing,
+  presentation, screenshots, overlay geometry and affine OBJ supersampling;
+  keep unsupported taller GPU rasterization on software fallback.
+- [x] Audit initial height-related scratch/storage changes: retain the existing
+  160-row IO snapshots and upscale pools; bound affine scratch at 192 rows.
+- [ ] Finish allocation/path audits before increasing build capacity to 569 by
+  192, including optional filter/voxel/HD-text behavior and scene composition.
 - [ ] Update `build.py`, RG builds and tools together. Preserve N64 native-only
   constraints and verify original native golden pixels before taller rendering.
 
 ## 3. World rendering
 
-- [ ] Separate the 160 hardware register rows from bounded rendered rows;
-  classify HDMA continuations without reading beyond original tables.
+- [x] Separate the original hardware register sequence from bounded rendered
+  rows. Guard HDMA against extra/negative callback lines; stable-state scenes
+  can render extra rows and continue affine references without extra IO copies.
+- [ ] Classify HDMA continuations and implement full-canvas effect geometry.
+  Until then, active callbacks cap the effective aperture at 160. This is an
+  interim safety gate while 4:3 remains disabled, not completed 4:3 behavior.
 - [ ] Add two-axis camera-rest and room-aperture helpers, then audit streaming
   managers/tile residency before exposing rows 160–191.
 - [ ] Audit culling, hidden OAM and signed port coordinates, including X > 511.
@@ -185,9 +198,10 @@ Verification completed:
   original release configuration restored afterward with the harness disabled.
 - `tools/ppu_parity_check.sh` using the local EU ROM and a QEMU wrapper:
   both committed scenes (`intro_logo`, `title`) match original Tier A and B
-  hashes. Use the oracle's default native width 240; compiling the static
-  oracle at capacity 384 renders extra pixels and is not a native parity test.
-  Committed golden hashes remain unchanged.
+  hashes. At that stage the PPU1 reader required the oracle's default width
+  240; a capacity-384 build rendered extra pixels. The subsequent PPU2 reader
+  now honors stored geometry independently of compiled capacity. Committed
+  golden hashes remain unchanged.
 - Production C/C++ geometry tests and UBSan config regressions: enum stability,
   selected/effective profiles, unsupported dimensions, snapshot publication,
   unchanged generation for unchanged geometry, invalid capacity/pitch,
@@ -208,3 +222,68 @@ True 256 × 192 rendering, full 32:9, fixed-screen canvas composition, GPU
 presentation execution, other regional fixtures and device profiling remain
 pending. Current image-size contracts already describe their target dimensions;
 they do not imply those renderer paths are enabled.
+
+## PPU height/capture verification (2026-10-24)
+
+`PPUMemory.frame_height` now distinguishes render rows from the native hardware
+constant. The software renderer normalizes height to at most 192 on PC / 160
+on N64. Stable IO supports tiled/affine rendering through row 191. Unknown
+scanline effects retain a 160-line effective aperture; their callbacks never
+read an extra table row. Native window and OAM Y interpretation stays intact.
+Gameplay profile availability is unchanged: camera/streaming and layout are
+still prerequisites for enabling 4:3.
+
+Presentation uses the normalized extent, and persistence history resets when
+geometry changes. Existing upscale workspaces retain their sizes and their
+capacity checks; taller dimensions do not multiply maximum-scale BSS in this
+step. The surface fallback wraps the existing framebuffer through the bounded
+render height. The GPU raster path rejects non-native height before touching
+its native-sized register buffers; SDL_GPU presentation can still receive a
+software-rendered frame. HD text now receives actual height and retains its
+existing non-native-height rejection until shared layout work lands. Shared
+memory BG/OBJ planes explicitly retain their native 240 × 160 geometry.
+
+New runtime memory is bounded: `PPUMemory` grows by two bytes; software
+scanline-control/affine scratch capacity grows by 704 bytes per frame on PC
+(384 bytes in the separate prepare pass). The 160 KiB IO snapshot array and
+the large upscale/persistence pools are unchanged. N64 scratch bounds stay
+native. These are source-size calculations, not RSS/PSS/device measurements.
+
+Captures use [PPU2](ppu-snapshot-format.md), storing effective width, height and
+pitch in explicit little-endian fields. Both standalone readers validate
+metadata/payload sizes and retain native PPU1 support. Static capture limits
+(no HDMA replay, shadow maps or port sprite metadata) remain explicit.
+
+Verification:
+
+```sh
+ASAN_OPTIONS=detect_leaks=0 python3 tools/ppu_geometry_regression_test.py
+python3 tools/widescreen_regression_test.py
+python3 tools/widescreen_engine_regression_test.py
+python3 tools/widescreen_scroll_regression_test.py
+python3 tools/screen_background_regression_test.py
+```
+
+All passed. The new harness runs AddressSanitizer/UBSan at width capacities
+240/384 and checks the N64 native-height guard. Leak detection is disabled for
+the restricted process environment; address/undefined-behavior checks remain
+active. Independent expectations cover distinct tile/affine pixels at rows
+159/160/191, pitch/bottom canaries, native/zero/oversized height, forced blank,
+hidden OAM Y, supersampled sprites, a cropped frame's full hardware sequence,
+and direct HDMA bounds. Capture tests cover PPU2 round trips, PPU1 defaults,
+malformed/truncated inputs, and real oracle/benchmark checksums for native and
+256 × 192 fixtures with padded pitch. An additional two-thread OpenMP run and
+the existing affine-latch tests also passed.
+
+The RG cross-build and restored-release EU startup smoke under QEMU passed,
+reaching `Port layer initialized. Entering AgbMain...`.
+Both EU native parity scenes retain their original
+Tier A/B hashes with PPU2 captures. Local 16:9 square/wide-window and 21:9
+tall-window field captures are byte-identical to the previous geometry step.
+No golden hashes or ROM-derived fixtures were committed. The normal RG release
+configuration is restored after capture checks; no device deployment occurs.
+
+Remaining gates: tall gameplay streaming/camera/culling, semantic HUD/dialogue
+layout, fixed-screen centering, classified raster effects, optional backend
+execution and device budgets. These checks establish the height interface and
+preservation of existing output, not completion of true 4:3 gameplay.

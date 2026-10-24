@@ -22,4 +22,9 @@ typedef struct PPUMemory {
     uint16_t frame_pitch;
     uint8_t mode;
     uint8_t reserved;
+    /* Visible render rows, independent of GBA timing. Zero retains the
+     * native 160-line default for existing zero/aggregate initializers.
+     * Query the normalized geometry after setup; unsupported raster effects
+     * may require a native-height aperture. Never serialize this struct. */
+    uint16_t frame_height;
 } PPUMemory;

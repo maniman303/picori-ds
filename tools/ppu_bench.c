@@ -30,6 +30,9 @@
 
 #include "cpu/mode1.h"
 #include "virtuappu.h"
+#include "ppu_snapshot.h"
+
+static PPUMemory s_geometry;
 
 /* mode1.c references this extern (defined in virtuappu.c in the real build). */
 uint32_t virtuappu_frame_buffer[VIRTUAPPU_FRAME_BUFFER_SIZE];
@@ -46,11 +49,11 @@ static double now_ms(void) {
     return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
 }
 
-static uint64_t fb_checksum(int w, int h) {
+static uint64_t fb_checksum(int w, int h, int pitch) {
     uint64_t hsh = 1469598103934665603ULL; /* FNV-1a 64 */
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            uint32_t v = virtuappu_frame_buffer[(size_t)y * MODE1_GBA_WIDTH + x];
+            uint32_t v = virtuappu_frame_buffer[(size_t)y * pitch + x];
             hsh ^= v;
             hsh *= 1099511628211ULL;
         }
@@ -60,29 +63,12 @@ static uint64_t fb_checksum(int w, int h) {
 
 static int load_snapshot(const char* path) {
     FILE* f = fopen(path, "rb");
-    if (!f) {
-        perror("open snapshot");
-        return 0;
-    }
-    char magic[4];
-    uint32_t sz[5];
-    if (fread(magic, 1, 4, f) != 4 || memcmp(magic, "PPU1", 4) != 0) {
-        fprintf(stderr, "bad snapshot magic\n");
-        fclose(f);
-        return 0;
-    }
-    if (fread(sz, sizeof(uint32_t), 5, f) != 5) {
-        fclose(f);
-        return 0;
-    }
-    size_t n = 0;
-    n += fread(s_io, 1, 0x400, f);
-    n += fread(s_vram, 1, 0x18000, f);
-    n += fread(s_bgpal, 1, 0x200, f);
-    n += fread(s_objpal, 1, 0x200, f);
-    n += fread(s_oam, 1, 0x400, f);
+    if (!f) { perror("open snapshot"); return 0; }
+    VirtuaPPUMode1GbaMemory mem = { s_io, s_vram, s_bgpal, s_objpal, s_oam };
+    int ok = virtuappu_snapshot_read(f, &mem, &s_geometry);
     fclose(f);
-    return n == (0x400 + 0x18000 + 0x200 + 0x200 + 0x400);
+    if (!ok) fprintf(stderr, "invalid, unsupported, or truncated PPU snapshot\n");
+    return ok;
 }
 
 int main(int argc, char** argv) {
@@ -110,20 +96,14 @@ int main(int argc, char** argv) {
 #endif
 
     printf("snapshot: dispcnt=0x%04x  BG0=%d BG1=%d BG2=%d BG3=%d OBJ=%d  width=%d  iters=%d\n", dispcnt, bg_on[0],
-           bg_on[1], bg_on[2], bg_on[3], obj_on, MODE1_GBA_WIDTH, iters);
+           bg_on[1], bg_on[2], bg_on[3], obj_on, (int)s_geometry.frame_width, iters);
 
-    /* render_frame dereferences ppu->mode (mode1/mode2 merge); build a real
-     * PPUMemory from the snapshot dispcnt (BG mode = low 3 bits) at native
-     * geometry. Mode 0/1 -> tiled path, mode 2 -> affine BG2. */
-    PPUMemory ppu = { 0 };
-    ppu.frame_width = MODE1_GBA_WIDTH;
-    ppu.frame_pitch = MODE1_GBA_WIDTH;
-    ppu.mode = (uint8_t)(dispcnt & 0x7u);
+    PPUMemory ppu = s_geometry;
 
     /* Warm caches + capture the parity checksum. */
     for (int i = 0; i < 8; i++)
         virtuappu_mode1_render_frame(&ppu);
-    uint64_t csum = fb_checksum(MODE1_GBA_WIDTH, MODE1_GBA_HEIGHT);
+    uint64_t csum = fb_checksum(virtuappu_mode1_frame_width(), virtuappu_mode1_frame_height(), virtuappu_mode1_frame_pitch());
 
     /* Full frame, all threads. */
     double t0 = now_ms();
@@ -155,7 +135,7 @@ int main(int argc, char** argv) {
         static uint8_t obj_priority[MODE1_GBA_WIDTH];
         int citers = iters / 4 ? iters / 4 : 1;
         for (int it = 0; it < citers; it++) {
-            for (int line = 0; line < MODE1_GBA_HEIGHT; line++) {
+            for (int line = 0; line < virtuappu_mode1_frame_height(); line++) {
                 memset(bg_layers, 0, sizeof(bg_layers));
                 memset(bg_priority, 0, sizeof(bg_priority));
                 memset(obj_layer, 0, sizeof(obj_layer));

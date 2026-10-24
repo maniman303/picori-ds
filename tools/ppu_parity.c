@@ -1,7 +1,7 @@
 /*
  * tools/ppu_parity.c — mode-aware static PPU parity oracle (Tier A).
  *
- * Loads a captured PPU snapshot (the "PPU1" format written by the
+ * Loads a captured PPU snapshot (the versioned PPU format written by the
  * TMC_PERFCAP harness in port/port_repro_perfcap.c), dispatches to the
  * mode1 or mode2 renderer EXACTLY like port_ppu.cpp's GBA->VPPU mode
  * mapping (GBA mode 0 -> VPPU mode 1; GBA modes 1/2 -> VPPU mode 2),
@@ -30,6 +30,7 @@
 
 #include "cpu/mode1.h"
 #include "virtuappu.h"
+#include "ppu_snapshot.h"
 
 /* virtuappu_frame_buffer / virtuappu_vram / virtuappu_registers are defined
  * in virtuappu.c, which this tool links (so the dispatch path is identical
@@ -56,22 +57,11 @@ static uint64_t fb_checksum(int w, int h, int pitch) {
 static int load_snapshot(const char* path) {
     FILE* f = fopen(path, "rb");
     if (!f) { perror("open snapshot"); return 0; }
-    char magic[4];
-    uint32_t sz[5];
-    if (fread(magic, 1, 4, f) != 4 || memcmp(magic, "PPU1", 4) != 0) {
-        fprintf(stderr, "bad snapshot magic\n");
-        fclose(f);
-        return 0;
-    }
-    if (fread(sz, sizeof(uint32_t), 5, f) != 5) { fclose(f); return 0; }
-    size_t n = 0;
-    n += fread(s_io,    1, 0x400,   f);
-    n += fread(s_vram,  1, 0x18000, f);
-    n += fread(s_bgpal, 1, 0x200,   f);
-    n += fread(s_objpal,1, 0x200,   f);
-    n += fread(s_oam,   1, 0x400,   f);
+    VirtuaPPUMode1GbaMemory mem = { s_io, s_vram, s_bgpal, s_objpal, s_oam };
+    int ok = virtuappu_snapshot_read(f, &mem, &virtuappu_registers);
     fclose(f);
-    return n == (0x400 + 0x18000 + 0x200 + 0x200 + 0x400);
+    if (!ok) fprintf(stderr, "invalid, unsupported, or truncated PPU snapshot\n");
+    return ok;
 }
 
 int main(int argc, char** argv) {
@@ -88,15 +78,15 @@ int main(int argc, char** argv) {
     uint8_t vppu_mode = (gba_mode == 1 || gba_mode == 2) ? 2 : 1;
 
     virtuappu_registers.mode = vppu_mode;
-    virtuappu_registers.frame_width = MODE1_GBA_WIDTH;
-    virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
 
     virtuappu_render_frame();
 
-    uint64_t csum = fb_checksum(MODE1_GBA_WIDTH, MODE1_GBA_HEIGHT, MODE1_GBA_WIDTH);
+    uint64_t csum = fb_checksum(virtuappu_mode1_frame_width(), virtuappu_mode1_frame_height(),
+                                virtuappu_mode1_frame_pitch());
 
-    fprintf(stderr, "snapshot=%s dispcnt=0x%04x gba_mode=%d vppu_mode=%u width=%d\n",
-            path, dispcnt, gba_mode, (unsigned)vppu_mode, MODE1_GBA_WIDTH);
+    fprintf(stderr, "snapshot=%s dispcnt=0x%04x gba_mode=%d vppu_mode=%u width=%d height=%d pitch=%d\n",
+            path, dispcnt, gba_mode, (unsigned)vppu_mode, virtuappu_mode1_frame_width(),
+            virtuappu_mode1_frame_height(), virtuappu_mode1_frame_pitch());
     printf("0x%016llx\n", (unsigned long long)csum);
     return 0;
 }

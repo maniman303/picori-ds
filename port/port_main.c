@@ -530,6 +530,7 @@ int main(int argc, char* argv[]) {
     }
     Port_Config_PublishViewport();
     int window_base_width = Port_Viewport_Get()->canvas.width;
+    int window_base_height = Port_Viewport_Get()->canvas.height;
 
     /* Expose the path to port_gpu_renderer's startup probe by setting
      * the env var the existing TMC_GLSLP_PRESET check reads. Keeps the
@@ -619,14 +620,14 @@ int main(int argc, char* argv[]) {
     }
 #endif
     window =
-        SDL_CreateWindow(window_title, window_base_width * window_scale, MODE1_GBA_HEIGHT * window_scale, window_flags);
+        SDL_CreateWindow(window_title, window_base_width * window_scale, window_base_height * window_scale, window_flags);
     if (!window) {
         fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 #else
-    if (!SDL_CreateWindowAndRenderer(window_title, window_base_width * window_scale, MODE1_GBA_HEIGHT * window_scale,
+    if (!SDL_CreateWindowAndRenderer(window_title, window_base_width * window_scale, window_base_height * window_scale,
                                      SDL_WINDOW_RESIZABLE, &window, &prerenderer)) {
         fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
         SDL_Quit();

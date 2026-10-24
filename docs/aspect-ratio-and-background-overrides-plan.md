@@ -3,7 +3,8 @@
 Research date: 2026-10-24. Status: geometry/settings integration in progress; initial local artwork export completed.
 
 Implementation includes the port-owned catalog, profile contracts, fixed target
-widths, frame-boundary geometry publication and widescreen-toggle migration.
+widths, frame-boundary geometry publication, widescreen-toggle migration, bounded
+software PPU height and versioned geometry-aware captures.
 Taller world rendering and contextual image composition remain pending. See the ordered
 [implementation tasks and verification record](aspect-ratio-and-background-overrides-tasks.md).
 

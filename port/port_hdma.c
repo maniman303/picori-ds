@@ -118,6 +118,11 @@ int port_hdma_dest_overlaps(const void* lo, const void* hi) {
 void port_hdma_step_line(int line) {
     int ch;
 
+    /* The callback consumes GBA tables, whose visible sequence has 160 rows.
+     * Extra framebuffer rows must never advance these source pointers. */
+    if (line < 0 || line >= 160)
+        return;
+
     for (ch = 0; ch < HDMA_CHANNELS; ++ch) {
         HdmaChannel* c = &s_channels[ch];
         uint8_t* d;

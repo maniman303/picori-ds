@@ -90,6 +90,7 @@ static void render_cpu(Scene* s, uint32_t* out, int w, int h) {
     virtuappu_registers.mode = vppu_mode;
     virtuappu_registers.frame_width = (uint16_t)w;
     virtuappu_registers.frame_pitch = (uint16_t)w;
+    virtuappu_registers.frame_height = (uint16_t)h;
     virtuappu_render_frame();
     for (int y = 0; y < h; ++y) {
         std::memcpy(&out[(size_t)y * w], &virtuappu_frame_buffer[(size_t)y * w], (size_t)w * sizeof(uint32_t));
@@ -101,10 +102,11 @@ static void build_frame(Scene* s, int w, int h, PortGpuRasterFrame* fout, std::v
                         std::vector<uint16_t>& dispcnt_per_line, std::vector<int32_t>& aff_x,
                         std::vector<int32_t>& aff_y, std::vector<uint16_t>& ws_concat) {
     PortGpuRasterFrame& f = *fout;
-    io_per_line.assign((size_t)h * 0x400, 0);
-    dispcnt_per_line.assign((size_t)h, 0);
-    aff_x.assign(h, 0);
-    aff_y.assign(h, 0);
+    const int raster_rows = h > MODE1_GBA_HEIGHT ? h : MODE1_GBA_HEIGHT;
+    io_per_line.assign((size_t)raster_rows * 0x400, 0);
+    dispcnt_per_line.assign((size_t)raster_rows, 0);
+    aff_x.assign(raster_rows, 0);
+    aff_y.assign(raster_rows, 0);
 
     /* Drive the real prepare pass the game uses: bind memory, set the mode, run
      * the sequential IO snapshot + affine precompute. No HDMA callback in these
@@ -119,6 +121,7 @@ static void build_frame(Scene* s, int w, int h, PortGpuRasterFrame* fout, std::v
     ppu.mode = (gba_mode == 1 || gba_mode == 2) ? 2 : 1;
     ppu.frame_width = (uint16_t)w;
     ppu.frame_pitch = (uint16_t)w;
+    ppu.frame_height = (uint16_t)h;
     uint16_t frame_dispcnt = 0;
     virtuappu_mode1_prepare_frame(&ppu, io_per_line.data(), dispcnt_per_line.data(), aff_x.data(), aff_y.data(),
                                   &frame_dispcnt);

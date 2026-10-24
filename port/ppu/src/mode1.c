@@ -89,10 +89,18 @@ static VirtuaPPUMode1GbaMemory mode1_memory = { mode1_default_io_mem, mode1_defa
 
 static int mode1_frame_width = MODE1_GBA_WIDTH;
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
+static int mode1_frame_height = MODE1_GBA_HEIGHT;
 
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
     int width = MODE1_GBA_WIDTH;
     int pitch = MODE1_GBA_WIDTH;
+    int height = ppu != NULL && ppu->frame_height != 0u ? ppu->frame_height : MODE1_GBA_HEIGHT;
+    if (height > MODE1_MAX_RENDER_HEIGHT)
+        height = MODE1_MAX_RENDER_HEIGHT;
+    /* No HDMA continuation is implied by extra framebuffer storage. Keep
+     * unknown raster effects in a native-height aperture until classified. */
+    if (virtuappu_mode1_pre_line_callback != NULL && height > MODE1_GBA_HEIGHT)
+        height = MODE1_GBA_HEIGHT;
 
     if (ppu != NULL && ppu->frame_width != 0u) {
         width = (int)ppu->frame_width;
@@ -114,6 +122,7 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
 
     mode1_frame_width = width;
     mode1_frame_pitch = pitch;
+    mode1_frame_height = height;
 }
 
 int virtuappu_mode1_frame_width(void) {
@@ -122,6 +131,10 @@ int virtuappu_mode1_frame_width(void) {
 
 int virtuappu_mode1_frame_pitch(void) {
     return mode1_frame_pitch;
+}
+
+int virtuappu_mode1_frame_height(void) {
+    return mode1_frame_height;
 }
 
 static const uint8_t mode1_obj_widths[3][4] = { { 8, 16, 32, 64 }, { 16, 32, 32, 64 }, { 8, 8, 16, 32 } };
@@ -1091,7 +1104,7 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
     if (dst == NULL || scale <= 1) {
         return;
     }
-    if ((dst_w % scale) != 0 || dst_h != MODE1_GBA_HEIGHT * scale) {
+    if ((dst_w % scale) != 0 || dst_h != mode1_frame_height * scale) {
         return;
     }
     const int viewport_width = dst_w / scale;
@@ -1366,6 +1379,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     int line;
 
     virtuappu_mode1_set_frame_geometry(ppu);
+    const int raster_rows = mode1_frame_height > MODE1_GBA_HEIGHT ? mode1_frame_height : MODE1_GBA_HEIGHT;
 
     dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
     if (out_frame_dispcnt != NULL) {
@@ -1373,10 +1387,10 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     }
 
     const bool do_affine_bg2 = affine && ((dispcnt & MODE1_DISP_BG2_ON) != 0u);
-    int32_t aff_line_ref_x[MODE1_GBA_HEIGHT];
-    int32_t aff_line_ref_y[MODE1_GBA_HEIGHT];
-    int16_t aff_pb[MODE1_GBA_HEIGHT];
-    int16_t aff_pd[MODE1_GBA_HEIGHT];
+    int32_t aff_line_ref_x[MODE1_MAX_RENDER_HEIGHT];
+    int32_t aff_line_ref_y[MODE1_MAX_RENDER_HEIGHT];
+    int16_t aff_pb[MODE1_MAX_RENDER_HEIGHT];
+    int16_t aff_pd[MODE1_MAX_RENDER_HEIGHT];
     int32_t aff_init_x = 0;
     int32_t aff_init_y = 0;
     if (do_affine_bg2) {
@@ -1385,7 +1399,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     }
 
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
-    for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+    for (line = 0; line < raster_rows; ++line) {
         if (per_line_io) {
             virtuappu_mode1_pre_line_callback(line);
         }
@@ -1408,7 +1422,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
         }
     }
     if (do_affine_bg2 && aff_ref_x != NULL && aff_ref_y != NULL) {
-        virtuappu_mode1_affine_precompute(MODE1_GBA_HEIGHT, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
+        virtuappu_mode1_affine_precompute(raster_rows, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
                                           aff_pb, aff_pd, virtuappu_mode1_bg2x_hdma_strobe,
                                           virtuappu_mode1_bg2y_hdma_strobe, aff_ref_x, aff_ref_y);
     }
@@ -1426,10 +1440,12 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
 
     virtuappu_mode1_set_frame_geometry(ppu);
     const int frame_width = mode1_frame_width;
+    const int frame_height = mode1_frame_height;
+    const int raster_rows = frame_height > MODE1_GBA_HEIGHT ? frame_height : MODE1_GBA_HEIGHT;
 
     dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
     if ((dispcnt & MODE1_DISP_FORCED_BLANK) != 0u) {
-        for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+        for (line = 0; line < frame_height; ++line) {
             memset(&virtuappu_frame_buffer[(size_t)line * (size_t)mode1_frame_pitch], 0xFF,
                    (size_t)mode1_frame_width * sizeof(uint32_t));
         }
@@ -1446,18 +1462,18 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      *      via the existing single-line functions, which now read IO regs
      *      through the override. */
     static uint8_t io_snapshots[MODE1_GBA_HEIGHT][MODE1_IO_MEM_SIZE];
-    uint16_t per_line_dispcnt[MODE1_GBA_HEIGHT];
+    uint16_t per_line_dispcnt[MODE1_MAX_RENDER_HEIGHT];
 
     /* Affine BG2 carries an internal reference point across scanlines (#132).
      * Gather per-line, post-callback inputs during the sequential pass and
      * precompute the per-line reference so the parallel pass stays independent. */
     const bool do_affine_bg2 = affine && ((dispcnt & MODE1_DISP_BG2_ON) != 0u);
-    int32_t aff_ref_x[MODE1_GBA_HEIGHT];
-    int32_t aff_ref_y[MODE1_GBA_HEIGHT];
-    int32_t aff_line_ref_x[MODE1_GBA_HEIGHT];
-    int32_t aff_line_ref_y[MODE1_GBA_HEIGHT];
-    int16_t aff_pb[MODE1_GBA_HEIGHT];
-    int16_t aff_pd[MODE1_GBA_HEIGHT];
+    int32_t aff_ref_x[MODE1_MAX_RENDER_HEIGHT];
+    int32_t aff_ref_y[MODE1_MAX_RENDER_HEIGHT];
+    int32_t aff_line_ref_x[MODE1_MAX_RENDER_HEIGHT];
+    int32_t aff_line_ref_y[MODE1_MAX_RENDER_HEIGHT];
+    int16_t aff_pb[MODE1_MAX_RENDER_HEIGHT];
+    int16_t aff_pd[MODE1_MAX_RENDER_HEIGHT];
     int32_t aff_init_x = 0;
     int32_t aff_init_y = 0;
     if (do_affine_bg2) {
@@ -1470,7 +1486,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      * critical path and point every thread's override straight at io_mem in the
      * parallel loop below. Byte-exact: each snapshot equalled io_mem anyway. */
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
-    for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+    for (line = 0; line < raster_rows; ++line) {
         if (per_line_io) {
             virtuappu_mode1_pre_line_callback(line);
             memcpy(io_snapshots[line], mode1_memory.io_mem, MODE1_IO_MEM_SIZE);
@@ -1494,7 +1510,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
         }
     }
     if (do_affine_bg2) {
-        virtuappu_mode1_affine_precompute(MODE1_GBA_HEIGHT, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
+        virtuappu_mode1_affine_precompute(raster_rows, aff_init_x, aff_init_y, aff_line_ref_x, aff_line_ref_y,
                                           aff_pb, aff_pd, virtuappu_mode1_bg2x_hdma_strobe,
                                           virtuappu_mode1_bg2y_hdma_strobe, aff_ref_x, aff_ref_y);
     }
@@ -1506,7 +1522,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
     virtuappu_mode1_publish_palette_luts();
 
 #pragma omp parallel for schedule(static)
-    for (line = 0; line < MODE1_GBA_HEIGHT; ++line) {
+    for (line = 0; line < frame_height; ++line) {
         /* Affine (mode 2) renders every scanline against the frame-start DISPCNT
          * (GBA latches BGMODE once per frame; matches the former mode2.c). The
          * tiled path honours per-line DISPCNT for HBlank-DMA changes. */

@@ -18,7 +18,7 @@ void Port_PPU_Init(SDL_Window* window);
 // then present it to the SDL window. Call once per VBlank.
 void Port_PPU_PresentFrame(void);
 /* Presentation geometry in logical window coordinates, shared by both overlay backends. */
-const uint32_t* Port_PPU_GetOverlayFrame(float stage[4], float frame[4], int* width, int* pitchPixels);
+const uint32_t* Port_PPU_GetOverlayFrame(float stage[4], float frame[4], int* width, int* height, int* pitchPixels);
 /* Repro capture: queue/poll a PNG request (0 pending, 1 complete, -1 failed). */
 int Port_CapturePresentationPNG(const char* path);
 const char* Port_PPU_PresentationCapturePath(void);

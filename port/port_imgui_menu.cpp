@@ -1341,15 +1341,15 @@ extern "C" bool Port_ImGui_Render(void) {
     if (!Port_Config_GetConsoleParity() && !Port_PPU_HasPresentationFilter() &&
         !Port_GlslpRuntime_IsActive() && !Port_Config_GetVoxelView()) {
         float stage[4], frame[4];
-        int width = 0, pitch = 0;
-        const uint32_t* pixels = Port_PPU_GetOverlayFrame(stage, frame, &width, &pitch);
+        int width = 0, height = 0, pitch = 0;
+        const uint32_t* pixels = Port_PPU_GetOverlayFrame(stage, frame, &width, &height, &pitch);
         if (pixels) {
             if (Port_Config_GetMenuArtBackground() && Port_Viewport_Get()->canvas.width > 240 &&
                 !Port_PPU_LcdPersistenceEnabled())
                 Port_MenuBackground_Render(stage[0], stage[1], stage[2], stage[3],
                                            frame[0], frame[1], frame[2], frame[3]);
             if (Port_Config_GetHdDialogue())
-                Port_HDText_Draw(pixels, width, 160, pitch, frame[0], frame[1], frame[2], frame[3]);
+                Port_HDText_Draw(pixels, width, height, pitch, frame[0], frame[1], frame[2], frame[3]);
         }
     }
 
