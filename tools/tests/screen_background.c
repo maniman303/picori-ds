@@ -59,8 +59,60 @@ static void CheckProfiles(void) {
     assert(native.x == 0 && native.y == 0 && native.width == 240 && native.height == 160);
 }
 
+static void CheckPublication(void) {
+    /* Existing enum values are persisted; the DS profile is appended. */
+    assert(PORT_ASPECT_NATIVE_3_2 == 0 && PORT_ASPECT_WIDESCREEN_16_9 == 1);
+    assert(PORT_ASPECT_ULTRAWIDE_21_9 == 2 && PORT_ASPECT_SUPER_ULTRAWIDE_32_9 == 3);
+    assert(PORT_ASPECT_DS_4_3 == 4);
+    assert(Port_Viewport_ProfileForAspect((PortAspectMode)-1) == NULL);
+    assert(Port_Viewport_ProfileForAspect(PORT_ASPECT_DS_4_3) == Port_Viewport_FindProfile("43"));
+    assert(!Port_Viewport_AspectSupported(PORT_ASPECT_WIDESCREEN_16_9, 240, 160));
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_ULTRAWIDE_21_9, 384, 160));
+    /* Capacity does not imply that height/raster/OBJ support exists yet. */
+    assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 569, 192));
+    assert(!Port_Viewport_AspectSupported(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 192));
+
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    assert(geometry->canvas.width == 240 && geometry->generation == 0);
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
+    assert(geometry == Port_Viewport_Get());
+    assert(geometry->selectedAspect == PORT_ASPECT_WIDESCREEN_16_9);
+    assert(geometry->effectiveAspect == PORT_ASPECT_WIDESCREEN_16_9);
+    assert(geometry->canvas.width == 285 && geometry->canvas.height == 160);
+    assert(geometry->nativeContent.x == 22 && geometry->nativeContent.width == 240);
+    assert(geometry->uiSafe.width == 285);
+    assert(geometry->pitchPixels == 384 && geometry->capacityWidth == 384);
+    uint32_t generation = geometry->generation;
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
+    assert(geometry->generation == generation);
+    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 384, 160, 240));
+    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 239, 160, 384));
+    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 384, 159, 384));
+    assert(geometry->generation == generation && geometry->canvas.width == 285);
+
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, true, 384, 160, 384));
+    assert(geometry->generation != generation);
+    assert(geometry->flags == PORT_VIEWPORT_PARITY);
+    assert(geometry->canvas.width == 240 && geometry->effectiveAspect == PORT_ASPECT_NATIVE_3_2);
+    assert(geometry->selectedAspect == PORT_ASPECT_WIDESCREEN_16_9);
+    assert(Port_Viewport_Publish(geometry->selectedAspect, false, 384, 160, 384));
+    assert(geometry->canvas.width == 285 && geometry->flags == 0);
+    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 400));
+    assert(geometry->canvas.width == 374 && geometry->nativeContent.x == 67);
+    assert(geometry->pitchPixels == 400);
+    assert(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 384, 160, 384));
+    assert(geometry->selectedAspect == PORT_ASPECT_DS_4_3);
+    assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
+    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 240, 160, 240));
+    assert(geometry->selectedAspect == PORT_ASPECT_ULTRAWIDE_21_9);
+    assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
+    assert(Port_Viewport_Publish(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, false, 569, 192, 569));
+    assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
+}
+
 int main(void) {
     CheckProfiles();
+    CheckPublication();
     CheckSource(PORT_BACKGROUND_UNCLASSIFIED, PORT_BACKGROUND_SOURCE_NONE);
     CheckSource(PORT_BACKGROUND_LIVE_WORLD, PORT_BACKGROUND_SOURCE_NONE);
     CheckSource((PortBackgroundContext)-1, PORT_BACKGROUND_SOURCE_NONE);

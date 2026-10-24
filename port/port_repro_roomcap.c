@@ -27,6 +27,7 @@
 #include "message.h"    /* gMessage, MessageRequest (TMC_ROOMCAP_MSG hook) */
 #include "script.h"     /* gActiveScriptInfo, ScriptExecutionContext (TMC_ROOMCAP_PAN_PROBE) */
 #include "port_repro.h"
+#include "port_runtime_config.h"
 #include "pauseMenu.h"
 #include "fade.h"
 #include "port_gba_mem.h" /* gIoMem, gVram, gBgPltt, gObjPltt, gOamMem */
@@ -375,7 +376,6 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             gSave.stats.health = gSave.stats.maxHealth;
             const int calm = gPlayerState.controlMode == CONTROL_ENABLED && !(gMessage.state & MESSAGE_ACTIVE);
             if (!calm && frame % 40 < 2) {
-                extern void Port_Config_TestForceEdge(int input);
                 Port_Config_TestForceEdge(0 /* PORT_INPUT_A */);
             }
             if (since == 0)
@@ -522,7 +522,6 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
                     break;
                 case 3: /* press R for a few frames, pinning layer + facing */
                     if ((int)frame >= stage_frame) {
-                        extern void Port_Config_TestForceEdge(int input);
                         extern u32 GetActTileForTileType(u32 tileType);
                         gPlayerEntity.base.collisionLayer = (unsigned char)seatLayer;
                         gPlayerEntity.base.animationState = 0;
@@ -658,12 +657,9 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             switch (pstage) {
                 case 0: /* park the pan target at an interior rest position */
                     if ((int)frame >= cap_frame - settle + 120) {
-                        /* The deadlock under test only exists with the
-                         * widescreen option ON (persisted config may have it
-                         * off, e.g. toggled off by a user escaping the very
-                         * freeze this reproduces). Force it for the probe. */
-                        extern void Port_Config_SetWidescreenEnabled(bool enabled);
-                        Port_Config_SetWidescreenEnabled(true);
+                        /* Pin an explicit wide profile; window dimensions and
+                         * the obsolete toggle no longer determine geometry. */
+                        Port_Config_SetAspectMode(PORT_ASPECT_ULTRAWIDE_21_9);
                     }
                     if ((int)frame >= cap_frame - settle + 120) {
                         /* Interior rest: in a 480px room at viewW=384 the
@@ -692,13 +688,12 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
                     if ((frame % 20) == 0) {
                         extern int Port_Widescreen_FallbackNative(void);
                         extern int Port_Widescreen_TargetViewWidth(void);
-                        extern bool Port_Config_WidescreenEnabled(void);
                         fprintf(stderr,
                                 "[pan-probe] frame %u: scroll_x=%d target_x=%d viewW=%d task=%u cfg=%d fallback=%d "
                                 "targetW=%d roomW=%d\n",
                                 frame, (int)gRoomControls.scroll_x, (int)panTarget.x.HALF.HI,
                                 Port_Widescreen_EffectiveViewWidth(), (unsigned)gMain.task,
-                                (int)Port_Config_WidescreenEnabled(), Port_Widescreen_FallbackNative(),
+                                (int)Port_Config_AspectMode(), Port_Widescreen_FallbackNative(),
                                 Port_Widescreen_TargetViewWidth(), (int)gRoomControls.width);
                     }
                     if (gActiveScriptInfo.flags & 1) {
@@ -824,7 +819,6 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         const char* adv = getenv("TMC_ROOMCAP_MSG_ADVANCE");
         if (msg_done && adv && *adv && strcmp(adv, "0") != 0 && gTextRender.renderStatus != 5 &&
             frame > msg_opened_at + 30 && (frame - msg_opened_at) % 40 < 2) {
-            extern void Port_Config_TestForceEdge(int input);
             Port_Config_TestForceEdge(0 /* PORT_INPUT_A */);
         }
     }
@@ -845,7 +839,6 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
              * prologue's "Where are you going?"): advance it, as the voxel
              * tour does (port_repro_npc_talk.c) */
             if (gPlayerState.controlMode != CONTROL_ENABLED && frame % 40 < 2) {
-                extern void Port_Config_TestForceEdge(int input);
                 Port_Config_TestForceEdge(0 /* PORT_INPUT_A */);
             }
         }

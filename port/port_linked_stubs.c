@@ -35,6 +35,7 @@
 #include "port_rom.h"
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
+#include "port_viewport.h"
 
 #include <string.h>
 
@@ -1008,15 +1009,9 @@ static u16 sWsShadowBG1[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
 static u16 sWsShadowBG2[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
 static u16 sWsShadowOverlay[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
 
-/* ---- Runtime widescreen gate --------------------------------------------
- * `--widescreen_width=N` only reserves a wider framebuffer. True widescreen
- * is still WIP, so a persisted runtime option decides whether gameplay uses
- * the wider camera/reveal. Disabled, non-gameplay, one-screen (<=240px)
- * rooms, and rooms whose painted content can't fill the room-capped view all
- * fall back to a native 240x160 frame (presented pillarboxed, never
- * stretched); rooms between 240px and the window target run true-wide at
- * their full room width. The camera/culling helpers below report 240 in the
- * fallback state so the engine remains GBA-clean. */
+/* ---- Runtime profile and room safety ------------------------------------
+ * Capacity does not select the viewport. The published effective profile does;
+ * fixed screens and rooms that cannot safely feed it still use native width. */
 /* ---- Per-room content width (issue: wide room, narrow content) ----------
  * gRoomControls.width can exceed the actual painted map (e.g. a 480-px room
  * whose floor ends ~270 px in). Widescreen then parks void columns on screen
@@ -1058,52 +1053,14 @@ static s32 Port_WidescreenScanContentPx(void) {
     return 0;
 }
 
-/* ---- True widescreen: window-aspect-driven view width -------------------
- * MODE1_GBA_WIDTH is the framebuffer CAPACITY (hard cap); the presented
- * view width tracks the live window aspect so the frame fills the monitor
- * exactly: 16:9 -> 284 px, 21:9 -> 373 -> cap, 4:3/3:2 -> 240 (authentic).
- * Published once per frame from the present path; rounded to a multiple of
- * 8 so tile/HUD math stays exact. TMC_WS_VIEW_WIDTH=<px> overrides for
- * headless captures (dummy driver windows don't track a real monitor). */
-static int sWsWindowW = 0;
-static int sWsWindowH = 0;
-
-void Port_Widescreen_SetWindowPixels(int w, int h) {
-    sWsWindowW = w;
-    sWsWindowH = h;
-}
-
+/* Profile geometry is published before camera/layout and shadow updates.
+ * Window resizing changes presentation only; it never changes world width. */
 int Port_Widescreen_TargetViewWidth(void) {
-    static int env_w = -1;
-    int w;
-    if (env_w < 0) {
-        const char* e = getenv("TMC_WS_VIEW_WIDTH");
-        env_w = 0;
-        if (e && *e) {
-            int v = atoi(e);
-            if (v >= 240 && v <= MODE1_GBA_WIDTH)
-                env_w = v;
-        }
-    }
-    if (env_w > 0) {
-        return env_w;
-    }
-    if (sWsWindowW <= 0 || sWsWindowH <= 0) {
-        return 240;
-    }
-    /* Exact aspect fit: the width that makes the 160-line frame fill the
-     * window (no rounding — every consumer is pixel-based, and exact fit
-     * beats up-to-7px side bars). */
-    w = (int)(((long long)sWsWindowW * 160) / sWsWindowH);
-    if (w < 240)
-        w = 240;
-    if (w > MODE1_GBA_WIDTH)
-        w = MODE1_GBA_WIDTH;
-    return w;
+    return Port_Viewport_Get()->canvas.width;
 }
 
-/* Widest view the current room can honestly feed: the window-aspect target
- * capped by the room's own width. Rooms narrower than the window target but
+/* Widest view the current room can honestly feed: the selected profile target
+ * capped by the room's own width. Rooms narrower than the profile target but
  * wider than 240 (0x100/0x110 rooms — most dungeons and larger interiors)
  * still get true widescreen at their full room width; the presenter
  * pillarboxes the small remainder instead of stretching. */
@@ -1118,11 +1075,8 @@ static s32 Port_WidescreenEffectiveTarget(void) {
 
 int Port_Widescreen_FallbackNative(void) {
     s32 eff;
-    if (!Port_Config_WidescreenEnabled()) {
-        return 1;
-    }
     if (Port_Widescreen_TargetViewWidth() <= 240) {
-        return 1; /* window is 3:2/4:3 — native view already fills it */
+        return 1; /* native, unavailable profile, or Console-Parity */
     }
     /* Rolling room transitions stream a 240px VRAM buffer while mapSpecial
      * already contains the destination room. The iris uses an 8-bit WIN1.
@@ -1153,7 +1107,7 @@ int Port_Widescreen_IsActive(void) {
      * overlay screens that replace the map BGs (prologue storybook, pause
      * menu, ...) are caught by Port_Widescreen_ShadowsLive() instead: no
      * matching BG -> no shadow -> present native 240. */
-    return (gMain.task == TASK_GAME && Port_Config_WidescreenEnabled() && !Port_Widescreen_FallbackNative()) ? 1 : 0;
+    return (gMain.task == TASK_GAME && !Port_Widescreen_FallbackNative()) ? 1 : 0;
 }
 
 int Port_Widescreen_EffectiveViewWidth(void) {
@@ -1349,7 +1303,7 @@ void Port_Widescreen_UpdateShadows(void) {
      * (FallbackNative consumes it). Keyed on area|room|origin; ratcheted so
      * late-streaming map data can only widen, never flip wide->native
      * mid-room. ~16K u16 reads worst case, once per vblank — negligible. */
-    if (gMain.task == TASK_GAME && Port_Config_WidescreenEnabled()) {
+    if (gMain.task == TASK_GAME && Port_Widescreen_TargetViewWidth() > 240) {
         u32 key = Port_WidescreenRoomKey();
         if (key != sWsContentKey) {
             sWsContentKey = key;
@@ -1445,10 +1399,6 @@ int Port_Widescreen_HudRightAnchor(void) {
 }
 int Port_Widescreen_ShadowsLive(void) {
     return 0;
-}
-void Port_Widescreen_SetWindowPixels(int w, int h) {
-    (void)w;
-    (void)h;
 }
 int Port_Widescreen_TargetViewWidth(void) {
     return 240;

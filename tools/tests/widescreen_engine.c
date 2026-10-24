@@ -18,9 +18,8 @@ static int virtuappu_mode1_ws_shadow_base_tile[4];
 static u16* virtuappu_mode1_ws_shadow[4];
 static u32 sWsContentKey;
 static int sWsContentPx;
-static int enabled = 1;
-static int Port_Config_WidescreenEnabled(void) { return enabled; }
-static int Port_Widescreen_TargetViewWidth(void) { return 384; }
+static int targetWidth = 384;
+static int Port_Widescreen_TargetViewWidth(void) { return targetWidth; }
 static int Port_WidescreenEffectiveTarget(void) { return gRoomControls.width < 384 ? gRoomControls.width : 384; }
 static u32 Port_WidescreenRoomKey(void) { return 1; }
 int Port_Widescreen_FallbackNative(void);
@@ -96,9 +95,9 @@ int main(void) {
     CHECK(shadow[3] == 0);
     gRoomControls.scrollAction = 1;
     CHECK(Port_Widescreen_EffectiveViewWidth() == 256);
-    enabled = 0;
+    targetWidth = 240;
     CHECK(Port_Widescreen_EffectiveViewWidth() == 240);
-    enabled = 1;
+    targetWidth = 384;
     gRoomControls.width = 240;
     CHECK(Port_Widescreen_EffectiveViewWidth() == 240);
     /* Overlay is a complete wrapping screenblock, independent of camera. */
@@ -128,13 +127,13 @@ int main(void) {
         gRoomControls.area = overlays[i].area;
         gScreen.bg3.control = overlays[i].control;
         gScreen.lcd.displayControl = overlays[i].enabled ? DISPCNT_BG3_ON : 0;
-        enabled = overlays[i].wide;
+        targetWidth = overlays[i].wide ? 384 : 240;
         Port_Widescreen_UpdateShadows();
         CHECK((virtuappu_mode1_ws_shadow[3] != NULL) == overlays[i].expected);
         if (overlays[i].expected && virtuappu_mode1_ws_shadow[3])
             CHECK(memcmp(virtuappu_mode1_ws_shadow[3], screen, sizeof(screen)) == 0);
     }
-    enabled = 1;
+    targetWidth = 384;
     int x,y,w,h;
     gCurrentWindow.active=0;
     CHECK(!Message_GetWindowRect(&x,&y,&w,&h));

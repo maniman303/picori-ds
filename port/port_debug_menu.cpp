@@ -54,8 +54,10 @@ unsigned int Port_Config_TargetFps(void);
 void Port_Config_CycleTargetFps(int direction);
 unsigned char Port_Config_InternalScale(void);
 void Port_Config_CycleInternalScale(int direction);
-bool Port_Config_WidescreenEnabled(void);
-void Port_Config_SetWidescreenEnabled(bool enabled);
+PortAspectMode Port_Config_AspectMode(void);
+PortAspectMode Port_Config_EffectiveAspectMode(void);
+const char* Port_Config_AspectModeName(PortAspectMode mode);
+void Port_Config_CycleAspectMode(int direction);
 
 /* Soft-slot equip-button assignments (port_softslots.c). */
 const char* Port_SoftSlots_GetSlotLabel(int slot);
@@ -774,25 +776,16 @@ MenuPage BuildDisplaySettingsPage(void) {
     };
     p.items.push_back(std::move(internalScale));
 
-    MenuItem widescreen;
-    widescreen.cycleLeft = []() {
-        Port_Config_SetWidescreenEnabled(!Port_Config_WidescreenEnabled());
-        Port_PPU_ApplyWindowScale();
+    MenuItem aspect;
+    aspect.cycleLeft = []() { Port_Config_CycleAspectMode(-1); };
+    aspect.cycleRight = []() { Port_Config_CycleAspectMode(+1); };
+    aspect.labelFn = []() {
+        std::string label = Port_Config_AspectModeName(Port_Config_AspectMode());
+        if (Port_Config_EffectiveAspectMode() != Port_Config_AspectMode())
+            label += " (effective native)";
+        return label;
     };
-    widescreen.cycleRight = []() {
-        Port_Config_SetWidescreenEnabled(!Port_Config_WidescreenEnabled());
-        Port_PPU_ApplyWindowScale();
-    };
-    widescreen.labelFn = []() {
-        char buf[64];
-#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-        std::snprintf(buf, sizeof(buf), "Widescreen  %s (WIP)", Port_Config_WidescreenEnabled() ? "on" : "off");
-#else
-        std::snprintf(buf, sizeof(buf), "Widescreen  unavailable");
-#endif
-        return std::string(buf);
-    };
-    p.items.push_back(std::move(widescreen));
+    p.items.push_back(std::move(aspect));
 
     p.items.push_back({ "<- Back", []() { Pop(); } });
     return p;

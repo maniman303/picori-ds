@@ -40,7 +40,7 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_LCD_PERSISTENCE` | port/port_ppu.cpp | Force the LCD ghosting effect on/off, overriding config. |
 | `TMC_LCD_PERSISTENCE_RHO` | port/port_ppu.cpp | LCD persistence strength, `0 <= rho < 1`. |
 | `TMC_RENDER_THREADS` | port/port_ppu.cpp | OpenMP render thread count (default: cores - 1). |
-| `TMC_WS_VIEW_WIDTH` | port/port_linked_stubs.c | Override the widescreen view width. |
+| `TMC_WS_VIEW_WIDTH` (removed) | — | Ignored; select an explicit `aspect_mode` in `config.json` instead. Window resizing no longer changes logical world width. |
 | `TMC_WS_TRACE` | port/port_linked_stubs.c | Log per-room widescreen width decisions. |
 | `TMC_PUBLISH_FRAMEBUFFER` | port/port_shm_framebuffer.c | Publish the GBA framebuffer to shared memory. |
 | `TMC_DUMP_ICON` | port/port_icon.cpp | Write the ROM-extracted window icon to this BMP path. |

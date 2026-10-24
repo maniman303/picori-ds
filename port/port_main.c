@@ -472,7 +472,6 @@ int main(int argc, char* argv[]) {
     }
 
     u8 window_scale = Port_Config_WindowScale();
-    int window_base_width = (MODE1_GBA_WIDTH > 240 && Port_Config_WidescreenEnabled()) ? MODE1_GBA_WIDTH : 240;
     bool noAudio = false;
     bool skipLauncher = false;
     const char* glslpPath = NULL;
@@ -529,6 +528,9 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    Port_Config_PublishViewport();
+    int window_base_width = Port_Viewport_Get()->canvas.width;
+
     /* Expose the path to port_gpu_renderer's startup probe by setting
      * the env var the existing TMC_GLSLP_PRESET check reads. Keeps the
      * load path single-sourced — CLI just becomes another way to fill

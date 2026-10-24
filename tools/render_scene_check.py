@@ -110,7 +110,8 @@ def main():
             (artifacts / ('diff_' + output)).unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix='tmc-scene-') as directory:
             cwd = Path(directory)
-            config = dict(widescreen_enabled=args.profile != 'original', hd_dialogue=args.profile == 'hd',
+            config = dict(aspect_mode='native' if args.profile == 'original' else '16:9',
+                          hd_dialogue=args.profile == 'hd',
                           window_scale=3, internal_scale=1, upscale_method='nearest', render_backend=args.backend,
                           color_correction=False, lcd_persistence=False, vsync=False,
                           menu_art_background=args.profile != 'original', menu_hint_seen=True,

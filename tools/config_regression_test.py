@@ -26,7 +26,7 @@ def main():
         json_include = headers[0].parent.parent
     sdl_flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))
     command = shlex.split(os.environ.get('CXX', 'c++')) + [
-        '-std=c++17', '-Iport', '-ffunction-sections', '-fdata-sections',
+        '-std=c++17', '-Iport', '-DMODE1_GBA_WIDTH=384', '-ffunction-sections', '-fdata-sections',
         '-fsanitize=undefined,float-cast-overflow', '-fno-sanitize-recover=all',
     ] + sdl_flags
     if json_include:
@@ -34,7 +34,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='tmc-config-test-') as directory:
         tmp = Path(directory)
         binary = tmp / 'config-test'
-        subprocess.run(command + ['port/port_runtime_config.cpp', 'tools/tests/runtime_config.cpp',
+        subprocess.run(command + ['port/port_runtime_config.cpp', 'port/port_viewport.c', 'tools/tests/runtime_config.cpp',
                                  '-Wl,--gc-sections', '-o', str(binary)], cwd=ROOT, check=True)
         subprocess.run([str(binary), str(tmp / 'config.json')], check=True)
 

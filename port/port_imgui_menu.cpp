@@ -1344,7 +1344,7 @@ extern "C" bool Port_ImGui_Render(void) {
         int width = 0, pitch = 0;
         const uint32_t* pixels = Port_PPU_GetOverlayFrame(stage, frame, &width, &pitch);
         if (pixels) {
-            if (Port_Config_GetMenuArtBackground() && Port_Config_WidescreenEnabled() &&
+            if (Port_Config_GetMenuArtBackground() && Port_Viewport_Get()->canvas.width > 240 &&
                 !Port_PPU_LcdPersistenceEnabled())
                 Port_MenuBackground_Render(stage[0], stage[1], stage[2], stage[3],
                                            frame[0], frame[1], frame[2], frame[3]);

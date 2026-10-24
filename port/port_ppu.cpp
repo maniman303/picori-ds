@@ -44,7 +44,7 @@ extern "C" uint8_t gMain[]; // fix for MSVC (UWP PORT)
 extern "C" int Port_Profile_Enabled(void);
 extern "C" uint64_t gPortProfileRenderNs;
 /* Port_Widescreen_* lives in port_linked_stubs.c; include
- * port_widescreen.h for the runtime WIP toggle gate. */
+ * port_widescreen.h for room/transition safety gates. */
 
 enum class RenderBackend {
     None,
@@ -102,7 +102,7 @@ static int sSuperH = 0;
 static SDL_Window* sWindow = nullptr;
 
 static int Port_PPU_WindowBaseWidth(void) {
-    return (MODE1_GBA_WIDTH > 240 && Port_Config_WidescreenEnabled()) ? MODE1_GBA_WIDTH : 240;
+    return Port_Viewport_ProfileForAspect(Port_Config_EffectiveAspectMode())->width;
 }
 
 #ifdef launcher
@@ -143,18 +143,8 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
     if (MODE1_GBA_WIDTH == 240) {
         return MODE1_GBA_WIDTH;
     }
-    /* True widescreen: publish the live window size so the view width can
-     * track the window's aspect (16:9 -> 284, ultrawide -> cap at
-     * MODE1_GBA_WIDTH, 3:2/4:3 -> 240). Then a wide present additionally
-     * requires gameplay widescreen AND the map BGs actually feeding the
-     * frame (ShadowsLive) — overlay screens inside TASK_GAME (prologue
-     * storybook, pause menu) swap the BG control regs away from the maps,
-     * the shadow match fails, and we fall back to a native 240 frame. */
-    if (sWindow != nullptr) {
-        int w = 0, h = 0;
-        SDL_GetWindowSizeInPixels(sWindow, &w, &h);
-        Port_Widescreen_SetWindowPixels(w, h);
-    }
+    /* The simulation-boundary snapshot determines target geometry. Only map
+     * scenes with live shadows can expose extra world pixels. */
     if (gMain[2] == 2 /* TASK_GAME */ && Port_Widescreen_IsActive() && Port_Widescreen_ShadowsLive()) {
         return Port_Widescreen_EffectiveViewWidth();
     }
@@ -162,8 +152,8 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
 }
 
 /* xBRZ scratch buffers are sized to the frame we are actually presenting:
- * 240x160 when the WIP widescreen option is off/falling back, or
- * MODE1_GBA_WIDTHx160 while true widescreen is active. */
+ * 240x160 in native/fallback scenes, or the profile/room-capped width
+ * by 160 while extended world rendering is active. */
 static bool Port_PPU_EnsureXbrzBuffers(int srcW, int srcH) {
     if (srcW <= 0 || srcH <= 0) {
         sUpscale2xPixels = 0;
@@ -303,8 +293,12 @@ static void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int fbH, 
 
     int aspW = FW;
     int aspH = FH;
-    const PortAspectMode mode = Port_Config_AspectMode();
+    const PortAspectMode mode = Port_Viewport_Get()->effectiveAspect;
     switch (mode) {
+        case PORT_ASPECT_DS_4_3:
+            aspW = 4;
+            aspH = 3;
+            break;
         case PORT_ASPECT_WIDESCREEN_16_9:
             aspW = 16;
             aspH = 9;

@@ -13,7 +13,7 @@
 #   3. compares both against tools/ppu_golden_hashes.txt.
 #
 # Determinism: captures run from a scratch working directory so the box's
-# config.json (LCD persistence, widescreen toggle, color correction, ...)
+# config.json (LCD persistence, aspect profile, color correction, ...)
 # and tmc.sav can never leak into the hashes, and every output-affecting
 # TMC_* knob is pinned explicitly below. Never run --update with ad-hoc
 # TMC_* overrides exported.
@@ -90,10 +90,11 @@ capture() {
         *) echo "[parity] bad spec: $spec" >&2; return 1;;
     esac
     # Scratch cwd: config.json is read from $PWD, so the box's display
-    # settings (LCD persistence rho, widescreen, ...) and tmc.sav must not
+    # settings (LCD persistence rho, aspect profile, ...) and tmc.sav must not
     # be visible to the capture. Assets resolve from the exe dir, not cwd.
     local capdir="$WORK/capcwd"
     mkdir -p "$capdir"
+    printf '%s\n' '{"aspect_mode":"native","console_parity":true}' > "$capdir/config.json"
     (cd "$capdir" && timeout -s KILL 90 env -i PATH="$PATH" \
         TMC_AUTOPLAY=1 TMC_PERFCAP=1 \
         ${warp:+TMC_PERFCAP_WARP="$warp"} \

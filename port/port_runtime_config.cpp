@@ -81,15 +81,6 @@ u32 sAutosaveIntervalMs = 60000;
 PortTouchScheme sTouchScheme = PORT_TOUCH_SCHEME_JOYSTICK;
 float sTouchScale = 1.0f;   /* multiplies the touch layout unit  */
 float sTouchOpacity = 1.0f; /* multiplies every control's alpha  */
-/* Widescreen reveal default-ON for desktop, OFF for Android. Widescreen
- * draws ~60% more scanline pixels (384x160 vs 240x160), which crushes
- * low-end ARM chips. Console-Parity still forces this off; native-240
- * builds ignore it. */
-#ifdef __ANDROID__
-bool sWidescreenEnabled = false;
-#else
-bool sWidescreenEnabled = true;
-#endif
 /* Console-Parity mode. When true the port suppresses every feature that
  * gives the player an edge over real GBA hardware, so a run is provably
  * console-equivalent: sub-frame input edge leniency off, save-states inert,
@@ -274,11 +265,6 @@ const BoolCfg kBoolCfg[] = {
     { "port_settings_menu", &sPortSettingsMenuEnabled, true },
     { "nintendo_layout", &sNintendoLayout, true },
     { "autosave_enabled", &sAutosaveEnabled, true },
-#ifdef __ANDROID__
-    { "widescreen_enabled", &sWidescreenEnabled, false },
-#else
-    { "widescreen_enabled", &sWidescreenEnabled, true },
-#endif
     { "console_parity", &sConsoleParity, false },
     { "decouple_render", &sDecoupleRender, true },
     { "show_fps", &sShowFps, false },
@@ -417,6 +403,7 @@ void LoadBinds(PortInput input, const nlohmann::json& v) {
 
 void SaveConfig(void) {
     try {
+        sConfigJson.erase("widescreen_enabled"); // obsolete; aspect_mode owns geometry
         std::ofstream(sConfigPath) << sConfigJson.dump(4) << '\n';
     } catch (...) {}
 }
@@ -743,7 +730,9 @@ extern "C" void Port_Config_Load(const char* path) {
                 if (c >= 'A' && c <= 'Z')
                     c = static_cast<char>(c - 'A' + 'a');
             }
-            if (am == "16:9" || am == "widescreen")
+            if (am == "4:3")
+                sAspectMode = PORT_ASPECT_DS_4_3;
+            else if (am == "16:9" || am == "widescreen")
                 sAspectMode = PORT_ASPECT_WIDESCREEN_16_9;
             else if (am == "21:9" || am == "ultrawide")
                 sAspectMode = PORT_ASPECT_ULTRAWIDE_21_9;
@@ -1030,28 +1019,6 @@ extern "C" void Port_Config_SetTouchOpacity(float opacity) {
     SaveConfig();
 }
 
-extern "C" bool Port_Config_WidescreenEnabled(void) {
-    /* Parity mode forces the effective answer to false regardless of the
-     * stored preference: widening the framebuffer also widens off-screen
-     * AI culling, which ticks enemies (and advances RNG) earlier than
-     * hardware. The saved pref is preserved so toggling parity back off
-     * restores the user's choice. */
-    if (sConsoleParity) {
-        return false;
-    }
-    return sWidescreenEnabled;
-}
-
-extern "C" void Port_Config_SetWidescreenEnabled(bool enabled) {
-    sWidescreenEnabled = enabled;
-    sConfigJson["widescreen_enabled"] = enabled;
-    SaveConfig();
-}
-
-extern "C" void Port_Config_ToggleWidescreen(void) {
-    Port_Config_SetWidescreenEnabled(!sWidescreenEnabled);
-}
-
 extern "C" bool Port_Config_GetConsoleParity(void) {
     return sConsoleParity;
 }
@@ -1092,12 +1059,14 @@ extern "C" PortAspectMode Port_Config_AspectMode(void) {
 
 extern "C" const char* Port_Config_AspectModeName(PortAspectMode mode) {
     switch (mode) {
+        case PORT_ASPECT_DS_4_3:
+            return "DS 4:3 (256x192)";
         case PORT_ASPECT_WIDESCREEN_16_9:
-            return "Widescreen 16:9";
+            return "Widescreen 16:9 (285x160)";
         case PORT_ASPECT_ULTRAWIDE_21_9:
-            return "Ultrawide 21:9";
+            return "Ultrawide 21:9 (374x160)";
         case PORT_ASPECT_SUPER_ULTRAWIDE_32_9:
-            return "Super Ultrawide 32:9";
+            return "Super Ultrawide 32:9 (569x160)";
         case PORT_ASPECT_NATIVE_3_2:
         default:
             return "Native 3:2 (GBA)";
@@ -1110,6 +1079,9 @@ extern "C" void Port_Config_SetAspectMode(PortAspectMode mode) {
     sAspectMode = mode;
     const char* name = "native";
     switch (mode) {
+        case PORT_ASPECT_DS_4_3:
+            name = "4:3";
+            break;
         case PORT_ASPECT_WIDESCREEN_16_9:
             name = "16:9";
             break;
@@ -1128,12 +1100,28 @@ extern "C" void Port_Config_SetAspectMode(PortAspectMode mode) {
     SaveConfig();
 }
 
+#ifndef MODE1_GBA_WIDTH
+#define MODE1_GBA_WIDTH 240
+#endif
+
+extern "C" bool Port_Config_AspectModeAvailable(PortAspectMode mode) {
+    return Port_Viewport_AspectSupported(mode, MODE1_GBA_WIDTH, 160);
+}
+
+extern "C" PortAspectMode Port_Config_EffectiveAspectMode(void) {
+    return !sConsoleParity && Port_Config_AspectModeAvailable(sAspectMode)
+               ? sAspectMode : PORT_ASPECT_NATIVE_3_2;
+}
+
+extern "C" void Port_Config_PublishViewport(void) {
+    Port_Viewport_Publish(sAspectMode, sConsoleParity, MODE1_GBA_WIDTH, 160, MODE1_GBA_WIDTH);
+}
+
 extern "C" void Port_Config_CycleAspectMode(int direction) {
-    int next = (int)sAspectMode + (direction < 0 ? -1 : 1);
-    if (next < 0)
-        next = PORT_ASPECT_COUNT - 1;
-    if (next >= PORT_ASPECT_COUNT)
-        next = 0;
+    int next = (int)sAspectMode;
+    do {
+        next = (next + PORT_ASPECT_COUNT + (direction < 0 ? -1 : 1)) % PORT_ASPECT_COUNT;
+    } while (!Port_Config_AspectModeAvailable((PortAspectMode)next));
     Port_Config_SetAspectMode((PortAspectMode)next);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "port_types.h"
+#include "port_viewport.h"
 #ifndef TMC_N64
 #include <SDL3/SDL.h>
 #endif
@@ -89,14 +90,6 @@ void Port_Config_SetTouchScale(float scale);
 float Port_Config_TouchOpacity(void);
 void Port_Config_SetTouchOpacity(float opacity);
 
-/* True widescreen reveal is still WIP. The build-time
- * --widescreen_width=N only reserves the larger framebuffer; this runtime
- * switch decides whether gameplay uses the wider camera/reveal or falls
- * back to a native 240x160 frame. No effect in native-width builds. */
-bool Port_Config_WidescreenEnabled(void);
-void Port_Config_SetWidescreenEnabled(bool enabled);
-void Port_Config_ToggleWidescreen(void);
-
 /* Console-Parity mode. When ON the port is held provably equivalent to real
  * GBA hardware for speedrun integrity: the sub-frame input edge cache is
  * disabled (hardware 1-frame input granularity), save-states (F1-F6) are
@@ -115,25 +108,16 @@ bool Port_Config_GetSkipLauncher(void);
 void Port_Config_SetSkipLauncher(bool on);
 void Port_Config_ToggleConsoleParity(void);
 
-/* Aspect-ratio mode for the on-screen viewport. The game frame is always
- * rendered at its own aspect (3:2 native, wider in true widescreen) — this
- * knob picks the *stage* it sits inside. The area between frame and stage
- * is filled per PortBgFill. Native means "no constraint": the stage spans
- * the whole window, so the frame fills as much of it as its aspect allows
- * and the fill covers the rest — the default. Fixed-ratio modes constrain
- * the stage (e.g. pin a 16:9 play area on an ultrawide monitor); outside
- * the stage is always black. */
-typedef enum {
-    PORT_ASPECT_NATIVE_3_2 = 0,
-    PORT_ASPECT_WIDESCREEN_16_9 = 1,
-    PORT_ASPECT_ULTRAWIDE_21_9 = 2,
-    PORT_ASPECT_SUPER_ULTRAWIDE_32_9 = 3,
-    PORT_ASPECT_COUNT,
-} PortAspectMode;
+/* Selected logical profile. Unsupported modes and Console-Parity use native
+ * geometry while preserving the selected preference for restoration. */
 PortAspectMode Port_Config_AspectMode(void);
 const char* Port_Config_AspectModeName(PortAspectMode mode);
 void Port_Config_SetAspectMode(PortAspectMode mode);
 void Port_Config_CycleAspectMode(int direction);
+bool Port_Config_AspectModeAvailable(PortAspectMode mode);
+PortAspectMode Port_Config_EffectiveAspectMode(void);
+/* Called at startup and simulation boundaries; never from presentation. */
+void Port_Config_PublishViewport(void);
 
 /* Fill style for the area around the GBA frame (the "pillar bars" or
  * "stage background"). Blurred is the default: it stretches a

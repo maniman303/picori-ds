@@ -105,13 +105,13 @@ option("repro_harness")
     set_description("Compile the TMC_REPRO_* test harnesses (default = on in debug, off in release)", "default", "y", "n")
 option_end()
 
--- Framebuffer capacity. At >240, the WIP runtime option reveals room-backed
--- tiles at a width fitted to the window aspect and capped by the room.
+-- Framebuffer capacity (legacy option name). The selected aspect profile
+-- chooses logical world width, capped by safe room content.
 -- Fixed canvases and the digging-cave iris use the native 240px view.
 option("widescreen_width")
     set_default(240)
     set_showmenu(true)
-    set_description("Framebuffer width capacity (240=native, >240 enables true widescreen)")
+    set_description("Framebuffer width capacity (legacy name; aspect_mode selects the viewport)")
 option_end()
 
 -- Build directories
@@ -672,13 +672,8 @@ target("tmc_pc")
               .. "(asset/offset baseline: " .. pc_game_version .. ").")
     end
 
-    -- Widescreen: single source of truth for the rendered viewport width.
-    -- The orphaned `widescreen_width` option is injected here as
-    -- MODE1_GBA_WIDTH so BOTH the ViruaPPU renderer (compiled into this
-    -- target via add_files) and the port's engine-side cull tests
-    -- (CheckOnScreen / CheckRectOnScreen, via port/port_widescreen.h) key
-    -- off one value and can never disagree. 240 = GBA-native; the cull
-    -- bounds collapse to their original literals at 240.
+    -- Shared allocation capacity, not the selected logical viewport.
+    -- Runtime profile/room bounds come from port_viewport/port_widescreen.
     local ws_width = get_config("widescreen_width") or 240
     add_defines("MODE1_GBA_WIDTH=" .. ws_width)
 

@@ -1,16 +1,18 @@
 # Native 4:3 rendering and background overrides
 
-Research date: 2026-10-24. Status: runtime implementation planned; initial local artwork export completed.
+Research date: 2026-10-24. Status: geometry/settings integration in progress; initial local artwork export completed.
 
-Implementation has started with the port-owned catalog and profile contracts;
-rendering integration remains pending. See the ordered
+Implementation includes the port-owned catalog, profile contracts, fixed target
+widths, frame-boundary geometry publication and widescreen-toggle migration.
+Taller world rendering and contextual image composition remain pending. See the ordered
 [implementation tasks and verification record](aspect-ratio-and-background-overrides-tasks.md).
 
 This document plans the requested removal of the widescreen toggle, true
 256 × 192 rendering for 4:3, corner-anchored live-gameplay UI, bottom gameplay dialogue,
 effect-aware splash extension, named contextual PNG background artwork for every
 supported ratio, and a complete local export of original backgrounds into
-`assets/override/32/`. Runtime rendering and configuration changes remain planned.
+`assets/override/32/`. Geometry/settings migration is implemented; taller world
+rendering, enhanced UI layout and contextual background composition remain pending.
 The initial standalone artwork export is now available; see section 12.
 
 Scope clarified by the user: “background” means a screen's visual setting by
@@ -29,6 +31,10 @@ current behavior. No claim of an exhaustive visually verified image catalog or
 on-device performance is made yet.
 
 ## 1. Findings in the current tree
+
+This table records the source audit **before implementation**. The linked task
+tracker records completed changes and remaining gaps; historical behavior below
+(including the toggle and window-derived world width) is being replaced.
 
 | Area | Evidence | Consequence |
 | --- | --- | --- |

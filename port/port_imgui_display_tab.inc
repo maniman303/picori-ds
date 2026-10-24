@@ -174,9 +174,27 @@ static void DrawRibbonDisplayTab(void) {
             "nearest-neighbour 2D output it has no visible effect. Leave at 1x "
             "unless a shader you're using benefits from supersampling.");
 
-        StepperRow("Aspect ratio", "aspect",
-                   [](char*, size_t) { return Port_Config_AspectModeName(Port_Config_AspectMode()); },
-                   Port_Config_CycleAspectMode);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Aspect ratio");
+        ImGui::TableSetColumnIndex(1);
+        const PortAspectMode selectedAspect = Port_Config_AspectMode();
+        if (ImGui::BeginCombo("##aspect", Port_Config_AspectModeName(selectedAspect))) {
+            for (int i = 0; i < PORT_ASPECT_COUNT; ++i) {
+                const PortAspectMode mode = (PortAspectMode)i;
+                const bool available = Port_Config_AspectModeAvailable(mode);
+                ImGui::BeginDisabled(!available);
+                if (ImGui::Selectable(Port_Config_AspectModeName(mode), mode == selectedAspect))
+                    Port_Config_SetAspectMode(mode);
+                ImGui::EndDisabled();
+                if (!available && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Unavailable: this build's renderer cannot supply this profile yet.");
+            }
+            ImGui::EndCombo();
+        }
+        if (Port_Config_GetConsoleParity())
+            ImGui::TextDisabled("Effective: native 3:2 (Console-Parity)");
+        else if (!Port_Config_AspectModeAvailable(selectedAspect))
+            ImGui::TextDisabled("Effective: native 3:2 (selected profile unavailable)");
 
         StepperRow("Renderer", "renderer",
                    [](char*, size_t) { return Port_Config_RenderBackendName(Port_Config_RenderBackend()); },
@@ -360,24 +378,6 @@ static void DrawRibbonDisplayTab(void) {
     }
 
     ImGui::Separator();
-
-#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-    {
-        bool ws = Port_Config_WidescreenEnabled();
-        bool parity = Port_Config_GetConsoleParity();
-        ImGui::BeginDisabled(parity);
-        if (ImGui::Checkbox("Widescreen (WIP)", &ws)) {
-            Port_Config_SetWidescreenEnabled(ws);
-            Port_PPU_ApplyWindowScale();
-            Port_DebugMenu_ToastFromExternal(ws ? "Widescreen enabled" : "Widescreen disabled");
-        }
-        ImGui::EndDisabled();
-        if (parity && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-            ImGui::SetTooltip("Console-Parity mode requires the original screen width. Turn it off to enable widescreen.");
-        }
-        ImGui::SameLine();
-    }
-#endif
 
     bool fs = Port_PPU_IsFullscreen();
     if (ImGui::Checkbox("Fullscreen", &fs)) {

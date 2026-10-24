@@ -1117,6 +1117,9 @@ void VBlankIntrWait(void) {
     Port_PumpEvents();
     Port_UpdateInput();
     Port_TestInputTick(gMain.ticks);
+    /* All presents for the completed tick have finished. Publish pending
+     * settings before VBlank shadow construction and the next camera update. */
+    Port_Config_PublishViewport();
 
     /* Speedrun practice: advance the IGT frame counter and sample the input
      * display. After Port_UpdateInput() so the sampled mask is this frame's. */

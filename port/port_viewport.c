@@ -11,6 +11,23 @@ static const PortViewportProfile sProfiles[] = {
     { "32:9", "329", 569, 160 },
 };
 
+static PortViewportGeometry sGeometry = {
+    PORT_ASPECT_NATIVE_3_2, PORT_ASPECT_NATIVE_3_2,
+    { 0, 0, 240, 160 }, { 0, 0, 240, 160 }, { 0, 0, 240, 160 },
+    240, 160, 240, 0, 0
+};
+
+const PortViewportProfile* Port_Viewport_ProfileForAspect(PortAspectMode aspect) {
+    switch (aspect) {
+        case PORT_ASPECT_NATIVE_3_2: return &sProfiles[0];
+        case PORT_ASPECT_DS_4_3: return &sProfiles[1];
+        case PORT_ASPECT_WIDESCREEN_16_9: return &sProfiles[2];
+        case PORT_ASPECT_ULTRAWIDE_21_9: return &sProfiles[3];
+        case PORT_ASPECT_SUPER_ULTRAWIDE_32_9: return &sProfiles[4];
+        default: return NULL;
+    }
+}
+
 const PortViewportProfile* Port_Viewport_FindProfile(const char* directory) {
     if (directory != NULL) {
         for (size_t i = 0; i < sizeof(sProfiles) / sizeof(sProfiles[0]); ++i) {
@@ -25,6 +42,47 @@ bool Port_Viewport_ProfileFits(const PortViewportProfile* profile, int capacityW
     return profile != NULL && profile->width >= PORT_VIEWPORT_NATIVE_WIDTH &&
            profile->height >= PORT_VIEWPORT_NATIVE_HEIGHT && profile->width <= capacityWidth &&
            profile->height <= capacityHeight;
+}
+
+bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int capacityHeight) {
+    const PortViewportProfile* profile = Port_Viewport_ProfileForAspect(aspect);
+    return Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight) &&
+           profile->width <= 512 && profile->height <= 160;
+}
+
+bool Port_Viewport_Publish(PortAspectMode selected, bool consoleParity,
+                           int capacityWidth, int capacityHeight, int pitchPixels) {
+    if (capacityWidth < 240 || capacityHeight < 160 || pitchPixels < capacityWidth)
+        return false;
+    if (Port_Viewport_ProfileForAspect(selected) == NULL)
+        selected = PORT_ASPECT_NATIVE_3_2;
+    uint32_t flags = consoleParity ? PORT_VIEWPORT_PARITY : 0;
+    if (!Port_Viewport_AspectSupported(selected, capacityWidth, capacityHeight))
+        flags |= PORT_VIEWPORT_UNSUPPORTED;
+    PortAspectMode effective = flags ? PORT_ASPECT_NATIVE_3_2 : selected;
+    /* Generation changes only with geometry/policy, not every frame. */
+    if (sGeometry.generation != 0 && sGeometry.selectedAspect == selected &&
+        sGeometry.effectiveAspect == effective && sGeometry.flags == flags &&
+        sGeometry.capacityWidth == capacityWidth && sGeometry.capacityHeight == capacityHeight &&
+        sGeometry.pitchPixels == pitchPixels)
+        return true;
+    const PortViewportProfile* profile = Port_Viewport_ProfileForAspect(effective);
+    sGeometry.selectedAspect = selected;
+    sGeometry.effectiveAspect = effective;
+    PortViewportRect canvas = { 0, 0, profile->width, profile->height };
+    sGeometry.canvas = canvas;
+    sGeometry.nativeContent = Port_Viewport_NativeContentRect(profile);
+    sGeometry.uiSafe = sGeometry.canvas;
+    sGeometry.capacityWidth = capacityWidth;
+    sGeometry.capacityHeight = capacityHeight;
+    sGeometry.pitchPixels = pitchPixels;
+    sGeometry.flags = flags;
+    ++sGeometry.generation;
+    return true;
+}
+
+const PortViewportGeometry* Port_Viewport_Get(void) {
+    return &sGeometry;
 }
 
 PortViewportRect Port_Viewport_NativeContentRect(const PortViewportProfile* profile) {

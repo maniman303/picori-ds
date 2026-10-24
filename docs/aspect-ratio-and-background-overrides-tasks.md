@@ -26,15 +26,18 @@ or completed checks, not a claim that the renderer supports the new profiles.
 
 Implementation: `port/port_screen_background.{h,c}` owns semantic source policy;
 `port/port_viewport.{h,c}` owns logical profile contracts. Neither reads game
-globals or allocates, opens files, or alters rendering. Catalog selection is
+globals, allocates, or opens files. Camera/shadow/presentation callers now
+consume the published profile geometry. Catalog selection is
 explicit: the future state adapter must identify installed content, rather
 than infer an image from `TASK_GAME` or a transient credits command. The catalog
 groups shared settings; effect policies remain specific to the active screen.
 Unknown screens return no source until their state mapping is verified.
 
-The profile registry describes target asset dimensions only. It does not add
-4:3 to settings, advertise 32:9 renderer support, change framebuffer capacities,
-or publish the per-frame geometry snapshot. Those belong to the next task.
+The profile registry now drives runtime target widths through a shared geometry
+snapshot. Builds with capacity 384 support native, 16:9 and 21:9. The settings
+list also shows 4:3 and 32:9 as unavailable until taller raster rendering and
+wide signed OBJ coordinates are implemented. Configs retain those preferences
+but render effective native geometry. Framebuffer capacities remain unchanged.
 
 Image resolution validation must use the **selected aspect ratio**, independent
 of window dimensions and internal scale:
@@ -53,14 +56,19 @@ or tile alignment. Native-content centering continues to use floor offsets.
 
 ## 2. Geometry and settings
 
-- [ ] Append the 4:3 aspect enum without changing existing serialized IDs;
+- [x] Append the 4:3 aspect enum without changing existing serialized IDs;
   integrate canonical profile lookup and skip unsupported modes visibly.
-- [ ] Publish one immutable geometry snapshot before simulation/layout/shadows;
+- [x] Publish a base geometry snapshot at startup and simulation boundaries:
+  selected/effective profile, capacity/pitch, canvas, native content, UI safe
+  rectangle, parity/unsupported flags and geometry generation. Repeat presents
+  consume the same snapshot; pending config changes wait for publication.
+- [ ] Extend that snapshot to own scene capability flags and world-aperture
+  decisions at room/transition boundaries. The complete planned snapshot must
   include selected/effective profile, capacity/pitch, canvas, native content,
   world aperture, UI safe rectangle, capability flags and generation.
-- [ ] Migrate `port_widescreen.h` wrappers to consume that snapshot. Window
+- [x] Migrate target-width wrappers to consume that snapshot. Window
   resizing must affect presentation only. Preserve room/transition safety.
-- [ ] Remove widescreen toggle state, config entry/API, UI and indirect gates;
+- [x] Remove widescreen toggle state, config entry/API, UI and indirect gates;
   erase the legacy JSON key on save and pin capture tools to explicit profiles.
 - [ ] Add visible height to the PPU contract and version snapshot formats;
   audit allocations before increasing build capacity to 569 by 192.
@@ -121,7 +129,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
   record unsupported optional-path fallbacks and unavailable fixtures explicitly.
 - [ ] Run full staging/RG packaging checks when runtime asset packaging changes.
 
-## Verification record (2026-10-24)
+## Initial foundation verification (2026-10-24)
 
 Available configuration is the existing Linux ARM64 RG cross-build, multi-region,
 width capacity 384, GPU presentation enabled, repro harness disabled. The local
@@ -151,3 +159,52 @@ Subsequent discovery located the EU fixture under `roms/`, but the current
 binary has the repro harness disabled, so deterministic scene/PPU captures
 remain pending. No golden hashes were changed. USA/JP fixtures, visual/effect
 audits and physical RG measurements remain open. No device deployment occurred.
+
+## Geometry/settings verification (2026-10-24)
+
+The widescreen toggle and window-pixel publication API are removed. Selected
+profiles now determine target world width; existing room-content caps,
+fixed-screen fallbacks and transition safety checks remain. Startup window
+width uses the effective profile rather than maximum allocation capacity.
+The ImGui selector lists unsupported profiles disabled and explains effective
+native mode under Console-Parity or an unsupported saved preference. Legacy
+controller-menu cycling skips unsupported profiles. The retired
+`TMC_WS_VIEW_WIDTH` environment variable is ignored.
+
+Publication happens at startup after CLI overrides and in `VBlankIntrWait`
+after completed-frame presentations/input, before VBlank shadow construction
+and the next engine camera update. No engine source files were changed.
+The snapshot owns selected/effective aspect, canvas/native/UI geometry,
+capacity/pitch, parity/unsupported flags and generation. Scene capability and
+room/transition aperture publication remain a separate unfinished subtask;
+the old room safety helpers still make those decisions.
+
+Verification completed:
+
+- RG ARM64 multi-region build with the repro harness enabled for captures;
+  original release configuration restored afterward with the harness disabled.
+- `tools/ppu_parity_check.sh` using the local EU ROM and a QEMU wrapper:
+  both committed scenes (`intro_logo`, `title`) match original Tier A and B
+  hashes. Use the oracle's default native width 240; compiling the static
+  oracle at capacity 384 renders extra pixels and is not a native parity test.
+  Committed golden hashes remain unchanged.
+- Production C/C++ geometry tests and UBSan config regressions: enum stability,
+  selected/effective profiles, unsupported dimensions, snapshot publication,
+  unchanged generation for unchanged geometry, invalid capacity/pitch,
+  legacy toggle removal, alias parsing, 4:3 serialization, parity restoration,
+  and skipping unavailable modes.
+- Existing engine, scroll and CPU PPU regression tools; all four scene-tool
+  regressions using Pillow in a temporary Python environment.
+- EU field captures under QEMU/software presentation: 16:9 produces 285 × 160
+  in both 640 × 640 and 960 × 540 windows with byte-identical base pixels;
+  21:9 produces 374 × 160 in a 480 × 640 window. Deliberately setting the
+  retired width override to 240 does not change either selected profile.
+- An EU native field capture reaches the requested room and produces pixels,
+  but the scene baseline command reports a missing reference: the committed
+  presentation hashes cover USA only. This is not a verified EU field pixel
+  comparison. The local artifact remains separate; no baseline was approved.
+
+True 256 × 192 rendering, full 32:9, fixed-screen canvas composition, GPU
+presentation execution, other regional fixtures and device profiling remain
+pending. Current image-size contracts already describe their target dimensions;
+they do not imply those renderer paths are enabled.

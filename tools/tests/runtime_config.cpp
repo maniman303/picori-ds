@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cstdio>
 #include <initializer_list>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 static void load(const char* path, const char* json) {
     FILE* f = fopen(path, "w");
@@ -12,9 +14,73 @@ static void load(const char* path, const char* json) {
     Port_Config_Load(path);
 }
 
+static void CheckAspectConfig(const char* path) {
+    load(path, R"({"aspect_mode":"16:9","widescreen_enabled":false,"keep":17})");
+    assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
+    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
+    Port_Config_PublishViewport();
+    assert(Port_Viewport_Get()->canvas.width == 285);
+    const uint32_t generation = Port_Viewport_Get()->generation;
+    Port_Config_SetAspectMode(PORT_ASPECT_ULTRAWIDE_21_9);
+    // Settings can change during presentation. Geometry stays fixed until the
+    // explicit boundary used by the input/VBlank path publishes the next tick.
+    assert(Port_Viewport_Get()->generation == generation);
+    assert(Port_Viewport_Get()->canvas.width == 285);
+    Port_Config_PublishViewport();
+    assert(Port_Viewport_Get()->canvas.width == 374);
+    Port_Config_SetConsoleParity(true);
+    Port_Config_PublishViewport();
+    assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
+    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_NATIVE_3_2);
+    assert(Port_Viewport_Get()->canvas.width == 240);
+    Port_Config_SetConsoleParity(false);
+    Port_Config_PublishViewport();
+    assert(Port_Viewport_Get()->canvas.width == 374);
+    nlohmann::json saved;
+    std::ifstream(path) >> saved;
+    assert(!saved.contains("widescreen_enabled"));
+    assert(saved["aspect_mode"] == "21:9" && saved["keep"] == 17);
+
+    load(path, R"({"aspect_mode":"native","widescreen_enabled":true})");
+    Port_Config_PublishViewport();
+    assert(Port_Viewport_Get()->canvas.width == 240);
+    assert(Port_Config_AspectModeAvailable(PORT_ASPECT_NATIVE_3_2));
+    assert(Port_Config_AspectModeAvailable(PORT_ASPECT_WIDESCREEN_16_9));
+    assert(Port_Config_AspectModeAvailable(PORT_ASPECT_ULTRAWIDE_21_9));
+    assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_DS_4_3));
+    assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_SUPER_ULTRAWIDE_32_9));
+    Port_Config_CycleAspectMode(1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
+    Port_Config_CycleAspectMode(1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
+    Port_Config_CycleAspectMode(1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
+    Port_Config_CycleAspectMode(-1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
+
+    load(path, R"({"aspect_mode":"WIDESCREEN"})");
+    assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
+    load(path, R"({"aspect_mode":"ULTRAWIDE"})");
+    assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
+    load(path, R"({"aspect_mode":"super_ultrawide"})");
+    assert(Port_Config_AspectMode() == PORT_ASPECT_SUPER_ULTRAWIDE_32_9);
+    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_NATIVE_3_2);
+    load(path, R"({"aspect_mode":"4:3"})");
+    assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
+    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_NATIVE_3_2);
+    Port_Config_SetAspectMode(PORT_ASPECT_DS_4_3);
+    Port_Config_Load(path);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
+    std::ifstream(path) >> saved;
+    assert(saved["aspect_mode"] == "4:3");
+    Port_Config_SetAspectMode((PortAspectMode)-1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
+}
+
 int main(int argc, char** argv) {
     assert(argc == 2);
     const char* path = argv[1];
+    CheckAspectConfig(path);
     load(path, "{}");
     assert(Port_Config_BindingCount(PORT_INPUT_OPEN_SETTINGS) == 0);
     load(path, R"({"bindings":{"open_settings":["SDLK:0x0000006f"]}})");

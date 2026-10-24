@@ -2,6 +2,7 @@
 #define PORT_VIEWPORT_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,6 +16,16 @@ extern "C" {
 #define PORT_VIEWPORT_PROFILE_VERSION 1
 #define PORT_VIEWPORT_NATIVE_WIDTH 240
 #define PORT_VIEWPORT_NATIVE_HEIGHT 160
+
+/* Persisted IDs: append new modes, never reorder existing ones. */
+typedef enum {
+    PORT_ASPECT_NATIVE_3_2 = 0,
+    PORT_ASPECT_WIDESCREEN_16_9 = 1,
+    PORT_ASPECT_ULTRAWIDE_21_9 = 2,
+    PORT_ASPECT_SUPER_ULTRAWIDE_32_9 = 3,
+    PORT_ASPECT_DS_4_3 = 4,
+    PORT_ASPECT_COUNT
+} PortAspectMode;
 
 typedef struct {
     const char* aspect;
@@ -31,10 +42,41 @@ typedef struct {
  * Unknown/NULL keys return NULL; do not silently substitute another ratio.
  * Profiles describe the asset contract, not current renderer capabilities. */
 const PortViewportProfile* Port_Viewport_FindProfile(const char* directory);
+const PortViewportProfile* Port_Viewport_ProfileForAspect(PortAspectMode aspect);
 
 /* Reject insufficient capacity rather than truncating the selected profile.
  * A renderer must also validate raster/sprite support before exposing a mode. */
 bool Port_Viewport_ProfileFits(const PortViewportProfile* profile, int capacityWidth, int capacityHeight);
+
+/* Current raster/OBJ support is separate from allocated capacity. Taller
+ * frames and X > 511 remain unavailable until their rendering paths land. */
+bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int capacityHeight);
+
+enum {
+    PORT_VIEWPORT_PARITY = 1u << 0,
+    PORT_VIEWPORT_UNSUPPORTED = 1u << 1
+};
+
+typedef struct {
+    PortAspectMode selectedAspect;
+    PortAspectMode effectiveAspect;
+    PortViewportRect canvas;
+    PortViewportRect nativeContent;
+    PortViewportRect uiSafe;
+    int capacityWidth, capacityHeight, pitchPixels;
+    uint32_t flags;
+    uint32_t generation;
+} PortViewportGeometry;
+
+/* Publish only at a simulation boundary, before shadow/camera/layout work.
+ * Renderers read the same snapshot, including repeat presents while paused.
+ * Storage remains valid until the next publication after workers complete.
+ * Unsupported preferences are retained but use effective native geometry.
+ * False means invalid capacity/pitch; the previous snapshot is retained.
+ * Room/transition aperture decisions still belong to the widescreen wrappers. */
+bool Port_Viewport_Publish(PortAspectMode selected, bool consoleParity,
+                           int capacityWidth, int capacityHeight, int pitchPixels);
+const PortViewportGeometry* Port_Viewport_Get(void);
 
 /* One translation for the complete original fixed-screen composition. This
  * rectangle does not describe the world aperture or live-gameplay UI bounds. */
