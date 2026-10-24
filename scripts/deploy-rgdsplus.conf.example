@@ -1,0 +1,7 @@
+# Copy to deploy-rgdsplus.conf (git-ignored; chmod 600).
+DEVICE_IP='192.0.2.1'
+DEVICE_USER='root'
+# Leave empty to use SSH keys/agent; otherwise requires sshpass.
+DEVICE_PASSWORD=''
+# Optional exact path. If empty, deployment searches /roms for a SHA1-valid EU ROM.
+DEVICE_ROM=''

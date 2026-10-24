@@ -17,6 +17,12 @@ option("game_version")
     set_description("Game version to build", "USA", "EU", "JP", "DEMO_USA", "DEMO_JP")
 option_end()
 
+option("pc_static_dependencies")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Build static PNG/zlib for portable PC cross builds")
+option_end()
+
 -- Multi-region (fat) PC binary: one binary that detects the loaded ROM and
 -- selects USA/EU/JP data + behavior at runtime. Compiles src/ once; the
 -- REGION_IS_* macros (include/region.h) become runtime instead of compile-time.
@@ -169,6 +175,15 @@ end
 -- ====================
 -- Third-party packages
 -- ====================
+if has_config("pc_static_dependencies") and is_plat("linux") then
+    -- The repository SDL recipe pulls in a Wayland source package that cannot
+    -- cross-compile. Use the installed target Wayland headers/libraries instead;
+    -- pkg-config is restricted to the target architecture by the build helper.
+    includes("scripts/packages/rgdsplus-sdl3.lua")
+    includes("scripts/packages/rgdsplus-imgui.lua")
+    add_requireconfs("**.libsdl3", {override = true, version = "3.4.12",
+        configs = {shared = false, wayland = true, x11 = false}})
+end
 local use_system_packages = is_host("linux") and (os.getenv("XMAKE_USE_SYSTEM_SDL3") or os.getenv("IN_NIX_SHELL"))
 if use_system_packages then
     add_requires("nlohmann_json", {system = true, configs = {cmake = false}})
@@ -188,7 +203,13 @@ else
     -- JNI signatures (3.4.12 added a scancode arg to onNativePadDown; the
     -- 3.4.4-era glue shipped in v0.8.1 crashed every Android launch with
     -- NoSuchMethodError at registration). Bump BOTH together.
-    add_requires("libsdl3 3.4.12", {configs = {shared = false}})
+    if has_config("pc_static_dependencies") and is_plat("linux") then
+        -- Cross builds otherwise disable Wayland in xmake's SDL recipe.
+        add_requires("libsdl3 3.4.12", {system = false,
+            configs = {shared = false, wayland = true, x11 = false}})
+    else
+        add_requires("libsdl3 3.4.12", {configs = {shared = false}})
+    end
 end
 add_requires("guilite")
 
@@ -199,7 +220,10 @@ add_requires("guilite")
 -- preference per platform and DON'T pass optional=true on Windows —
 -- without libpng there, port_bugreport.cpp fails to compile (png.h
 -- missing) and the whole release build dies.
-if is_plat("mingw", "windows") then
+if has_config("pc_static_dependencies") then
+    add_requires("libpng", {system = false, configs = {shared = false}})
+    add_requires("zlib", {system = false, configs = {shared = false}})
+elseif is_plat("mingw", "windows") then
     add_requires("libpng")
     add_requires("zlib")
 elseif is_plat("android") then
