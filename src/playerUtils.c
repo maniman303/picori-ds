@@ -4220,6 +4220,7 @@ void LoadRoomGfx(void) {
 #ifdef PC_PORT
     extern void Port_LevelEditor_OnRoomLoad(void);
     Port_LevelEditor_OnRoomLoad();
+    Port_Widescreen_RoomLoaded();
 #endif
 }
 

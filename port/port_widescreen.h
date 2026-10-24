@@ -59,6 +59,10 @@ extern "C" {
  * rooms narrower than the selected profile target but wider than 240 (256 and
  * 272px rooms — most dungeons/interiors with any extra world) run true
  * widescreen at their full room width, pillarboxing only the remainder. */
+/* Engine boundaries only: call after loading a room and when entering or
+ * completing a transition. Repeated presentation reads the published snapshot. */
+void Port_Widescreen_PublishScene(void);
+void Port_Widescreen_RoomLoaded(void);
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
 int Port_Widescreen_EffectiveViewWidth(void);

@@ -148,11 +148,10 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
     if (MODE1_GBA_WIDTH == 240) {
         return MODE1_GBA_WIDTH;
     }
-    /* The simulation-boundary snapshot determines target geometry. Only map
-     * scenes with live shadows can expose extra world pixels. */
-    if (gMain[2] == 2 /* TASK_GAME */ && Port_Widescreen_IsActive() && Port_Widescreen_ShadowsLive()) {
-        return Port_Widescreen_EffectiveViewWidth();
-    }
+    /* Presentation, including paused repeats, consumes only published policy. */
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    if (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE)
+        return geometry->world.width;
     return 240;
 }
 

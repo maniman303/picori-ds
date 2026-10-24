@@ -62,7 +62,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
   selected/effective profile, capacity/pitch, canvas, native content, UI safe
   rectangle, parity/unsupported flags and geometry generation. Repeat presents
   consume the same snapshot; pending config changes wait for publication.
-- [ ] Extend that snapshot to own scene capability flags and world-aperture
+- [x] Extend that snapshot to own scene capability flags and world-aperture
   decisions at room/transition boundaries. The complete planned snapshot must
   include selected/effective profile, capacity/pitch, canvas, native content,
   world aperture, UI safe rectangle, capability flags and generation.
@@ -205,9 +205,9 @@ Publication happens at startup after CLI overrides and in `VBlankIntrWait`
 after completed-frame presentations/input, before VBlank shadow construction
 and the next engine camera update. No engine source files were changed.
 The snapshot owns selected/effective aspect, canvas/native/UI geometry,
-capacity/pitch, parity/unsupported flags and generation. Scene capability and
-room/transition aperture publication remain a separate unfinished subtask;
-the old room safety helpers still make those decisions.
+capacity/pitch, parity/unsupported flags and generation. At that stage, scene capability and
+room/transition aperture publication remained separate; see the subsequent
+scene/aperture verification below.
 
 Verification completed:
 
@@ -372,3 +372,45 @@ This completes generic sprite-coordinate and normal shake-padding plumbing.
 It does not enable 4:3 or 32:9: remaining work includes scene/world-aperture
 publication, individual entity/special-manager coverage, graphics residency,
 classified raster effects, fixed-screen composition and gameplay UI layout.
+
+
+## Scene/aperture snapshot verification (2026-10-25)
+
+The geometry snapshot now includes a centered world rectangle and explicit
+horizontal-world, installed-map, native-transition and native-content policy.
+The pure C viewport module resolves the aperture from those inputs without
+reading game state. Room caps leave the selected canvas, native-content
+rectangle and UI safe rectangle unchanged. Native/parity/unsupported profiles
+still resolve to 240 × 160; vertical world reveal remains disabled.
+
+The engine adapter publishes after `LoadRoomGfx` (including reloads of the same
+room), before scroll/camera snap work, on transition completion before camera
+restoration, and before VBlank shadow construction. Painted content width is
+sampled at room load and held throughout that room rather than rescanned and
+ratcheted every VBlank. Room keys retain both origins independently, avoiding
+the previous XOR collisions. Camera/culling wrappers consume the published
+world dimensions. Presentation consumes the published installed-map capability
+and world width, so repeated presents do not query mutable task/room globals.
+Known repeating overlay eligibility uses the same predicate as shadow creation.
+
+Verification completed:
+
+- Production C11/C++17 geometry contracts under UBSan: centered room aperture,
+  unchanged canvas/UI, scene generation, unchanged repeated publication,
+  profile/parity changes, invalid room bounds and the retained height gate.
+- Production engine/renderer helper regressions: frozen presentation after
+  mutable task/room changes, narrow rooms, installed maps versus fixed overlays,
+  held content decisions and explicit same-room reloads, all three native
+  transition actions and wide camera recovery, plus existing shadow, dialogue
+  and repeating-overlay checks.
+- `ASAN_OPTIONS=detect_leaks=0 python3 tools/world_view_regression_test.py`
+  at width capacities 240/384, and the existing scroll and CPU PPU regressions.
+- `xmake build -y tmc_pc` with the existing RG ARM64 release configuration;
+  EU startup under QEMU/dummy video/audio reaches
+  `Port layer initialized. Entering AgbMain...`.
+
+No profiles were enabled, PPU pixel loops changed, golden hashes updated or
+assets packaged. This step does not classify individual managers, vertical
+residency, shake fallbacks or raster continuations. Regional scene captures,
+native pixel comparisons for this step, GPU execution and physical RG budgets
+remain unverified; the repro harness remains disabled in the release config.

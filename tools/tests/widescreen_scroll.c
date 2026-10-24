@@ -45,6 +45,7 @@ RoomResInfo* GetCurrentRoomInfo(void) { return &nextRoom; }
 void SetInitializationPriority(void) {}
 void ClearEventPriority(void) {}
 void sub_0807FEC8(RoomControls*);
+void Port_Widescreen_PublishScene(void) {}
 #include "widescreen_scroll_functions.inc"
 
 int main(void) {

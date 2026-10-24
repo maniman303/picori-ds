@@ -23,6 +23,8 @@ static int loads, shakes;
  * while the independent camera/map paths are checked at future DS geometry. */
 int Port_Widescreen_EffectiveViewWidth(void) { return viewWidth; }
 int Port_Widescreen_EffectiveViewHeight(void) { return viewHeight; }
+void Port_Widescreen_PublishScene(void) {}
+void Port_Widescreen_RoomLoaded(void) {}
 void LoadRoomTileSet(void) { ++loads; }
 void LoadRoomGfx(void) { ++loads; }
 void UpdateScreenShake(void) { ++shakes; }

@@ -110,9 +110,48 @@ static void CheckPublication(void) {
     assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
 }
 
+static void CheckScenePublication(void) {
+    PortViewportScene scene = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE, 1024, 1024 };
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
+    Port_Viewport_PublishScene(scene);
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    assert(geometry->world.width == 285 && geometry->world.height == 160);
+    assert(geometry->world.x == 0 && geometry->canvas.width == 285);
+    uint32_t generation = geometry->generation;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->generation == generation);
+    scene.roomWidth = 256;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->world.width == 256 && geometry->world.x == 14);
+    assert(geometry->canvas.width == 285 && geometry->uiSafe.width == 285);
+    assert(geometry->nativeContent.x == 22 && geometry->generation != generation);
+    scene.capabilities |= PORT_SCENE_NATIVE_TRANSITION;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->world.width == 240 && geometry->world.x == 22);
+    scene.capabilities &= ~PORT_SCENE_NATIVE_TRANSITION;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->world.width == 256);
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, true, 384, 160, 384));
+    assert(geometry->world.width == 240 && geometry->world.x == 0);
+    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 400));
+    assert(geometry->world.width == 256 && geometry->world.x == 59);
+    scene.roomWidth = -1;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->world.width == 240 && geometry->world.x == 67);
+    scene.roomWidth = 1024;
+    scene.roomHeight = 0;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->world.width == 240);
+    scene.roomHeight = 1024;
+    scene.capabilities = 0;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->world.width == 240 && geometry->world.height == 160);
+}
+
 int main(void) {
     CheckProfiles();
     CheckPublication();
+    CheckScenePublication();
     CheckSource(PORT_BACKGROUND_UNCLASSIFIED, PORT_BACKGROUND_SOURCE_NONE);
     CheckSource(PORT_BACKGROUND_LIVE_WORLD, PORT_BACKGROUND_SOURCE_NONE);
     CheckSource((PortBackgroundContext)-1, PORT_BACKGROUND_SOURCE_NONE);

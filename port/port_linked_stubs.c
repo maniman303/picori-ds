@@ -989,17 +989,17 @@ static u16 sWsShadowOverlay[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
  * Scan both map buffers for the rightmost non-empty tile column inside the
  * room rect; if that content can't fill the wide view even with the camera
  * pinned left, fall back to a native 240 frame (presented pillarboxed) —
- * which shows exactly what GBA showed. Ratcheted per room (only grows) so
- * late-streaming map data can't flip the mode back and forth mid-room. */
-static u32 sWsContentKey = 0xffffffffu;
+ * which shows exactly what GBA showed. Latched per room so
+ * late-streaming map data cannot change framing mid-room. */
+static uint64_t sWsContentKey = UINT64_MAX;
 static s32 sWsContentPx = 0;
 
 /* Key identifying the room the content cache belongs to. Checked by
- * FallbackNative so a stale cache (previous room) is never consulted —
+ * scene publication so a stale cache (previous room) is never consulted —
  * InitializeCamera runs at room entry BEFORE the next vblank rescan. */
-static u32 Port_WidescreenRoomKey(void) {
-    return ((u32)gRoomControls.area << 24) | ((u32)gRoomControls.room << 16) |
-           ((u32)(u16)gRoomControls.origin_x ^ ((u32)(u16)gRoomControls.origin_y << 1));
+static uint64_t Port_WidescreenRoomKey(void) {
+    return ((uint64_t)(u8)gRoomControls.area << 40) | ((uint64_t)(u8)gRoomControls.room << 32) |
+           ((uint64_t)(u16)gRoomControls.origin_x << 16) | (u16)gRoomControls.origin_y;
 }
 
 static s32 Port_WidescreenScanContentPx(void) {
@@ -1029,64 +1029,18 @@ int Port_Widescreen_TargetViewWidth(void) {
     return Port_Viewport_Get()->canvas.width;
 }
 
-/* Widest view the current room can honestly feed: the selected profile target
- * capped by the room's own width. Rooms narrower than the profile target but
- * wider than 240 (0x100/0x110 rooms — most dungeons and larger interiors)
- * still get true widescreen at their full room width; the presenter
- * pillarboxes the small remainder instead of stretching. */
-static s32 Port_WidescreenEffectiveTarget(void) {
-    s32 target = Port_Widescreen_TargetViewWidth();
-    s32 roomW = (s32)gRoomControls.width;
-    if (roomW < target) {
-        target = roomW;
-    }
-    return target;
-}
-
+/* Snapshot consumers never reclassify a scene from renderer/global state. */
 int Port_Widescreen_FallbackNative(void) {
-    s32 eff;
-    if (Port_Widescreen_TargetViewWidth() <= 240) {
-        return 1; /* native, unavailable profile, or Console-Parity */
-    }
-    /* Rolling room transitions stream a 240px VRAM buffer while mapSpecial
-     * already contains the destination room. The iris uses an 8-bit WIN1.
-     * Keep these effects native until their camera/tilemap refresh completes. */
-    if (gRoomControls.scrollAction == 2 || gRoomControls.scrollAction == 4 || gRoomControls.scrollAction == 5) {
-        return 1;
-    }
-    eff = Port_WidescreenEffectiveTarget();
-    if (eff <= 240) {
-        return 1; /* one-screen room (<=240px): no extra world to reveal */
-    }
-    /* Room wider than its painted content: the map can't fill even the
-     * room-capped view with the camera pinned left -> permanent void strip.
-     * Render native 240 (GBA-identical framing, presented pillarboxed).
-     * 0 = not scanned yet -> trust width. Key mismatch = cache belongs to
-     * the PREVIOUS room -> trust width. */
-    if (sWsContentKey == Port_WidescreenRoomKey() && sWsContentPx > 0 && sWsContentPx < eff) {
-        return 1;
-    }
-    return 0;
+    return Port_Viewport_Get()->world.width <= 240;
 }
 
 int Port_Widescreen_IsActive(void) {
-    /* No message/controlMode gate here: snapping the viewport wide->240 for
-     * every textbox (and back on close) was the single worst widescreen UX
-     * issue. Dialogue now stays wide — the PPU centers the BG0 textbox via
-     * the ws_msg_* knobs (published in Port_Widescreen_UpdateShadows), and
-     * overlay screens that replace the map BGs (prologue storybook, pause
-     * menu, ...) are caught by Port_Widescreen_ShadowsLive() instead: no
-     * matching BG -> no shadow -> present native 240. */
-    return (gMain.task == TASK_GAME && !Port_Widescreen_FallbackNative()) ? 1 : 0;
+    return (Port_Viewport_Get()->scene.capabilities & PORT_SCENE_WORLD) &&
+           !Port_Widescreen_FallbackNative();
 }
 
 int Port_Widescreen_EffectiveViewWidth(void) {
-    s32 eff;
-    if (!Port_Widescreen_IsActive()) {
-        return 240;
-    }
-    eff = Port_WidescreenEffectiveTarget();
-    return eff > 240 ? (int)eff : 240;
+    return Port_Viewport_Get()->world.width;
 }
 
 /* True while at least one BG shadow is registered for the current frame —
@@ -1245,6 +1199,56 @@ static int Port_WidescreenPpuBgForControl(u32 control) {
     return -1;
 }
 
+static int Port_WidescreenRepeatingOverlayLive(void) {
+    return ((gRoomControls.area == AREA_MINISH_WOODS && gScreen.bg3.control == 0x1e04) ||
+         (gRoomControls.area == AREA_HYRULE_FIELD && gScreen.bg3.control == 0x1e05) ||
+         (gRoomControls.area == AREA_CAVE_OF_FLAMES && gScreen.bg3.control == 0x1e04)) &&
+        (gScreen.lcd.displayControl & DISPCNT_BG3_ON);
+}
+
+/* Classify only on the simulation side. Content width is sampled once at
+ * room entry, after map loading and before camera setup, and held throughout
+ * the room. Late tile animation/streaming must not change camera framing. */
+void Port_Widescreen_PublishScene(void) {
+    PortViewportScene scene = { 0, gRoomControls.width, gRoomControls.height };
+    if (gMain.task == TASK_GAME) {
+        scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
+        uint64_t key = Port_WidescreenRoomKey();
+        if (key != sWsContentKey) {
+            sWsContentKey = key;
+            sWsContentPx = Port_WidescreenScanContentPx();
+        }
+        if (gRoomControls.scrollAction == 2 || gRoomControls.scrollAction == 4 ||
+            gRoomControls.scrollAction == 5)
+            scene.capabilities |= PORT_SCENE_NATIVE_TRANSITION;
+        int target = Port_Widescreen_TargetViewWidth();
+        if (target > scene.roomWidth)
+            target = scene.roomWidth;
+        if (sWsContentPx > 0 && sWsContentPx < target)
+            scene.capabilities |= PORT_SCENE_NATIVE_CONTENT;
+        if ((gMapBottom.bgSettings != NULL &&
+             Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control) >= 0) ||
+            (gMapTop.bgSettings != NULL &&
+             Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control) >= 0) ||
+            Port_WidescreenRepeatingOverlayLive())
+            scene.capabilities |= PORT_SCENE_MAP_LIVE;
+    } else {
+        /* Re-entering the same room after a non-game task reloads its maps. */
+        sWsContentKey = UINT64_MAX;
+    }
+    Port_Viewport_PublishScene(scene);
+}
+
+void Port_Widescreen_RoomLoaded(void) {
+    sWsContentKey = UINT64_MAX;
+    Port_Widescreen_PublishScene();
+    if (Port_Widescreen_TargetViewWidth() > 240 && getenv("TMC_WS_TRACE") != NULL) {
+        fprintf(stderr, "[ws] area=0x%02x room=0x%02x width=%d content_px=%d -> %s\n",
+                (unsigned)gRoomControls.area, (unsigned)gRoomControls.room, (int)gRoomControls.width,
+                (int)sWsContentPx, Port_Widescreen_FallbackNative() ? "native-240" : "wide");
+    }
+}
+
 /* Called per-VBlank from src/interrupts.c::UpdateDisplayControls. */
 void Port_Widescreen_UpdateShadows(void) {
     for (int i = 0; i < MODE1_GBA_BG_COUNT; i++)
@@ -1252,26 +1256,7 @@ void Port_Widescreen_UpdateShadows(void) {
     virtuappu_mode1_ws_hud_right_anchor = 0;
     virtuappu_mode1_ws_msg_shift = 0;
 
-    /* Refresh the per-room content-width signal BEFORE the IsActive gate
-     * (FallbackNative consumes it). Keyed on area|room|origin; ratcheted so
-     * late-streaming map data can only widen, never flip wide->native
-     * mid-room. ~16K u16 reads worst case, once per vblank — negligible. */
-    if (gMain.task == TASK_GAME && Port_Widescreen_TargetViewWidth() > 240) {
-        u32 key = Port_WidescreenRoomKey();
-        if (key != sWsContentKey) {
-            sWsContentKey = key;
-            sWsContentPx = 0;
-        }
-        s32 px = Port_WidescreenScanContentPx();
-        if (px > sWsContentPx) {
-            sWsContentPx = px;
-            if (getenv("TMC_WS_TRACE") != NULL) {
-                fprintf(stderr, "[ws] area=0x%02x room=0x%02x width=%d content_px=%d -> %s\n",
-                        (unsigned)gRoomControls.area, (unsigned)gRoomControls.room, (int)gRoomControls.width,
-                        (int)sWsContentPx, Port_Widescreen_FallbackNative() ? "native-240" : "wide");
-            }
-        }
-    }
+    Port_Widescreen_PublishScene();
 
     if (!Port_Widescreen_IsActive()) {
         return;
@@ -1328,15 +1313,21 @@ void Port_Widescreen_UpdateShadows(void) {
     }
     /* Extend known repeating overlays only; other BG3 canvases stay native.
      * CloudOverlayManager uses priority 1; Woods and steam use priority 0. */
-    if (((gRoomControls.area == AREA_MINISH_WOODS && gScreen.bg3.control == 0x1e04) ||
-         (gRoomControls.area == AREA_HYRULE_FIELD && gScreen.bg3.control == 0x1e05) ||
-         (gRoomControls.area == AREA_CAVE_OF_FLAMES && gScreen.bg3.control == 0x1e04)) &&
-        (gScreen.lcd.displayControl & DISPCNT_BG3_ON) && virtuappu_mode1_ws_shadow[3] == NULL) {
+    if (Port_WidescreenRepeatingOverlayLive() && virtuappu_mode1_ws_shadow[3] == NULL) {
         Port_WidescreenShadow_PopulateOverlay((const u16*)(gVram + 0xf000), sWsShadowOverlay);
     }
 }
 #else
-void Port_Widescreen_UpdateShadows(void) { /* no-op at native 240 */
+void Port_Widescreen_PublishScene(void) {
+    PortViewportScene scene = { gMain.task == TASK_GAME ? PORT_SCENE_WORLD : 0,
+                                gRoomControls.width, gRoomControls.height };
+    Port_Viewport_PublishScene(scene);
+}
+void Port_Widescreen_RoomLoaded(void) {
+    Port_Widescreen_PublishScene();
+}
+void Port_Widescreen_UpdateShadows(void) {
+    Port_Widescreen_PublishScene();
 }
 int Port_Widescreen_FallbackNative(void) {
     return 1;
@@ -1362,7 +1353,7 @@ int Port_Widescreen_TargetViewWidth(void) {
 /* Height stays native until scene capabilities validate vertical streaming,
  * sprite visibility and raster continuation as one coherent world aperture. */
 int Port_Widescreen_EffectiveViewHeight(void) {
-    return PORT_VIEWPORT_NATIVE_HEIGHT;
+    return Port_Viewport_Get()->world.height;
 }
 
 unsigned Port_Widescreen_MapBufferSize(void) {

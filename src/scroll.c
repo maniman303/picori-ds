@@ -86,6 +86,9 @@ void UpdateScroll(void) {
         Scroll0, Scroll1, Scroll2, NULL, Scroll4, Scroll5,
     };
 
+#ifdef PC_PORT
+    Port_Widescreen_PublishScene();
+#endif
     gRoomControls.scroll_flags &= 0xfb;
     gUnk_0811E768[gRoomControls.scrollAction](&gRoomControls);
 }
@@ -306,7 +309,7 @@ void sub_0807FEC8(RoomControls* controls) {
     /* The last rolling update still contains outgoing-room tiles. Restore
      * the wide camera and fully refill VRAM before revealing the sides. */
     {
-        extern int Port_Widescreen_EffectiveViewWidth(void);
+        Port_Widescreen_PublishScene();
         if (Port_Widescreen_EffectiveViewWidth() > 240) {
             sub_080809D4();
         }
@@ -338,7 +341,7 @@ void Scroll4Sub1(RoomControls* controls) {
             controls->scrollAction = 0;
 #if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
             {
-                extern int Port_Widescreen_EffectiveViewWidth(void);
+                Port_Widescreen_PublishScene();
                 if (Port_Widescreen_EffectiveViewWidth() > 240) {
                     sub_080809D4();
                 }
@@ -494,7 +497,7 @@ void Scroll5Sub5(RoomControls* controls) {
         /* The iris rendered at native width. Restore the wide camera and
          * request native tilemap refresh before this frame is presented. */
         {
-            extern int Port_Widescreen_EffectiveViewWidth(void);
+            Port_Widescreen_PublishScene();
             if (Port_Widescreen_EffectiveViewWidth() > 240) {
                 sub_080809D4();
             }
@@ -871,6 +874,7 @@ void InitScreenShake(u32 time, u32 magnitude) {
 
 void sub_08080974(u32 arg0, u32 arg1) {
 #ifdef PC_PORT
+    Port_Widescreen_PublishScene();
     gRoomControls.scroll_x = (s16)Port_Widescreen_CameraRestX((s32)arg0);
     gRoomControls.scroll_y = (s16)Port_Widescreen_CameraRestY((s32)arg1);
     sub_080809D4();
@@ -910,6 +914,7 @@ void sub_08080974(u32 arg0, u32 arg1) {
 
 void sub_080809D4(void) {
 #ifdef PC_PORT
+    Port_Widescreen_PublishScene();
     gRoomControls.scroll_flags &= ~4;
     gRoomControls.scroll_x = (s16)Port_Widescreen_CameraRestX(gRoomControls.camera_target->x.HALF.HI);
     gRoomControls.scroll_y = (s16)Port_Widescreen_CameraRestY(gRoomControls.camera_target->y.HALF.HI);

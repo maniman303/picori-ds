@@ -57,12 +57,29 @@ enum {
     PORT_VIEWPORT_UNSUPPORTED = 1u << 1
 };
 
+/* Semantic inputs supplied by the engine adapter, never inferred in pixel
+ * loops. Vertical world reveal remains disabled regardless of these flags. */
+enum {
+    PORT_SCENE_WORLD = 1u << 0,
+    PORT_SCENE_WIDE_WORLD = 1u << 1,
+    PORT_SCENE_MAP_LIVE = 1u << 2,
+    PORT_SCENE_NATIVE_TRANSITION = 1u << 3,
+    PORT_SCENE_NATIVE_CONTENT = 1u << 4
+};
+
+typedef struct {
+    uint32_t capabilities;
+    int roomWidth, roomHeight;
+} PortViewportScene;
+
 typedef struct {
     PortAspectMode selectedAspect;
     PortAspectMode effectiveAspect;
     PortViewportRect canvas;
     PortViewportRect nativeContent;
     PortViewportRect uiSafe;
+    PortViewportRect world;
+    PortViewportScene scene;
     int capacityWidth, capacityHeight, pitchPixels;
     uint32_t flags;
     uint32_t generation;
@@ -73,10 +90,15 @@ typedef struct {
  * Storage remains valid until the next publication after workers complete.
  * Unsupported preferences are retained but use effective native geometry.
  * False means invalid capacity/pitch; the previous snapshot is retained.
- * Room/transition aperture decisions still belong to the widescreen wrappers. */
+ * Scene decisions are retained and recomputed against the new canvas. */
 bool Port_Viewport_Publish(PortAspectMode selected, bool consoleParity,
                            int capacityWidth, int capacityHeight, int pitchPixels);
 const PortViewportGeometry* Port_Viewport_Get(void);
+
+/* Simulation-side publication at room/transition and display boundaries.
+ * Pure policy: no game globals, file access or allocation. Invalid extents
+ * fail closed to native; a room cap never changes canvas or UI dimensions. */
+void Port_Viewport_PublishScene(PortViewportScene scene);
 
 /* One translation for the complete original fixed-screen composition. This
  * rectangle does not describe the world aperture or live-gameplay UI bounds. */

@@ -15,8 +15,32 @@ static const PortViewportProfile sProfiles[] = {
 static PortViewportGeometry sGeometry = {
     PORT_ASPECT_NATIVE_3_2, PORT_ASPECT_NATIVE_3_2,
     { 0, 0, 240, 160 }, { 0, 0, 240, 160 }, { 0, 0, 240, 160 },
+    { 0, 0, 240, 160 }, { 0, 0, 0 },
     240, 160, 240, 0, 0
 };
+
+static void ResolveWorld(void) {
+    PortViewportRect world = { 0, 0, 240, 160 };
+    const PortViewportScene* scene = &sGeometry.scene;
+    const uint32_t required = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
+    if ((scene->capabilities & required) == required &&
+        !(scene->capabilities & (PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT)) &&
+        scene->roomWidth > 240 && scene->roomHeight > 0) {
+        world.width = scene->roomWidth < sGeometry.canvas.width ? scene->roomWidth : sGeometry.canvas.width;
+    }
+    world.x = (sGeometry.canvas.width - world.width) / 2;
+    world.y = (sGeometry.canvas.height - world.height) / 2;
+    sGeometry.world = world;
+}
+
+void Port_Viewport_PublishScene(PortViewportScene scene) {
+    if (sGeometry.scene.capabilities == scene.capabilities &&
+        sGeometry.scene.roomWidth == scene.roomWidth && sGeometry.scene.roomHeight == scene.roomHeight)
+        return;
+    sGeometry.scene = scene;
+    ResolveWorld();
+    ++sGeometry.generation;
+}
 
 const PortViewportProfile* Port_Viewport_ProfileForAspect(PortAspectMode aspect) {
     switch (aspect) {
@@ -78,6 +102,7 @@ bool Port_Viewport_Publish(PortAspectMode selected, bool consoleParity,
     sGeometry.capacityHeight = capacityHeight;
     sGeometry.pitchPixels = pitchPixels;
     sGeometry.flags = flags;
+    ResolveWorld();
     ++sGeometry.generation;
     return true;
 }
