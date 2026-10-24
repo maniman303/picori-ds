@@ -574,6 +574,14 @@ extern "C" bool Port_GPU_ClaimWindow(SDL_Window* window, int fb_width, int fb_he
     return true;
 }
 
+static bool Port_GPU_PresetGeometrySupported(void) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    /* Custom preset source-scaled intermediates are not rebuilt on a source
+     * resize yet. New canvas layouts use the stock GPU filter/presentation
+     * path until that lifecycle and full-canvas composition are validated. */
+    return geometry->canvas.height == 160 && geometry->canvas.width <= 512;
+}
+
 extern "C" bool Port_GPU_PresentFrame(const uint32_t* fb, int fb_w, int fb_h, int fb_pitch_bytes) {
     /* shm publish moved to port_ppu.cpp so the RT consumer always sees
      * the GBA-native 240×160 framebuffer + BG/sprite planes at matching
@@ -711,8 +719,9 @@ extern "C" bool Port_GPU_PresentFrame(const uint32_t* fb, int fb_w, int fb_h, in
      * to the swapchain texture, and we re-open an EndRenderPass-friendly
      * render pass for ImGui). */
     static uint32_t s_frame_counter = 0;
-    if (Port_GlslpRuntime_IsActive() && Port_GlslpRuntime_PresentFrame(cmd, sSourceTexture, swap_tex, (int)swap_w,
-                                                                       (int)swap_h, fb_w, fb_h, s_frame_counter++)) {
+    if (Port_GPU_PresetGeometrySupported() && Port_GlslpRuntime_IsActive() &&
+        Port_GlslpRuntime_PresentFrame(cmd, sSourceTexture, swap_tex, (int)swap_w,
+                                       (int)swap_h, fb_w, fb_h, s_frame_counter++)) {
         /* ImGui still wants to draw after the runtime's last pass.
          * Open one more clear-and-load render pass on the swapchain
          * (load_op = LOAD so we keep the runtime's output) and run
@@ -811,56 +820,9 @@ extern "C" bool Port_GPU_PresentFrame(const uint32_t* fb, int fb_w, int fb_h, in
      * BLURRED_FRAME. */
     int stageX = 0, stageY = 0, stageW = (int)swap_w, stageH = (int)swap_h;
     int frameX = 0, frameY = 0, frameW = (int)swap_w, frameH = (int)swap_h;
-    {
-        const int FW = fb_w;
-        const int FH = fb_h;
-        int aspW = FW, aspH = FH;
-        const PortAspectMode mode = Port_Config_AspectMode();
-        switch (mode) {
-            case PORT_ASPECT_WIDESCREEN_16_9:
-                aspW = 16;
-                aspH = 9;
-                break;
-            case PORT_ASPECT_ULTRAWIDE_21_9:
-                aspW = 21;
-                aspH = 9;
-                break;
-            case PORT_ASPECT_SUPER_ULTRAWIDE_32_9:
-                aspW = 32;
-                aspH = 9;
-                break;
-            case PORT_ASPECT_NATIVE_3_2:
-            default:
-                /* "No constraint": stage spans the whole swapchain (see
-                 * Port_PPU_ComputeViewportRects — identical for black fill,
-                 * lets solid/blurred fills cover the entire monitor). */
-                aspW = (int)swap_w;
-                aspH = (int)swap_h;
-                break;
-        }
-        const int w = (int)swap_w;
-        const int h = (int)swap_h;
-
-        if (w * aspH >= h * aspW) {
-            stageH = h;
-            stageW = (h * aspW) / aspH;
-        } else {
-            stageW = w;
-            stageH = (w * aspH) / aspW;
-        }
-        stageX = (w - stageW) / 2;
-        stageY = (h - stageH) / 2;
-
-        if (stageW * FH >= stageH * FW) {
-            frameH = stageH;
-            frameW = (stageH * FW) / FH;
-        } else {
-            frameW = stageW;
-            frameH = (stageW * FH) / FW;
-        }
-        frameX = stageX + (stageW - frameW) / 2;
-        frameY = stageY + (stageH - frameH) / 2;
-    }
+    Port_PPU_ComputeViewportRects((int)swap_w, (int)swap_h, fb_w, fb_h,
+                                  &stageX, &stageY, &stageW, &stageH,
+                                  &frameX, &frameY, &frameW, &frameH);
 
     SDL_GPUTextureSamplerBinding tsb = {};
     /* When a prepass ran, the main pass reads the blurred intermediate

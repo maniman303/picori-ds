@@ -5,15 +5,20 @@
 /* Shared names are the public artist contract in export_screen_backgrounds.py.
  * Menu includes inventory/quest/pieces/techniques, all map-detail variants,
  * fast travel, local hints, and save/sleep prompts. Kinstone includes all seven
- * fusion variants. Original frames, maps, widgets and text are foreground. */
+ * fusion variants. Both families keep separate normal/damaged/critical images.
+ * Original frames, maps, widgets and text are foreground. */
 static const PortScreenBackground sBackgrounds[PORT_BACKGROUND_COUNT] = {
     [PORT_BACKGROUND_UNCLASSIFIED] = { PORT_BACKGROUND_SOURCE_NONE, NULL },
     [PORT_BACKGROUND_LIVE_WORLD] = { PORT_BACKGROUND_SOURCE_NONE, NULL },
     [PORT_BACKGROUND_BOOT_LOGOS] = { PORT_BACKGROUND_SOURCE_LOGO_FIELD, NULL },
     [PORT_BACKGROUND_TITLE] = { PORT_BACKGROUND_SOURCE_IMAGE, "title_screen.png" },
     [PORT_BACKGROUND_FILE_SELECT] = { PORT_BACKGROUND_SOURCE_IMAGE, "file_select.png" },
-    [PORT_BACKGROUND_MENU] = { PORT_BACKGROUND_SOURCE_IMAGE, "menu_background.png" },
-    [PORT_BACKGROUND_KINSTONE] = { PORT_BACKGROUND_SOURCE_IMAGE, "kinstone_background.png" },
+    [PORT_BACKGROUND_MENU_NORMAL] = { PORT_BACKGROUND_SOURCE_IMAGE, "menu_background_normal.png" },
+    [PORT_BACKGROUND_MENU_DAMAGED] = { PORT_BACKGROUND_SOURCE_IMAGE, "menu_background_damaged.png" },
+    [PORT_BACKGROUND_MENU_CRITICAL] = { PORT_BACKGROUND_SOURCE_IMAGE, "menu_background_critical.png" },
+    [PORT_BACKGROUND_KINSTONE_NORMAL] = { PORT_BACKGROUND_SOURCE_IMAGE, "kinstone_background_normal.png" },
+    [PORT_BACKGROUND_KINSTONE_DAMAGED] = { PORT_BACKGROUND_SOURCE_IMAGE, "kinstone_background_damaged.png" },
+    [PORT_BACKGROUND_KINSTONE_CRITICAL] = { PORT_BACKGROUND_SOURCE_IMAGE, "kinstone_background_critical.png" },
     [PORT_BACKGROUND_PROLOGUE_01] = { PORT_BACKGROUND_SOURCE_IMAGE, "prologue_01.png" },
     [PORT_BACKGROUND_PROLOGUE_02] = { PORT_BACKGROUND_SOURCE_IMAGE, "prologue_02.png" },
     [PORT_BACKGROUND_PROLOGUE_03] = { PORT_BACKGROUND_SOURCE_IMAGE, "prologue_03.png" },

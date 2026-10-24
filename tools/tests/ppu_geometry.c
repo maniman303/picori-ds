@@ -213,7 +213,9 @@ static void check_snapshot(void) {
 int main(void) {
     VirtuaPPUMode1GbaMemory mem = { io, vram, bgpal, objpal, oam };
     virtuappu_mode1_bind_gba_memory(&mem);
-    width = MODE1_GBA_WIDTH >= 256 ? 256 : 240;
+    // Exercise the full future width/height allocation envelope without
+    // enabling any runtime profile. Smaller builds retain padded-pitch cases.
+    width = MODE1_GBA_WIDTH >= 569 ? 569 : MODE1_GBA_WIDTH >= 256 ? 256 : 240;
     reset();
     PPUMemory p = geometry(0, 1);
     virtuappu_mode1_set_frame_geometry(&p);

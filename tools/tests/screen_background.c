@@ -181,10 +181,18 @@ int main(void) {
             assert(background->filename == NULL);
         }
     }
-    assert(images == 19);
+    assert(images == 23);
     assert(strcmp(Port_Background_Get(PORT_BACKGROUND_TITLE, false)->filename, "title_screen.png") == 0);
     assert(strcmp(Port_Background_Get(PORT_BACKGROUND_FILE_SELECT, false)->filename, "file_select.png") == 0);
-    assert(strcmp(Port_Background_Get(PORT_BACKGROUND_MENU, false)->filename, "menu_background.png") == 0);
-    assert(strcmp(Port_Background_Get(PORT_BACKGROUND_KINSTONE, false)->filename, "kinstone_background.png") == 0);
+    static const struct { PortBackgroundContext context; const char* filename; } menus[] = {
+        { PORT_BACKGROUND_MENU_NORMAL, "menu_background_normal.png" },
+        { PORT_BACKGROUND_MENU_DAMAGED, "menu_background_damaged.png" },
+        { PORT_BACKGROUND_MENU_CRITICAL, "menu_background_critical.png" },
+        { PORT_BACKGROUND_KINSTONE_NORMAL, "kinstone_background_normal.png" },
+        { PORT_BACKGROUND_KINSTONE_DAMAGED, "kinstone_background_damaged.png" },
+        { PORT_BACKGROUND_KINSTONE_CRITICAL, "kinstone_background_critical.png" },
+    };
+    for (unsigned i = 0; i < sizeof(menus) / sizeof(menus[0]); ++i)
+        assert(strcmp(Port_Background_Get(menus[i].context, false)->filename, menus[i].filename) == 0);
     return 0;
 }

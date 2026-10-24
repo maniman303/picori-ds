@@ -484,11 +484,22 @@ bool TopMapShown(void) {
     return gMapTop.bgSettings != nullptr && MapShownPct(gMapTop, gMapDataTopSpecial) >= 50;
 }
 
+bool ScreenGeometrySupported(void) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    /* The three screen-space layers, projection and packed OAM decoder still
+     * use 160 rows / 9-bit X. Decline before Init/EnsureDepth or GPU uploads;
+     * the normal 2D presenter then handles this frame. Check the canvas too
+     * so a temporary native room/raster fallback cannot reactivate 3D. */
+    return geometry->canvas.height == 160 && geometry->canvas.width <= 512 &&
+           virtuappu_mode1_frame_height() == 160 && !virtuappu_mode1_has_obj_positions();
+}
+
 /* Room gameplay with the bottom map on screen (not a menu, subtask, or a
  * cutscene/boss that repurposes the BGs). The beanstalk climbs are side-view
  * paintings with nothing to stand up, so they stay 2D. */
 bool SceneApplicable(void) {
-    return gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN && gMain.substate != GAMEMAIN_SUBTASK &&
+    return ScreenGeometrySupported() && gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN &&
+           gMain.substate != GAMEMAIN_SUBTASK &&
            gMapBottom.bgSettings != nullptr && gRoomControls.width != 0 && gRoomControls.width <= 1024 &&
            gRoomControls.height <= 1024 &&
            !(gRoomControls.area == AREA_BEANSTALKS && (gRoomControls.scroll_flags & 1)) && BottomMapShown();

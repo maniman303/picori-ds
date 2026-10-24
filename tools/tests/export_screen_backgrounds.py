@@ -5,13 +5,55 @@ from pathlib import Path
 import struct
 import sys
 import unittest
+from unittest.mock import patch
 import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from export_screen_backgrounds import Rom, Scene, png_bytes, solid_bottom_center_reference
+from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS,
+                                       Rom, Scene, menu_recipes, png_bytes, solid_bottom_center_reference)
 
 
 class ExportFormats(unittest.TestCase):
+    def test_menu_health_recipes(self):
+        class RecordingScene:
+            def __init__(self, rom):
+                self.groups, self.palettes, self.uploads = [], [], []
+
+            def gfx(self, group):
+                self.groups.append(group)
+
+            def pal(self, group):
+                self.palettes.append(group)
+
+            def upload(self, bg, control):
+                self.uploads.append((bg, control))
+
+        with patch('export_screen_backgrounds.Scene', RecordingScene):
+            exports = list(menu_recipes(None))
+        self.assertEqual(MENU_HEALTH_VARIANTS, ('normal', 'damaged', 'critical'))
+        expected = {
+            'menu_background_normal': [86], 'menu_background_damaged': [87],
+            'menu_background_critical': [88], 'kinstone_background_normal': [86,117,118],
+            'kinstone_background_damaged': [87,117,118], 'kinstone_background_critical': [88,117,118],
+        }
+        self.assertEqual({name for name, *_ in exports}, set(expected))
+        for name, scene, layers, backdrop in exports:
+            self.assertEqual(scene.groups, expected[name])
+            fusion = name.startswith('kinstone_')
+            self.assertEqual(scene.palettes, [181,203] if fusion else [181])
+            self.assertEqual(scene.uploads, [(bg, control) for bg, control, _, _ in layers])
+            self.assertEqual(layers, [(1,0x1c01,0,0), (2,0x1d02,0,0), (3,0x1e0b,0,0)]
+                             if fusion else [(3,0x1e0b,0,0)])
+            self.assertIsNone(backdrop)
+        self.assertEqual(len(IMAGE_CONTEXTS), 23)
+        self.assertNotIn('menu_background', IMAGE_CONTEXTS)
+        self.assertNotIn('kinstone_background', IMAGE_CONTEXTS)
+        for health in MENU_HEALTH_VARIANTS:
+            self.assertEqual(IMAGE_CONTEXTS[f'menu_background_{health}'],
+                             tuple(f'{context}_{health}' for context in MENU_CONTEXTS))
+            self.assertEqual(IMAGE_CONTEXTS[f'kinstone_background_{health}'],
+                             tuple(f'kinstone_fusion_{i:02d}_{health}' for i in range(1,8)))
+
     def test_bottom_center_reference(self):
         # Distinguish the requested border pixel from the center and corners.
         pixels = bytearray([1, 2, 3] * (240*160))

@@ -6,7 +6,7 @@ or completed checks, not a claim that the renderer supports the new profiles.
 
 ## 1. Catalog and baseline
 
-- [x] Add a port-owned, C-compatible catalog for the 19 shared image names.
+- [x] Add a port-owned, C-compatible catalog for the 23 shared image names (including six menu health/family variants).
 - [x] Distinguish live/unknown screens, image families, generated black,
   the logo field, and live palette-zero fields. Disable every source in parity.
 - [x] Test actual catalog filenames against the standalone exporter's public
@@ -79,8 +79,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
   keep unsupported taller GPU rasterization on software fallback.
 - [x] Audit initial height-related scratch/storage changes: retain the existing
   160-row IO snapshots and upscale pools; bound affine scratch at 192 rows.
-- [ ] Finish allocation/path audits before increasing build capacity to 569 by
+- [x] Finish allocation/path audits before increasing build capacity to 569 by
   192, including optional filter/voxel/HD-text behavior and scene composition.
+  See the [presentation allocation audit](presentation-allocation-audit.md).
 - [ ] Update `build.py`, RG builds and tools together. Preserve N64 native-only
   constraints and verify original native golden pixels before taller rendering.
 
@@ -125,7 +126,8 @@ or tile alignment. Native-content centering continues to use floor offsets.
 ## 5. Margin composition
 
 - [ ] Add a game-state adapter selecting catalog contexts at scene boundaries;
-  track the installed prologue/credits illustration across text commands/fades.
+  track the installed prologue/credits illustration across text commands/fades
+  and the installed normal/damaged/critical menu or kinstone decoration.
 - [ ] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
 - [ ] Implement procedural fields and black fallback with correct global effects;
@@ -136,8 +138,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
 ## 6. Artwork loading
 
 - [ ] Decode exact-size ordinary PNGs with libpng limits and safe error cleanup;
-  resolve only the selected ratio and shared family filename. Validate width
-  and height against the table above, including ceiling-rounded widths.
+  resolve only the selected ratio and exact shared family/health filename. Never
+  substitute another health state or menu family. Validate width and height
+  against the table above, including ceiling-rounded widths.
 - [ ] Test accepting each selected profile's exact size and rejecting a file
   sized for another ratio, floor-rounded widths (284/373/568), and wrong heights.
 - [ ] Cache current/incoming image bytes within 8 MiB steady / 16 MiB peak;
@@ -414,3 +417,59 @@ assets packaged. This step does not classify individual managers, vertical
 residency, shake fallbacks or raster continuations. Regional scene captures,
 native pixel comparisons for this step, GPU execution and physical RG budgets
 remain unverified; the repro harness remains disabled in the release config.
+
+
+## Presentation allocation/path verification (2026-10-25)
+
+The [allocation audit](presentation-allocation-audit.md) records storage formulas,
+width-384/569 totals, optional-path fallback decisions and the pending compositor
+boundary. Upscale pools retain their pixel-count budgets, which at capacity 569
+fit every v1 profile without reserving the full 569 × 192 Cartesian envelope at
+every scale. Arithmetic/pitch checks now reject invalid inputs before copying.
+Voxel, custom-preset and HD-text gates keep unsupported layouts on their normal
+2D/stock-filter/original-text fallbacks. Both SDL presenters and overlays now use
+one viewport fitting function consuming the published effective aspect.
+
+Verification:
+
+```sh
+ASAN_OPTIONS=detect_leaks=0 python3 tools/presentation_geometry_regression_test.py
+ASAN_OPTIONS=detect_leaks=0 python3 tools/ppu_geometry_regression_test.py
+bash tools/hd_text_regression_test.sh
+python3 tools/screen_background_regression_test.py
+python3 tools/widescreen_engine_regression_test.py
+python3 tools/widescreen_scroll_regression_test.py
+python3 tools/widescreen_regression_test.py
+xmake build -y tmc_pc
+```
+
+All pass, plus EU startup under QEMU/dummy video/audio. The new sanitizer harness
+runs production presentation helpers, upscaling and all CPU filters at capacities
+240/384/569, including padded pitch and exact/over-capacity storage. The existing
+PPU geometry harness now also checks a full synthetic 569 × 192 frame and retains
+its N64 native guard. No PPU source, golden hash, build capacity or profile
+availability was changed. RG device budgets, GPU execution and regional native
+pixel captures remain unverified. Build/tool capacity synchronization is next.
+
+
+## Menu health/family split restored (2026-10-25)
+
+General-menu and kinstone backgrounds each have explicit normal, damaged and
+critical images: six filenames, 23 catalog images total, plus the reference-only
+map-hint swatch in native exports. The exporter uses graphics groups 0x56/0x57/
+0x58 from `sub_080A4D34` for each family's health decoration and retains the
+representative fusion layout across its seven variants. The old unsuffixed
+filenames are retired. Runtime selection must follow the installed decoration;
+missing art uses black rather than another state/family. Full state-adapter,
+PNG loading and composition implementation remains pending.
+
+
+Verification: C11/C++17 catalog/exporter agreement and UBSan checks pass for all
+23 image names; exporter recipe tests cover all six exact graphics-group/layer
+combinations. The local EU export yields 24 PNGs with three distinct pixel
+outputs in each menu family. Existing normal reference/artwork files in `32/`
+and `43/` were renamed to the explicit `_normal` names with their bytes
+preserved. Damaged/critical native references and the contact sheet/README were
+regenerated; custom 4:3 damaged/critical artwork remains to be supplied. The RG
+ARM64 build and EU startup smoke under QEMU pass. Regional captures and runtime
+state-adapter/compositor integration remain pending.

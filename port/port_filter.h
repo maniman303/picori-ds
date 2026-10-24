@@ -13,9 +13,10 @@
  * distinctive properties of its namesake (colour cast, mask pattern,
  * scanline shape, signal-style smear) but won't be pixel-identical.
  *
- * All filters operate on ABGR8888 buffers at native 240*S × 160*S
- * (where S is the internal render scale). The mask patterns assume
- * S >= 3 to be visible — at 1× there aren't enough pixels per
+ * All filters operate on tightly packed ABGR8888 buffers at the selected
+ * frame's width*S × height*S (where S is the internal render scale).
+ * The caller checks its workspace capacity before filtering. Mask patterns
+ * assume S >= 3 to be visible — at 1× there aren't enough pixels per
  * "phosphor cell" for the pattern to read as a CRT.
  */
 

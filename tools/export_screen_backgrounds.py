@@ -227,12 +227,15 @@ MENU_CONTEXTS = (
     'map_detail_09_house_built', 'map_detail_11_fusion_done',
     'map_detail_14_interior_1', 'map_detail_14_interior_2', 'map_detail_14_interior_3',
 )
+MENU_HEALTH_VARIANTS = ('normal', 'damaged', 'critical')
 IMAGE_CONTEXTS = {
     'title_screen': ('title',),
     'file_select': ('file_select', 'new_file', 'file_copy', 'file_erase',
                     'file_select_name_entry', 'file_select_options', 'file_select_language'),
-    'menu_background': MENU_CONTEXTS,
-    'kinstone_background': tuple(f'kinstone_fusion_{variant:02d}' for variant in range(1, 8)),
+    **{f'menu_background_{health}': tuple(f'{context}_{health}' for context in MENU_CONTEXTS)
+       for health in MENU_HEALTH_VARIANTS},
+    **{f'kinstone_background_{health}': tuple(f'kinstone_fusion_{variant:02d}_{health}' for variant in range(1, 8))
+       for health in MENU_HEALTH_VARIANTS},
     **{f'prologue_{page:02d}': (f'prologue_page_{page}',) for page in range(1, 7)},
     **{f'credits_{page:02d}': (f'credits_illustration_{page}',) for page in range(1, 9)},
     'ending_screen': ('ending_card',),
@@ -257,6 +260,32 @@ def solid_bottom_center_reference(pixels):
     return pixels[offset:offset+3] * (WIDTH*HEIGHT)
 
 
+def menu_recipes(rom):
+    # sub_080A4D34 selects 0x56/0x57/0x58 at menu installation:
+    # critical if health <= 8, otherwise damaged if missing health >= 9.
+    # Keep all three decorations separate in each family. Screen-specific
+    # slots, map UI, frames and prompts are still original foreground.
+    for index, health in enumerate(MENU_HEALTH_VARIANTS):
+        value = Scene(rom)
+        value.gfx(0x56 + index)
+        value.pal(181)
+        value.upload(3, 0x1e0b)
+        yield f'menu_background_{health}', value, [(3, 0x1e0b, 0, 0)], None
+
+    # All seven fusion choices share one stone-table reference per installed
+    # health decoration. Retain the same representative fusion layout.
+    for index, health in enumerate(MENU_HEALTH_VARIANTS):
+        value = Scene(rom)
+        for group in (0x56 + index, 117, 118):
+            value.gfx(group)
+        for palette in (181, 203):
+            value.pal(palette)
+        layers = [(1, 0x1c01, 0, 0), (2, 0x1d02, 0, 0), (3, 0x1e0b, 0, 0)]
+        for bg, control, _, _ in layers:
+            value.upload(bg, control)
+        yield f'kinstone_background_{health}', value, layers, None
+
+
 def recipes(rom):
     def scene(groups, palettes):
         value = Scene(rom)
@@ -276,19 +305,7 @@ def recipes(rom):
         value.palette[bank*32:(bank+1)*32] = rom.read(rom.blob+source, 32)
     yield 'file_select', value, [(3, 0x1e0b, 0, 0)], None
 
-    # sub_080A4D34: use the clean hat-pattern decoration, without any screen's
-    # inventory slots, map/frame, prompts, or health-dependent tilemap variant.
-    value = scene([86], [181])
-    value.upload(3, 0x1e0b)
-    yield 'menu_background', value, [(3, 0x1e0b, 0, 0)], None
-
-    # All seven choices keep the same stone-table setting. The varying pieces
-    # and normal game UI stay on their original native canvas at runtime.
-    value = scene([86, 117, 118], [181, 203])
-    for bg, control in [(1, 0x1c01), (2, 0x1d02), (3, 0x1e0b)]:
-        value.upload(bg, control)
-    yield 'kinstone_background', value, [(1, 0x1c01, 0, 0), (2, 0x1d02, 0, 0),
-                                         (3, 0x1e0b, 0, 0)], None
+    yield from menu_recipes(rom)
 
     # Subtask_MapHint_0 disables BG3 and exposes the solid border. Keep only
     # its bottom-center color as a swatch; the map itself stays native UI.
@@ -361,13 +378,21 @@ def main():
               'and covers the middle of the artwork. Only the added margins show. '
               'Missing expected artwork uses solid black; boot logos always use generated '
               'white and have no override. Runtime lookup is still planned.\n\n'
-              '`menu_background.png` is the clean common hat pattern used behind inventory, '
+              '`menu_background_normal.png`, `menu_background_damaged.png`, and '
+              '`menu_background_critical.png` are the three common decorations for inventory, '
               'quest status, map menus and all detail-map variants, fast travel, kinstone '
               'pieces, sword techniques, and save/sleep prompts. The maps and frames are '
               'original foreground UI, not separate background files.\n\n'
-              '`kinstone_background.png` serves all seven fusion variants. The original '
-              'fusion interface remains unchanged in the center.\n\n'
-              'The health-dependent common-menu variants also use menu_background.png. '
+              '`kinstone_background_normal.png`, `kinstone_background_damaged.png`, and '
+              '`kinstone_background_critical.png` serve all seven fusion variants, '
+              'keeping the installed health decoration. The original fusion interface '
+              'remains unchanged in the center.\n\n'
+              'Critical means one heart or less remaining. Otherwise, damaged means '
+              'more than one heart missing; normal means at most one heart missing. '
+              'Selection follows the background installed when opening the menu. '
+              'Each state has its own file; missing artwork uses black, never a '
+              'different health state or the other menu family. Old unsuffixed '
+              'menu_background.png and kinstone_background.png are not lookup names.\n\n'
               'The figurine viewer uses a generated live field color. '
               '`map_hint.png` is a solid color reference sampled from the native screen’s '
               'bottom-center pixel (120, 159): EU #C8E090, RGB (200, 224, 144). '

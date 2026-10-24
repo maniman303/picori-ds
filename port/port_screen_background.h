@@ -10,7 +10,9 @@ extern "C" {
 /* Semantic settings, not GBA BG planes or individual menu layouts. The game
  * state adapter must select these only after the native screen is installed.
  * In particular, a credits text command does not imply CREDITS_CLEARED: an
- * earlier illustration can still be visible beneath it.
+ * earlier illustration can still be visible beneath it. Menu/kinstone health
+ * contexts describe the installed variant from sub_080A4D34 (gfx 86/87/88),
+ * not current health polled during presentation. Each family has three images.
  *
  * This catalog does not read game globals, decode images, or resolve effects.
  * Native foreground content always remains a complete 240x160 composition. */
@@ -20,8 +22,8 @@ typedef enum {
     PORT_BACKGROUND_BOOT_LOGOS,
     PORT_BACKGROUND_TITLE,
     PORT_BACKGROUND_FILE_SELECT,
-    PORT_BACKGROUND_MENU,
-    PORT_BACKGROUND_KINSTONE,
+    PORT_BACKGROUND_MENU_NORMAL,
+    PORT_BACKGROUND_KINSTONE_NORMAL,
     PORT_BACKGROUND_PROLOGUE_01,
     PORT_BACKGROUND_PROLOGUE_02,
     PORT_BACKGROUND_PROLOGUE_03,
@@ -42,6 +44,10 @@ typedef enum {
     PORT_BACKGROUND_ENDING_SAVE,
     PORT_BACKGROUND_FIGURINES,
     PORT_BACKGROUND_MAP_HINT,
+    PORT_BACKGROUND_MENU_DAMAGED,
+    PORT_BACKGROUND_MENU_CRITICAL,
+    PORT_BACKGROUND_KINSTONE_DAMAGED,
+    PORT_BACKGROUND_KINSTONE_CRITICAL,
     PORT_BACKGROUND_COUNT
 } PortBackgroundContext;
 

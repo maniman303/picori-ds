@@ -6,7 +6,8 @@ extern "C" bool Message_CopyTextCanvas(uint8_t* pixels, int capacity, int* x, in
 
 extern "C" void Port_HDText_Draw(const uint32_t* frame, int frameWidth, int frameHeight, int pitchPixels,
                                   float viewportX, float viewportY, float viewportWidth, float viewportHeight) {
-    if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 || frameWidth < 240 || frameHeight != 160)
+    if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 ||
+        !PortHDText::SupportedFrame(frameWidth, frameHeight))
         return;
     uint8_t pixels[PortHDText::kMaxPixels];
     int x, y, width, height;

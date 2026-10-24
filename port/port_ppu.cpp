@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <climits>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -87,6 +88,10 @@ static int sScaledTextureW = 0;
 static int sScaledTextureH = 0;
 static int sScaledTextureScale = 0;
 static constexpr int kMaxInternalScale = 10;
+/* Bound optional workspaces by pixel count, not the Cartesian product of
+ * maximum canvas width and height. At capacity 569 this fits every v1 profile
+ * at 10x (569x160 is larger than 256x192), without a 569x192x100 pool.
+ * Capacity-limited builds fall back to the raw frame if a workspace won't fit. */
 static constexpr size_t kMaxScaledPixels =
     (size_t)MODE1_GBA_WIDTH * (size_t)MODE1_GBA_HEIGHT * (size_t)kMaxInternalScale * (size_t)kMaxInternalScale;
 alignas(64) static uint32_t sScaledBufStorage[kMaxScaledPixels];
@@ -155,22 +160,20 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
     return 240;
 }
 
-/* xBRZ scratch buffers are sized to the frame we are actually presenting:
- * 240x160 in native/fallback scenes, or the profile/room-capped width
- * by 160 while extended world rendering is active. */
+/* Check both fixed pools before running either pass. Keep this separate from
+ * raster capacity: a taller raster can safely fall back to raw presentation. */
 static bool Port_PPU_EnsureXbrzBuffers(int srcW, int srcH) {
-    if (srcW <= 0 || srcH <= 0) {
-        sUpscale2xPixels = 0;
-        sUpscale4xPixels = 0;
+    sUpscale2xPixels = 0;
+    sUpscale4xPixels = 0;
+    if (srcW <= 0 || srcH <= 0 || srcW > INT_MAX / 4 || srcH > INT_MAX / 4) {
         return false;
     }
-    const size_t need2x = (size_t)srcW * 2u * (size_t)srcH * 2u;
-    const size_t need4x = (size_t)srcW * 4u * (size_t)srcH * 4u;
-    if (need2x > kMaxXbrz2xPixels || need4x > kMaxXbrz4xPixels) {
-        sUpscale2xPixels = 0;
-        sUpscale4xPixels = 0;
+    if ((size_t)srcW > (kMaxXbrz2xPixels / 4u) / (size_t)srcH ||
+        (size_t)srcW > (kMaxXbrz4xPixels / 16u) / (size_t)srcH) {
         return false;
     }
+    const size_t need2x = (size_t)srcW * (size_t)srcH * 4u;
+    const size_t need4x = (size_t)srcW * (size_t)srcH * 16u;
     sUpscale2xPixels = need2x;
     sUpscale4xPixels = need4x;
     return true;
@@ -290,7 +293,7 @@ static void Port_PPU_FitAspectRect(int w, int h, int aspW, int aspH, int* outX, 
 // GBA "frame" rect that sits centered inside the stage. Outside the
 // stage is always black. For PORT_ASPECT_NATIVE_3_2 the stage spans the
 // whole window, so the background fill covers everything around the frame.
-static void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int fbH, int* stageX, int* stageY, int* stageW,
+extern "C" void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int fbH, int* stageX, int* stageY, int* stageW,
                                           int* stageH, int* frameX, int* frameY, int* frameW, int* frameH) {
     const int FW = fbW;
     const int FH = fbH;
@@ -469,22 +472,18 @@ static void Port_PPU_ReplicateNearest(uint32_t* dstFrame, const uint32_t* srcFra
  * fixed-pitch widescreen framebuffer. */
 static uint32_t* Port_PPU_BuildScaledFrame(const uint32_t* srcFrame, int FW, int FH, int srcPitchBytes, int S,
                                            int* outW, int* outH) {
+    if (outW)
+        *outW = 0;
+    if (outH)
+        *outH = 0;
     if (S <= 1 || S > kMaxInternalScale || srcFrame == nullptr || FW <= 0 || FH <= 0 ||
-        srcPitchBytes < FW * (int)sizeof(uint32_t)) {
-        if (outW)
-            *outW = 0;
-        if (outH)
-            *outH = 0;
+        FW > INT_MAX / S || FH > INT_MAX / S || srcPitchBytes % (int)sizeof(uint32_t) != 0 ||
+        FW > srcPitchBytes / (int)sizeof(uint32_t)) {
         return nullptr;
     }
     const int w = FW * S;
     const int h = FH * S;
-    const size_t needPixels = (size_t)w * (size_t)h;
-    if (needPixels > kMaxScaledPixels) {
-        if (outW)
-            *outW = 0;
-        if (outH)
-            *outH = 0;
+    if ((size_t)w > kMaxScaledPixels / (size_t)h) {
         return nullptr;
     }
 

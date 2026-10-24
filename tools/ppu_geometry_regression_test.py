@@ -41,7 +41,7 @@ def check_capture_tools(compiler, temporary):
 def main():
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     with tempfile.TemporaryDirectory(prefix='tmc-ppu-geometry-') as directory:
-        for width, n64 in ((240, False), (384, False), (240, True)):
+        for width, n64 in ((240, False), (384, False), (569, False), (240, True)):
             binary = Path(directory) / f'geometry-{width}-{n64}'
             command = compiler + ['-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
                                   '-Wno-unknown-pragmas', '-fsanitize=address,undefined',

@@ -2,6 +2,11 @@
 #include <cstdint>
 
 namespace PortHDText {
+// Expanded canvases retain the original raster text until their shared
+// dialogue/HUD layout is implemented. This is a layout gate, not storage.
+inline bool SupportedFrame(int width, int height) {
+    return width >= 240 && width <= 512 && height == 160;
+}
 constexpr int kMaxPixels = 208 * 32;
 constexpr int kMaxForeground = 2048;
 
