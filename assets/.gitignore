@@ -1,3 +1,9 @@
 *
 !*.json
 !.gitignore
+
+# Custom aspect-ratio artwork is source work, not generated assets.
+!/override/
+!/override/**
+/override/background_contact_sheet.png
+/override/32/
