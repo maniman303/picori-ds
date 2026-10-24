@@ -82,6 +82,20 @@ const PortViewportGeometry* Port_Viewport_Get(void);
  * rectangle does not describe the world aperture or live-gameplay UI bounds. */
 PortViewportRect Port_Viewport_NativeContentRect(const PortViewportProfile* profile);
 
+/* Camera rest on either axis, in world pixels. Oversized views/small rooms
+ * pin to origin. Invalid extents fail closed to origin. Arithmetic is widened
+ * before clamping so even extreme input coordinates cannot overflow. */
+int Port_Viewport_CameraRest(int target, int origin, int roomExtent, int viewExtent);
+
+/* BG rows needed by the unshaken (scroll & 15) + 8 vertical
+ * offset. Zero means the requested height cannot fit a 32-row screenblock.
+ * 160 lines require 23 rows (0x5c0 bytes); 192 require 27 (0x6c0 bytes). */
+int Port_Viewport_MapTileRows(int viewHeight);
+/* Classify the full fractional-scroll envelope with a vertical shake offset.
+ * Zero means the visible interval can wrap outside one 32-row screenblock and
+ * requires a native aperture or an explicit remapping policy. */
+int Port_Viewport_MapTileRowsWithShake(int viewHeight, int shakeY);
+
 #ifdef __cplusplus
 }
 #endif

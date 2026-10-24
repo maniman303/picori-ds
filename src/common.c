@@ -768,6 +768,10 @@ void DispReset(bool32 refresh) {
 }
 
 void ClearOAM(void) {
+#ifdef PC_PORT
+    extern void Port_Oam_Invalidate(void);
+    Port_Oam_Invalidate();
+#endif
     u8* d = (u8*)gOAMControls.oam;
     u8* mem = (u8*)0x07000000;
     u32 i;

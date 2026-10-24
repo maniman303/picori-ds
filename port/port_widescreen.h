@@ -62,6 +62,11 @@ extern "C" {
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
 int Port_Widescreen_EffectiveViewWidth(void);
+/* Vertical world reveal remains native until streaming, OAM and raster
+ * capabilities are published together. Camera/tile callers use this accessor
+ * so future validated taller apertures do not require more engine edits. */
+int Port_Widescreen_EffectiveViewHeight(void);
+unsigned Port_Widescreen_MapBufferSize(void);
 int Port_Widescreen_HudRightAnchor(void);
 /* True while the map BGs are what the PPU renders (>=1 shadow registered);
  * overlay screens (storybook, pause) drop this to 0 -> present native 240. */
@@ -82,6 +87,7 @@ int Port_Widescreen_TargetViewWidth(void);
  * Reduces to the GBA `x - 120` clamped to [origin, origin+width-240] at an
  * effective view width of 240. */
 int Port_Widescreen_CameraRestX(int target_x);
+int Port_Widescreen_CameraRestY(int target_y);
 
 #ifdef __cplusplus
 }

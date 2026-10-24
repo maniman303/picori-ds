@@ -23,7 +23,7 @@ def main():
         binary = Path(directory) / 'test'
         command = shlex.split(os.environ.get('CC', 'cc')) + [
             '-std=gnu11', '-DPC_PORT', '-DMULTI_REGION', '-DUSA', '-DMODE1_GBA_WIDTH=384',
-            '-I.', '-Iinclude', '-Iport', '-I' + directory, 'tools/tests/widescreen_scroll.c', '-o', str(binary)]
+            '-I.', '-Iinclude', '-Iport', '-I' + directory, 'tools/tests/widescreen_scroll.c', 'port/port_viewport.c', '-o', str(binary)]
         subprocess.run(command, cwd=ROOT, check=True)
         subprocess.run([str(binary)], check=True)
 

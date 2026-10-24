@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
+#include "port_viewport.h"
 typedef int16_t s16;
 typedef int32_t s32;
 typedef uint16_t u16;

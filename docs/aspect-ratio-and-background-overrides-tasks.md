@@ -92,9 +92,26 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Classify HDMA continuations and implement full-canvas effect geometry.
   Until then, active callbacks cap the effective aperture at 160. This is an
   interim safety gate while 4:3 remains disabled, not completed 4:3 behavior.
-- [ ] Add two-axis camera-rest and room-aperture helpers, then audit streaming
-  managers/tile residency before exposing rows 160–191.
-- [ ] Audit culling, hidden OAM and signed port coordinates, including X > 511.
+- [x] Add a shared two-axis camera-rest formula and connect port camera snaps,
+  initialization, expanded-height follow and script completion. Preserve native
+  vertical pacing and fix small-room clamp agreement.
+- [x] Share normal map fill/upload row counts by effective world height: 23 rows
+  at 160 and 27 at 192 for the unshaken scroll offset. Validate real normal/shadow
+  pixels at the bottom/right seam without enabling taller gameplay.
+- [x] Record the [vertical streaming audit](vertical-world-streaming-audit.md),
+  including the town/village graphics loaders and special BG/transition paths.
+- [x] Add shake-aware tile-row coverage/padding with bounded backing copies;
+  test positive/negative offsets at every fractional camera phase. Keep native
+  uploads unchanged and expose unsupported-wrap classification to scene selection.
+- [ ] Finish room-aperture publication, unsupported-shake fallback selection,
+  per-manager graphics residency and upload timing before exposing rows 160–191.
+- [x] Add signed per-slot OBJ positions, attribute validation, build/DMA lifetime
+  and explicit hidden/parked semantics to the software/supersampled paths.
+  Verify real Y=160/191 pieces and X > 511 without changing packed OAM.
+- [x] Migrate generic entity/rectangle culling and piece clipping to effective
+  world height. Record the [sprite visibility audit](sprite-coordinate-audit.md).
+- [ ] Complete individual entity/AI/parking and special-effect audits; verify
+  all direct OAM consumers and scene capability decisions before enablement.
 - [ ] Extend transitions one validated case at a time; test camera completion.
 
 ## 4. Layout
@@ -287,3 +304,71 @@ Remaining gates: tall gameplay streaming/camera/culling, semantic HUD/dialogue
 layout, fixed-screen centering, classified raster effects, optional backend
 execution and device budgets. These checks establish the height interface and
 preservation of existing output, not completion of true 4:3 gameplay.
+
+## World camera/normal-streaming verification (2026-10-24)
+
+Both camera axes now have port wrappers backed by the same widened clamp
+helper. Native height remains explicitly gated at 160. Normal map copy and
+VRAM upload use one row-count contract, preparing the 192-line case without
+expanding GBA constants or rewriting rolling-transition code. The source audit
+distinguishes tilemap addressing from character/palette residency and records
+remaining special-manager/shake gates.
+
+New verification command:
+
+```sh
+ASAN_OPTIONS=detect_leaks=0 python3 tools/world_view_regression_test.py
+```
+
+It passes at capacities 240 and 384 with real camera/copy/render bodies and
+controlled 160/192-line apertures. Tested follow/snap/initialization/wait goals
+agree; native edge-step behavior and 4-pixel pacing remain intact. Tests cover
+odd-width centers, small rooms, prior-boundary recovery, relative origins,
+region intersection, 23/27-row footprints and bounded map reads. Rendered pixels
+match independent world coordinates through all 16 × 16 fractional camera
+phases at native/bottom/right seams. This is synthetic-resident-graphics proof,
+not complete manager residency validation.
+
+Existing engine, scroll, CPU PPU and C/C++ profile regressions pass. The RG build
+and restored-release EU startup smoke under QEMU pass; both EU native parity
+scenes retain their golden Tier A/B hashes.
+The 16:9 square/wide-window and 21:9 tall-window field captures remain
+byte-identical to the earlier implementation steps. Release configuration is
+restored after capture checks; no device deployment or golden update occurs.
+
+## Signed OBJ / shake-padding verification (2026-10-24)
+
+`port_oam` adds bounded build/latched coordinate tables (2,560 bytes on the tested
+ABI) beside packed hardware OAM, sharing the existing voxel-tag publication
+boundary. The PPU consumes only stamped signed positions and hidden flags;
+normal and supersampled sprites share the resolver. Native/parity binding stays
+off, and extended canvases keep binding during temporary native raster fallback.
+GPU rasterization falls back to software while metadata is bound. Reset/clear
+hooks invalidate metadata; quicksave simulation restores keep unchanged OAM and
+its matching latched metadata together. Saved formats and entity layouts stay
+unchanged.
+
+The normal streaming test now checks offsets -8/-3/0/+3/+8 through every
+fractional camera phase. At height 192, positive +3/+8 pads to 28 rows. The
+coverage classifier rejects offset ranges that wrap past the current map origin;
+the backing-copy limit is always at most 32 rows and never sends zero-length
+DMA. Runtime height remains gated at 160, whose 23-row upload is preserved.
+
+```sh
+ASAN_OPTIONS=detect_leaks=0 python3 tools/oam_position_regression_test.py
+ASAN_OPTIONS=detect_leaks=0 python3 tools/world_view_regression_test.py
+ASAN_OPTIONS=detect_leaks=0 python3 tools/ppu_geometry_regression_test.py
+```
+
+All passed, including expected pixels for emitted direct/entity sprites, signed
+Y/X limits, affine/double-size/supersampled sprites, disabled/parked entries,
+stale stamps, publication/reset, native-aperture recovery and generic culling.
+Existing scroll/profile/PPU and regional sprite regressions also pass. The RG
+build, restored-release EU startup smoke and native Tier A/B parity pass; the three local 16:9/21:9 field captures
+remain byte-identical. The original release configuration is restored after
+capture checks, with no golden update or device deployment.
+
+This completes generic sprite-coordinate and normal shake-padding plumbing.
+It does not enable 4:3 or 32:9: remaining work includes scene/world-aperture
+publication, individual entity/special-manager coverage, graphics residency,
+classified raster effects, fixed-screen composition and gameplay UI layout.

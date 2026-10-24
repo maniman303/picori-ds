@@ -31,6 +31,7 @@
 #include "port_gba_mem.h"
 #include "port_rom.h"
 #include "port_softslots.h"
+#include "port_widescreen.h"
 #include "port_roll_attack_macro.h"
 #include <string.h>
 
@@ -4511,6 +4512,9 @@ void InitializeCamera() {
 #endif
     roomControls->scroll_x += roomControls->origin_x;
 
+#ifdef PC_PORT
+    roomControls->scroll_y = Port_Widescreen_CameraRestY(targetY + roomControls->origin_y) - roomControls->origin_y;
+#else
     if (targetY < 0x50) {
         roomControls->scroll_y = 0;
     } else {
@@ -4520,6 +4524,7 @@ void InitializeCamera() {
             roomControls->scroll_y = targetY - 0x50;
         }
     }
+#endif
     roomControls->scroll_y += roomControls->origin_y;
 
     if (roomControls->camera_target != NULL) {

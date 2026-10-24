@@ -424,64 +424,34 @@ u32 ram_MakeFadeBuff256;
 /*
  * C reimplementation of ram_sub_080B197C (ARM IWRAM function).
  * Called when gUpdateVisibleTiles == 1 (initial full-screen tile fill).
- * Copies a 32×23 tile region from mapSpecial to the BG buffer.
+ * Copies a native 23-row tile window (including padding), or the row count
+ * required by a validated taller aperture, from mapSpecial to the BG buffer.
  *
  * mapSpecial: u16 tilemap with 128 entries per row (8×8 pixel tiles).
  * bgBuffer:   passed as gBGxBuffer + 0x20 (u16 units, +0x40 bytes).
  *             The GBA code subtracts 0x40 bytes to start writing from row 0.
  */
 static void ram_sub_080B197C_c(u16* mapSpecial, u16* bgBuffer) {
-    u16 xdiff = gRoomControls.scroll_x - gRoomControls.origin_x;
-    u16 ydiff = gRoomControls.scroll_y - gRoomControls.origin_y;
-
-    /* Tile position in 16×16 units → each maps to 2×2 sub-tiles of 8×8.
-     * Byte offset = (col16 + row16 * 128) * 4, because each 16×16 tile
-     * is 2 sub-tile columns (×2 bytes each = 4 bytes) and each 16×16 row
-     * spans 2 sub-tile rows (128 entries × 2 bytes × 2 = 512 bytes). */
-    u32 col16 = xdiff >> 4;
-    u32 row16 = ydiff >> 4;
-    u8* src = (u8*)mapSpecial + (col16 + row16 * 128) * 4;
-
-    /* On GBA gMapDataTopSpecial/gMapDataBottomSpecial are adjacent EWRAM and
-     * deep scroll positions deliberately walked this copy off one buffer into
-     * its neighbor (stable garbage on the offscreen seam). On PC they are
-     * separate globals — clamp each 64-byte row to the 0x8000-byte buffer;
-     * skipped rows leave zeros (transparent tiles) on the seam instead. */
-    const u8* lo = (const u8*)mapSpecial;
-    const u8* hi = lo + 0x8000;
-
-#define COPY_ROW_CLAMPED()                 \
-    do {                                   \
-        if (src >= lo && src + 64 <= hi) { \
-            memcpy(dst, src, 64);          \
-        }                                  \
-    } while (0)
-
-    /* bgBuffer was passed as gBGxBuffer + 0x20 (in u16 units).
-     * The original code does "subs r1, #0x40" to get to row 0. */
+    const u16 xdiff = gRoomControls.scroll_x - gRoomControls.origin_x;
+    const u16 ydiff = gRoomControls.scroll_y - gRoomControls.origin_y;
+    const int first = ((xdiff >> 4) + (ydiff >> 4) * 128) * 2;
+    const unsigned rows = Port_Widescreen_MapBufferSize() / (32u * sizeof(u16));
     u16* dst = bgBuffer - 0x20;
-
-    if (ydiff < 8) {
-        /* First row: copy without advancing src */
-        COPY_ROW_CLAMPED(); /* 32 u16 = 64 bytes */
-        dst += 32;
-        /* 22 more rows: first reuses same src, then advances */
-        for (int i = 0; i < 22; i++) {
-            COPY_ROW_CLAMPED();
-            src += 0x100; /* next 8×8 map row = 128 u16 = 256 bytes */
-            dst += 32;
-        }
-    } else {
-        /* Start one map row earlier */
-        src -= 0x100;
-        /* 23 consecutive rows */
-        for (int i = 0; i < 23; i++) {
-            COPY_ROW_CLAMPED();
-            src += 0x100;
-            dst += 32;
+    for (unsigned row = 0; row < rows; ++row) {
+        /* Native top padding duplicates row zero only for ydiff < 8.
+         * Compute offsets before making pointers; negative/deep scrolls must
+         * never form out-of-bounds pointers into the independent PC globals. */
+        int source = first + ((int)row - 1) * 128;
+        if (ydiff < 8 && row == 0)
+            source = first;
+        if (source >= 0 && source <= 128 * 128 - 32) {
+            memcpy(dst + row * 32, mapSpecial + source, 32 * sizeof(u16));
+        } else if (row >= 23) {
+            /* Preserve the original native skipped-row contract. Newly
+             * exposed rows must not inherit stale content from a prior room. */
+            memset(dst + row * 32, 0, 32 * sizeof(u16));
         }
     }
-#undef COPY_ROW_CLAMPED
 }
 
 /* Declared in screenTileMap.c (already compiled as C on PC) */
@@ -1119,22 +1089,6 @@ int Port_Widescreen_EffectiveViewWidth(void) {
     return eff > 240 ? (int)eff : 240;
 }
 
-/* Single source of truth for the camera's rest x (see port_widescreen.h).
- * Clamp order (lo wins over hi) matches the GBA branches it replaces. */
-int Port_Widescreen_CameraRestX(int target_x) {
-    int viewW = Port_Widescreen_EffectiveViewWidth();
-    int lo = (int)gRoomControls.origin_x;
-    int hi = lo + (int)gRoomControls.width - viewW;
-    int want = target_x - viewW / 2;
-    if (want > hi) {
-        want = hi;
-    }
-    if (want < lo) {
-        want = lo;
-    }
-    return want;
-}
-
 /* True while at least one BG shadow is registered for the current frame —
  * i.e. the map BGs are actually what the PPU is rendering. Overlay screens
  * (prologue storybook, pause/menu subscreens) swap the BG control regs away
@@ -1211,11 +1165,10 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
      *       column (display CLIP_X), less one leading padding tile, so
      *       shadow_idx lands on reveal column index d+1. BGHOFS = (scroll-origin)
      *       & 0xf (UpdateScreenShake); its upper half carries one extra tile.
-     * Getting either wrong shifts/wraps the reveal into stale cells — the
-     * far-edge garbage. (No residency gate: the area tileset is resident in
-     * char VRAM regardless of the 32-col tilemap window, so gating on that
-     * window blacked legitimately-loaded reveal tiles. The PPU's 0x7C1F skip
-     * still drops genuinely-unstreamed-palette pixels to clean black.) */
+     * Getting either wrong shifts/wraps the reveal into stale cells. This
+     * mapping establishes tilemap addressing, not char-VRAM residency:
+     * positional tileset managers can replace graphics in shared banks.
+     * Taller world reveal remains gated until those cases are validated. */
     s16 xdiff = (s16)(gRoomControls.scroll_x - gRoomControls.origin_x);
     s16 ydiff = (s16)(gRoomControls.scroll_y - gRoomControls.origin_y);
     s32 row16 = ydiff >> 4;
@@ -1403,20 +1356,37 @@ int Port_Widescreen_ShadowsLive(void) {
 int Port_Widescreen_TargetViewWidth(void) {
     return 240;
 }
-int Port_Widescreen_CameraRestX(int target_x) {
-    /* GBA-exact: center at 120, clamp view inside the room. */
-    int lo = (int)gRoomControls.origin_x;
-    int hi = lo + (int)gRoomControls.width - 240;
-    int want = target_x - 120;
-    if (want > hi) {
-        want = hi;
-    }
-    if (want < lo) {
-        want = lo;
-    }
-    return want;
-}
+
 #endif
+
+/* Height stays native until scene capabilities validate vertical streaming,
+ * sprite visibility and raster continuation as one coherent world aperture. */
+int Port_Widescreen_EffectiveViewHeight(void) {
+    return PORT_VIEWPORT_NATIVE_HEIGHT;
+}
+
+unsigned Port_Widescreen_MapBufferSize(void) {
+    const int height = Port_Widescreen_EffectiveViewHeight();
+    int rows = Port_Viewport_MapTileRows(height);
+    if (height > PORT_VIEWPORT_NATIVE_HEIGHT) {
+        rows = Port_Viewport_MapTileRowsWithShake(height, gRoomControls.aff_y);
+        /* Unsupported coverage must be rejected by scene capability selection.
+         * Still bound this backing copy, and never send a zero DMA length. */
+        if (rows == 0)
+            rows = 32;
+    }
+    return (unsigned)rows * 32u * sizeof(u16);
+}
+
+int Port_Widescreen_CameraRestX(int target_x) {
+    return Port_Viewport_CameraRest(target_x, gRoomControls.origin_x, gRoomControls.width,
+                                    Port_Widescreen_EffectiveViewWidth());
+}
+
+int Port_Widescreen_CameraRestY(int target_y) {
+    return Port_Viewport_CameraRest(target_y, gRoomControls.origin_y, gRoomControls.height,
+                                    Port_Widescreen_EffectiveViewHeight());
+}
 
 /*
  * UpdateSpriteForCollisionLayer — sets OBJ priority bits based on entity's collision layer.
@@ -2338,14 +2308,12 @@ u32 GetRandomByWeight(const u8* weights) {
 u32 CheckRectOnScreen(s32 x, s32 y, u32 halfW, u32 halfH) {
     s32 sx = gRoomControls.scroll_x - gRoomControls.origin_x;
     u32 dx = (u32)(x - sx + halfW);
-    /* Runtime-gated widescreen: when the WIP option is off or this room
-     * falls back to native, cull against 240 so engine behaviour matches the
-     * 240x160 frame we present. */
+    /* Use the same world aperture as camera and sprite drawing. */
     if (dx >= halfW * 2 + (u32)Port_Widescreen_EffectiveViewWidth())
         return 0;
     s32 sy = gRoomControls.scroll_y - gRoomControls.origin_y;
     u32 dy = (u32)(y - sy + halfH);
-    if (dy >= halfH * 2 + 0xA0)
+    if (dy >= halfH * 2 + (u32)Port_Widescreen_EffectiveViewHeight())
         return 0;
     return 1;
 }

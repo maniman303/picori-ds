@@ -56,6 +56,10 @@ void* sub_080AD8F0(u32 sprite, u32 frame) {
 
 void FlushSprites(void) {
     gOAMControls.updated = 0;
+#ifdef PC_PORT
+    extern void Port_Oam_BeginFrame(void);
+    Port_Oam_BeginFrame();
+#endif
 }
 
 void CopyOAM(void) {

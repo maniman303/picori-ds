@@ -11,6 +11,7 @@
 #include "port_softslots.h"
 #include "port_touch_controls.h"
 #include "port_widescreen.h"
+#include "port_oam.h"
 
 #ifdef launcher
 #include "tmc_launcher.h"
@@ -1219,6 +1220,8 @@ static bool Port_PPU_TryGpuRaster(void) {
     // GPU presentation can display the taller software-rasterized canvas.
     if (virtuappu_mode1_frame_height() != MODE1_GBA_HEIGHT)
         return false;
+    if (virtuappu_mode1_has_obj_positions())
+        return false; // signed port coordinates are not in the raster shaders yet
     if (!Port_Config_GetGpuRaster()) {
         return false;
     }
@@ -1435,6 +1438,11 @@ extern "C" void Port_PPU_PresentFrame(void) {
     virtuappu_mode1_set_frame_geometry(&virtuappu_registers);
     // Carry the effective aperture through uploads, captures and overlays.
     virtuappu_registers.frame_height = (uint16_t)virtuappu_mode1_frame_height();
+    // Keep metadata during a native raster/room fallback too: a built sprite
+    // at Y=180 must not wrap onto the top of a temporarily 160-line aperture.
+    const bool signedPositions = !Port_Config_GetConsoleParity() &&
+        (Port_Viewport_Get()->canvas.height > MODE1_GBA_HEIGHT || Port_Viewport_Get()->canvas.width > 512);
+    virtuappu_mode1_bind_obj_positions(signedPositions ? Port_Oam_Positions() : nullptr);
 
     {
         bool gpu_ok = false;

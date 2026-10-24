@@ -37,7 +37,9 @@ This remains a **static** fixture: it does not serialize per-line HDMA inputs,
 shadow maps, port sprite metadata, or contextual artwork. Static rendering
 cannot reproduce effects or extended-world content that depend on those inputs.
 The live Tier B hash and named scene captures cover separate runtime behavior.
-Version 2 adds geometry; it does not claim complete frame replay.
+Version 2 adds geometry; it does not claim complete frame replay. In particular,
+live [signed OBJ metadata](sprite-coordinate-audit.md) remains outside this
+format; use live rendering/PNG captures to check those positions.
 
 The software PPU keeps the hardware line constant at 160. `PPUMemory.frame_height`
 is a separate requested render extent: zero defaults to 160, PC rendering is

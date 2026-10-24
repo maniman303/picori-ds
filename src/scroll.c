@@ -21,6 +21,7 @@
 
 #ifdef PC_PORT
 #include "port/port_generic_entity.h"
+#include "port_widescreen.h"
 #else
 #define GE_FIELD(ent, fname) (&((GenericEntity*)(ent))->fname)
 #endif
@@ -104,6 +105,9 @@ void Scroll1(RoomControls* controls) {
     s32 unused;
     s32 uVar5;
     s32 targetValue;
+#ifdef PC_PORT
+    const s32 viewHeight = Port_Widescreen_EffectiveViewHeight();
+#endif
 #if MODE1_GBA_WIDTH > 240
     /* Live view width (240 while stretched/non-gameplay); the right-edge
      * movement gate below keeps the view inside the room. The follow target
@@ -173,6 +177,13 @@ void Scroll1(RoomControls* controls) {
         // Scroll in y direction.
         unused = controls->scroll_y;
         targetValue = controls->camera_target->y.HALF.HI - 0x50;
+#ifdef PC_PORT
+        /* Retain native edge-step flags/pacing. Taller views use the same
+         * clamped rest goal as snaps and script completion, including a camera
+         * that must pan back after its aperture changes. */
+        if (viewHeight != DISPLAY_HEIGHT)
+            targetValue = Port_Widescreen_CameraRestY(controls->camera_target->y.HALF.HI);
+#endif
         diff = controls->scroll_y - (targetValue);
         if (diff != 0) {
             uVar5 = controls->scroll_y & 7;
@@ -191,7 +202,13 @@ void Scroll1(RoomControls* controls) {
                     }
                 }
             } else {
+#ifdef PC_PORT
+                uVar2 = controls->origin_y + controls->height - viewHeight;
+                if (uVar2 < controls->origin_y)
+                    uVar2 = controls->origin_y;
+#else
                 uVar2 = controls->origin_y + controls->height - DISPLAY_HEIGHT;
+#endif
                 if (controls->scroll_y < uVar2) {
                     if (-controls->scrollSpeed >= diff) {
                         diff = -controls->scrollSpeed;
@@ -853,18 +870,16 @@ void InitScreenShake(u32 time, u32 magnitude) {
 }
 
 void sub_08080974(u32 arg0, u32 arg1) {
+#ifdef PC_PORT
+    gRoomControls.scroll_x = (s16)Port_Widescreen_CameraRestX((s32)arg0);
+    gRoomControls.scroll_y = (s16)Port_Widescreen_CameraRestY((s32)arg1);
+    sub_080809D4();
+    gUpdateVisibleTiles = 1;
+#else
     u32 var0, var1;
     RoomControls* roomControls = &gRoomControls;
 
     var0 = roomControls->origin_x;
-#if MODE1_GBA_WIDTH > 240
-    {
-        /* THE shared camera-rest formula (port_widescreen.h) — must match
-         * Scroll1 and WaitForCameraTouchRoomBorder exactly. */
-        extern int Port_Widescreen_CameraRestX(int target_x);
-        roomControls->scroll_x = (s16)Port_Widescreen_CameraRestX((s32)arg0);
-    }
-#else
     if (arg0 <= var0 + 120) {
         roomControls->scroll_x = var0;
     } else {
@@ -875,7 +890,6 @@ void sub_08080974(u32 arg0, u32 arg1) {
         }
         roomControls->scroll_x = var1 - 120;
     }
-#endif
 
     var0 = roomControls->origin_y;
     if (arg1 <= var0 + 80) {
@@ -891,9 +905,17 @@ void sub_08080974(u32 arg0, u32 arg1) {
 
     sub_080809D4();
     gUpdateVisibleTiles = 1;
+#endif
 }
 
 void sub_080809D4(void) {
+#ifdef PC_PORT
+    gRoomControls.scroll_flags &= ~4;
+    gRoomControls.scroll_x = (s16)Port_Widescreen_CameraRestX(gRoomControls.camera_target->x.HALF.HI);
+    gRoomControls.scroll_y = (s16)Port_Widescreen_CameraRestY(gRoomControls.camera_target->y.HALF.HI);
+    UpdateScreenShake();
+    gUpdateVisibleTiles = 1;
+#else
     s32 x, y;
     s32 var1, var0;
     RoomControls* roomControls = &gRoomControls;
@@ -901,14 +923,6 @@ void sub_080809D4(void) {
 
     x = roomControls->camera_target->x.HALF.HI;
     var0 = roomControls->origin_x;
-#if MODE1_GBA_WIDTH > 240
-    /* THE shared camera-rest formula (port_widescreen.h) — must match
-     * Scroll1 and WaitForCameraTouchRoomBorder exactly. */
-    {
-        extern int Port_Widescreen_CameraRestX(int target_x);
-        roomControls->scroll_x = (s16)Port_Widescreen_CameraRestX(x);
-    }
-#else
     if (x <= var0 + 120) {
         roomControls->scroll_x = var0;
     } else {
@@ -919,7 +933,6 @@ void sub_080809D4(void) {
         }
         roomControls->scroll_x = var1 - 120;
     }
-#endif
 
     y = roomControls->camera_target->y.HALF.HI;
     var0 = roomControls->origin_y;
@@ -936,6 +949,7 @@ void sub_080809D4(void) {
 
     UpdateScreenShake();
     gUpdateVisibleTiles = 1;
+#endif
 }
 
 void UpdateDoorTransition() {

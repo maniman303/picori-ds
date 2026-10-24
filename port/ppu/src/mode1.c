@@ -90,6 +90,42 @@ static VirtuaPPUMode1GbaMemory mode1_memory = { mode1_default_io_mem, mode1_defa
 static int mode1_frame_width = MODE1_GBA_WIDTH;
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static int mode1_frame_height = MODE1_GBA_HEIGHT;
+static const VirtuaPPUObjPosition* mode1_obj_positions;
+static int mode1_oam_x(Mode1OAMAttr attr);
+static int mode1_oam_y(Mode1OAMAttr attr);
+
+void virtuappu_mode1_bind_obj_positions(const VirtuaPPUObjPosition* positions) {
+    mode1_obj_positions = positions;
+}
+
+bool virtuappu_mode1_has_obj_positions(void) {
+    return mode1_obj_positions != NULL;
+}
+
+static bool mode1_obj_position(int index, Mode1OAMAttr attr, int viewport_width, int* x, int* y) {
+    if (mode1_obj_positions != NULL) {
+        const VirtuaPPUObjPosition* position = &mode1_obj_positions[index];
+        if ((position->flags & VIRTUAPPU_OBJ_POSITION_VALID) &&
+            position->attr0 == attr.attr0 && position->attr1 == attr.attr1) {
+            if (position->flags & VIRTUAPPU_OBJ_POSITION_HIDDEN)
+                return false;
+            *x = position->x;
+            *y = position->y;
+            return true;
+        }
+        /* Beyond 512, raw OAM cannot distinguish a native negative X from
+         * a wrapped positive coordinate. Untagged entries stay native. */
+        if (viewport_width > 512)
+            viewport_width = MODE1_GBA_BG_CLIP_X;
+    }
+    *x = mode1_oam_x(attr);
+    if (*x >= viewport_width)
+        *x -= 512;
+    *y = mode1_oam_y(attr);
+    if (*y >= MODE1_GBA_HEIGHT)
+        *y -= 256;
+    return true;
+}
 
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
     int width = MODE1_GBA_WIDTH;
@@ -668,21 +704,15 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
             bounds_height *= 2;
         }
 
-        obj_y = mode1_oam_y(attr);
-        if (obj_y >= MODE1_GBA_HEIGHT) {
-            obj_y -= 256;
-        }
+        if (!mode1_obj_position(i, attr, mode1_frame_width, &obj_x, &obj_y))
+            continue;
         if (line < obj_y || line >= obj_y + bounds_height) {
             continue;
         }
 
-        obj_x = mode1_oam_x(attr);
         viewport_width = mode1_frame_width;
         if (viewport_width > MODE1_GBA_VIEWPORT_X) {
             viewport_width = MODE1_GBA_VIEWPORT_X;
-        }
-        if (obj_x >= mode1_frame_width) {
-            obj_x -= 512;
         }
         sx_start = 0;
         sx_end = bounds_width;
@@ -1153,12 +1183,9 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
             bounds_height *= 2;
         }
 
-        int obj_y = mode1_oam_y(attr);
-        if (obj_y >= MODE1_GBA_HEIGHT)
-            obj_y -= 256;
-        int obj_x = mode1_oam_x(attr);
-        if (obj_x >= viewport_width)
-            obj_x -= 512;
+        int obj_x, obj_y;
+        if (!mode1_obj_position(i, attr, viewport_width, &obj_x, &obj_y))
+            continue;
 
         int sy_sub_start = 0;
         int sy_sub_end = bounds_height * scale;

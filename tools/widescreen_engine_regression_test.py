@@ -37,8 +37,8 @@ def main():
         generated.write_text('\n'.join(functions))
         binary = Path(directory) / 'test'
         command = shlex.split(os.environ.get('CC', 'cc')) + [
-            '-std=c11', '-Wall', '-Wextra', '-Werror', '-I' + directory,
-            str(ROOT / 'tools/tests/widescreen_engine.c'), '-o', str(binary)]
+            '-std=c11', '-Wall', '-Wextra', '-Werror', '-I' + directory, '-I' + str(ROOT / 'port'),
+            str(ROOT / 'tools/tests/widescreen_engine.c'), str(ROOT / 'port/port_viewport.c'), '-o', str(binary)]
         subprocess.run(command, check=True)
         subprocess.run([str(binary)], check=True)
 

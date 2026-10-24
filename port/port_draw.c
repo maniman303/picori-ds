@@ -27,6 +27,7 @@
 #include "port_widescreen.h"
 #include "port_rom.h"
 #include "port_voxel.h"
+#include "port_oam.h"
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -458,7 +459,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
 
         /* Clipping */
         y -= (s32)se[1]; /* subtract y anchor */
-        if (y >= 160) {
+        if (y >= Port_Widescreen_EffectiveViewHeight()) {
             continue;
         }
         x -= (s32)se[0]; /* subtract x anchor */
@@ -497,6 +498,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         oamWord ^= (u32)(shapeInfo & 0x3C) << 26; /* flip/size → attr1 bits 12-15 */
 
         memcpy(ip, &oamWord, sizeof(oamWord));
+        Port_Oam_Record(updated, (u16)oamWord, (u16)(oamWord >> 16), x, y, parked);
         ip += 4;
 
         /* Build attr2: tile number + priority + palette */
@@ -635,15 +637,14 @@ static DeferredDrawList sDeferredList;
 u32 CheckOnScreen(Entity* entity) {
     s32 x = (s32)entity->x.HALF.HI - (s32)gRoomControls.scroll_x;
     x += 0x3F;
-    /* Runtime-gated widescreen: the right edge only widens while the WIP
-     * option is enabled and the current room can fill the wider viewport. */
+    /* Camera/culling must consume the same effective world aperture. */
     if ((u32)x >= (u32)Port_Widescreen_EffectiveViewWidth() + 0x7E)
         return 0;
 
     s32 y = (s32)entity->y.HALF.HI - (s32)gRoomControls.scroll_y;
     y += (s32)entity->z.HALF.HI;
     y += 0x3F;
-    if ((u32)y >= 0x11E)
+    if ((u32)y >= (u32)Port_Widescreen_EffectiveViewHeight() + 0x7E)
         return 0;
 
     return 1;
@@ -661,7 +662,7 @@ static u32 CheckOnScreenForDraw(Entity* entity) {
     const s32 y = (s32)entity->y.HALF.HI - (s32)gRoomControls.scroll_y + (s32)entity->z.HALF.HI;
     const s32 viewW = Port_Widescreen_EffectiveViewWidth();
     return x >= -(PORT_VOXEL_DRAW_SIDE_MARGIN + 0x3F) && x < viewW + PORT_VOXEL_DRAW_SIDE_MARGIN + 0x3F &&
-           y >= -(PORT_VOXEL_DRAW_TOP_MARGIN + 0x3F) && y < 160 + 0x3F;
+           y >= -(PORT_VOXEL_DRAW_TOP_MARGIN + 0x3F) && y < Port_Widescreen_EffectiveViewHeight() + 0x3F;
 }
 
 /* ---- DrawEntity (port of ASM at 0x0800404C) ----

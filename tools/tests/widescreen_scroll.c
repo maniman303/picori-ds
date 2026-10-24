@@ -3,6 +3,7 @@
 #include "room.h"
 #include "player.h"
 #include "scroll.h"
+#include "port_viewport.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,6 +22,7 @@ static int filledRoom;
 int Port_Widescreen_EffectiveViewWidth(void) {
     return wide && gRoomControls.scrollAction != 2 && gRoomControls.scrollAction != 4 ? 384 : 240;
 }
+int Port_Widescreen_CameraRestY(int y) { return Port_Viewport_CameraRest(y, gRoomControls.origin_y, gRoomControls.height, 160); }
 int Port_Widescreen_CameraRestX(int x) {
     int width = Port_Widescreen_EffectiveViewWidth();
     int rest = x - width / 2;

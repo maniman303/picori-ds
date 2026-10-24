@@ -4,7 +4,10 @@ Research date: 2026-10-24. Status: geometry/settings integration in progress; in
 
 Implementation includes the port-owned catalog, profile contracts, fixed target
 widths, frame-boundary geometry publication, widescreen-toggle migration, bounded
-software PPU height and versioned geometry-aware captures.
+software PPU height, versioned geometry-aware captures, shared camera-rest
+helpers and normal tile-window row counts.
+Signed OBJ metadata, generic vertical culling and shake-aware tile padding are
+also implemented; scene-specific enablement remains gated.
 Taller world rendering and contextual image composition remain pending. See the ordered
 [implementation tasks and verification record](aspect-ratio-and-background-overrides-tasks.md).
 

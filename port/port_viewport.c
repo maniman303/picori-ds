@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <limits.h>
 
 static const PortViewportProfile sProfiles[] = {
     { "3:2", "32", 240, 160 },
@@ -92,4 +93,31 @@ PortViewportRect Port_Viewport_NativeContentRect(const PortViewportProfile* prof
         rect.y = (profile->height - rect.height) / 2;
     }
     return rect;
+}
+
+int Port_Viewport_CameraRest(int target, int origin, int roomExtent, int viewExtent) {
+    if (roomExtent <= 0 || viewExtent <= 0)
+        return origin;
+    int64_t hi = (int64_t)origin + roomExtent - viewExtent;
+    if (hi < origin)
+        hi = origin;
+    int64_t rest = (int64_t)target - viewExtent / 2;
+    if (rest > hi)
+        rest = hi;
+    if (rest < origin)
+        rest = origin;
+    return rest > INT_MAX ? INT_MAX : (int)rest;
+}
+
+int Port_Viewport_MapTileRows(int viewHeight) {
+    return Port_Viewport_MapTileRowsWithShake(viewHeight, 0);
+}
+
+int Port_Viewport_MapTileRowsWithShake(int viewHeight, int shakeY) {
+    if (viewHeight <= 0 || (int64_t)8 + shakeY < 0 || (int64_t)viewHeight + 22 + shakeY >= 256)
+        return 0;
+    /* Retain the unshaken window as a minimum so negative shake does not
+     * shrink the backing rows between frames. Positive shake adds padding. */
+    const int64_t rows = ((int64_t)viewHeight + 22 + (shakeY > 0 ? shakeY : 0)) / 8 + 1;
+    return rows <= 32 ? (int)rows : 0;
 }

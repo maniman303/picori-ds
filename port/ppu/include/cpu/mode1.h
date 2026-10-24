@@ -152,6 +152,25 @@ typedef struct VirtuaPPUMode1GbaMemory {
     uint16_t* oam_mem;
 } VirtuaPPUMode1GbaMemory;
 
+/* Optional port metadata, separate from the packed GBA OAM format. Only
+ * entries whose attribute stamps still match can override ambiguous signed
+ * coordinates. Raw/disabled OAM retains its hardware interpretation. */
+enum {
+    VIRTUAPPU_OBJ_POSITION_VALID = 1,
+    VIRTUAPPU_OBJ_POSITION_HIDDEN = 2
+};
+typedef struct VirtuaPPUObjPosition {
+    int16_t x, y;
+    uint16_t attr0, attr1;
+    uint8_t flags;
+    uint8_t reserved;
+} VirtuaPPUObjPosition;
+
+/* NULL restores legacy decoding. Otherwise bind 128 immutable entries before
+ * parallel rendering; keep them alive until every worker/overlay completes. */
+void virtuappu_mode1_bind_obj_positions(const VirtuaPPUObjPosition* positions);
+bool virtuappu_mode1_has_obj_positions(void);
+
 void virtuappu_mode1_bind_gba_memory(const VirtuaPPUMode1GbaMemory* memory);
 void virtuappu_mode1_get_bound_gba_memory(VirtuaPPUMode1GbaMemory* memory);
 void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu);

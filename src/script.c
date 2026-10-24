@@ -21,6 +21,7 @@
 #include "ui.h"
 #ifdef PC_PORT
 #include "port_entity_ctx.h"
+#include "port_widescreen.h"
 #include "port_rom.h"
 #include "port/port_generic_entity.h"
 #include "rando/rando_keymap.h"
@@ -2157,15 +2158,10 @@ void WaitForCameraTouchRoomBorder(Entity* entity, ScriptExecutionContext* contex
     s32 bottom;
 
     if (gRoomControls.camera_target != NULL) {
-#if MODE1_GBA_WIDTH > 240
-        /* This command busy-waits for scroll_x EQUALITY with the camera's
-         * rest position. The follow camera (Scroll1) centers in the live
-         * view width, so recomputing `left` with the GBA 240-px constants
-         * here never matches in wide view — the intro festival pan and the
-         * Zelda/Business-Scrub talk froze forever on this wait. Use THE
-         * shared rest formula (port_widescreen.h). */
-        extern int Port_Widescreen_CameraRestX(int target_x);
+#ifdef PC_PORT
+        /* Follow/snap/wait must agree exactly on both axes. */
         left = Port_Widescreen_CameraRestX(gRoomControls.camera_target->x.HALF.HI);
+        bottom = Port_Widescreen_CameraRestY(gRoomControls.camera_target->y.HALF.HI);
 #else
         left = gRoomControls.camera_target->x.HALF.HI - DISPLAY_WIDTH / 2;
 
@@ -2173,14 +2169,13 @@ void WaitForCameraTouchRoomBorder(Entity* entity, ScriptExecutionContext* contex
             left = gRoomControls.origin_x;
         if (left > gRoomControls.origin_x + gRoomControls.width - DISPLAY_WIDTH)
             left = gRoomControls.origin_x + gRoomControls.width - DISPLAY_WIDTH;
-#endif
         bottom = gRoomControls.camera_target->y.HALF.HI - DISPLAY_HEIGHT / 2;
 
         if (bottom < gRoomControls.origin_y)
             bottom = gRoomControls.origin_y;
         if (bottom > gRoomControls.origin_y + gRoomControls.height - DISPLAY_HEIGHT)
             bottom = gRoomControls.origin_y + gRoomControls.height - DISPLAY_HEIGHT;
-
+#endif
         if (left == gRoomControls.scroll_x && bottom == gRoomControls.scroll_y)
             gActiveScriptInfo.flags |= 1;
         else

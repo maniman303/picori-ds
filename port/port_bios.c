@@ -13,6 +13,7 @@
 #include "port_hdma.h"
 #include "port_imgui_menu.h"
 #include "port_ppu.h"
+#include "port_oam.h"
 #include "port_rom.h"
 #ifdef TMC_RA
 #include "port_ra.h"
@@ -1324,6 +1325,7 @@ void RegisterRamReset(u32 flags) {
 
     if (flags & RESET_OAM) {
         memset(gOamMem, 0, sizeof(gOamMem));
+        Port_Oam_Invalidate();
     }
 
     if (flags & RESET_SIO_REGS) {

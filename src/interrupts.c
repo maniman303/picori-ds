@@ -14,6 +14,10 @@
 #include "sound.h"
 #include "structures.h"
 #include "ui.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#include "port_oam.h"
+#endif
 
 extern void CreateSparkle(Entity* entity);
 extern void sub_080ADD70(void);
@@ -109,6 +113,7 @@ void UpdateDisplayControls(void) {
         {
             extern void Port_Voxel_LatchOamTags(void);
             Port_Voxel_LatchOamTags();
+            Port_Oam_Latch(gOAMControls.updated);
         }
 #endif
 
@@ -229,12 +234,15 @@ void WaitForNextFrame(void) {
     LoadResources();
 
     if (gUpdateVisibleTiles) {
+        u32 mapBufferSize = 0x5C0;
+#ifdef PC_PORT
+        mapBufferSize = Port_Widescreen_MapBufferSize();
+#endif
         gUpdateVisibleTiles = 0;
         if (gMapBottom.bgSettings != NULL)
-            // sizeof(BGBuffer) = 0x800, what are we omitting?
-            DmaCopy32(3, &gBG1Buffer, VRAM + (gMapBottom.bgSettings->control & 0x1f00) * 8, 0x5C0);
+            DmaCopy32(3, &gBG1Buffer, VRAM + (gMapBottom.bgSettings->control & 0x1f00) * 8, mapBufferSize);
         if (gMapTop.bgSettings != NULL)
-            DmaCopy32(3, &gBG2Buffer, VRAM + (gMapTop.bgSettings->control & 0x1f00) * 8, 0x5C0);
+            DmaCopy32(3, &gBG2Buffer, VRAM + (gMapTop.bgSettings->control & 0x1f00) * 8, mapBufferSize);
     }
     FadeVBlank();
 }
