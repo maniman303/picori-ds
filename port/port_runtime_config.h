@@ -31,6 +31,10 @@ typedef enum {
     PORT_INPUT_SOFT_R2,
     /* One-button roll attack (port_roll_attack_macro.c). Default keyboard D. */
     PORT_INPUT_ROLL_ATTACK,
+    /* Additional settings shortcut; built-in shortcuts remain available. */
+    PORT_INPUT_OPEN_SETTINGS,
+    /* Optional save-state-and-exit shortcut; unbound by default. */
+    PORT_INPUT_QUIT_SAVE,
     PORT_INPUT_COUNT,
 } PortInput;
 
@@ -307,6 +311,13 @@ void Port_Config_SetRaUsername(const char* v);
 const char* Port_Config_GetRaToken(void);
 void Port_Config_SetRaToken(const char* v);
 
+bool Port_Config_GetNintendoLayout(void);
+void Port_Config_SetNintendoLayout(bool on);
+#ifndef TMC_N64
+/* Stored controller binding -> physical SDL button, including layout swaps. */
+SDL_GamepadButton Port_Config_MapGamepadButton(SDL_GamepadButton button);
+#endif
+
 void Port_Config_OpenGamepads(void);
 #ifndef TMC_N64
 void Port_Config_HandleEvent(const SDL_Event* e);
@@ -338,6 +349,12 @@ void Port_Config_SetAnalogDeadzone(float v);
  * port has committed KEYINPUT and the engine has read it, so the next
  * frame's polled state isn't stuck reporting the previous tap. */
 void Port_Config_ClearInputEdges(void);
+
+/* Controls-tab binding editor and capture state. */
+int Port_Config_BindingCount(PortInput input);
+void Port_Config_ClearBindings(PortInput input);
+void Port_Config_ResetAllBindings(void);
+int Port_Config_IsCapturingBinding(void);
 
 /* Test-only: stamp the per-frame edge cache for `input` (see
  * Port_Config_TestForceEdge in the .cpp). Used exclusively by env-gated

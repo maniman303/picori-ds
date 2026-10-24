@@ -56,6 +56,8 @@ const std::array<Def, PORT_INPUT_COUNT> kDefaults = { {
     /* Roll attack: keyboard D + R3 (right stick click). R3 is unused by the
      * base game and sits near the movement stick for a direction+macro press. */
     { PORT_INPUT_ROLL_ATTACK, "roll_attack", { "SDLK:0x00000064", "SDL_GAMEPAD:0x00000008" } },
+    { PORT_INPUT_OPEN_SETTINGS, "open_settings", {} },
+    { PORT_INPUT_QUIT_SAVE, "quit_save", {} },
 } };
 
 u8 sScale = 3;
@@ -63,6 +65,7 @@ u8 sInternalScale = 1;
 std::string sUpscaleMethod = "nearest";
 u64 sFrameTimeNs = 1000000000ULL / 60; /* 60 FPS cap by default (VSync-effective); see kDefaultFrameTimeNs */
 bool sPortSettingsMenuEnabled = true;
+bool sNintendoLayout = true;
 /* Persisted active save-profile filename. Defaults to tmc.sav. The
  * port_save.c EEPROM emulation reads/writes this path; the F8 debug
  * menu's "Save profiles" page switches it. */
@@ -269,6 +272,7 @@ struct ScaleCfg {
 
 const BoolCfg kBoolCfg[] = {
     { "port_settings_menu", &sPortSettingsMenuEnabled, true },
+    { "nintendo_layout", &sNintendoLayout, true },
     { "autosave_enabled", &sAutosaveEnabled, true },
 #ifdef __ANDROID__
     { "widescreen_enabled", &sWidescreenEnabled, false },
@@ -1332,6 +1336,32 @@ static void PersistBinds(PortInput input) {
     SaveConfig();
 }
 
+/* Translate a stored binding to its physical SDL button at the input boundary.
+ * This permutation is its own inverse, so capture also uses it to translate
+ * a physical button back into the stored layout. */
+extern "C" SDL_GamepadButton Port_Config_MapGamepadButton(SDL_GamepadButton button) {
+    if (!sNintendoLayout)
+        return button;
+    switch (button) {
+        case SDL_GAMEPAD_BUTTON_SOUTH: return SDL_GAMEPAD_BUTTON_EAST;
+        case SDL_GAMEPAD_BUTTON_EAST: return SDL_GAMEPAD_BUTTON_SOUTH;
+        case SDL_GAMEPAD_BUTTON_WEST: return SDL_GAMEPAD_BUTTON_NORTH;
+        case SDL_GAMEPAD_BUTTON_NORTH: return SDL_GAMEPAD_BUTTON_WEST;
+        default: return button;
+    }
+}
+
+extern "C" bool Port_Config_GetNintendoLayout(void) {
+    return sNintendoLayout;
+}
+
+extern "C" void Port_Config_SetNintendoLayout(bool on) {
+    sNintendoLayout = on;
+    sEdgePressed.fill(false);
+    sConfigJson["nintendo_layout"] = on;
+    SaveConfig();
+}
+
 extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
     /* Touch-controls dispatch first so finger / virtual-pad events on
      * Android route to the touch handler before the keyboard / pad
@@ -1358,7 +1388,7 @@ extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
             newBind.key = e->key.key;
             captured = true;
         } else if (e->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-            newBind.pad = (SDL_GamepadButton)e->gbutton.button;
+            newBind.pad = Port_Config_MapGamepadButton((SDL_GamepadButton)e->gbutton.button);
             captured = true;
         } else if (e->type == SDL_EVENT_GAMEPAD_AXIS_MOTION && e->gaxis.value > kAxisThreshold) {
             newBind.axis = (SDL_GamepadAxis)e->gaxis.axis;
@@ -1390,8 +1420,18 @@ extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
                         PersistBinds((PortInput)j);
                 }
             }
-            if (!sCaptureAppend)
-                sBinds[target].clear();
+            if (!sCaptureAppend) {
+                /* Set replaces only the captured device category. Buttons
+                 * and axes belong to the same controller category. */
+                const bool keyboard = newBind.key != SDLK_UNKNOWN;
+                std::vector<Bind>& bindings = sBinds[target];
+                for (auto it = bindings.begin(); it != bindings.end();) {
+                    if ((it->key != SDLK_UNKNOWN) == keyboard)
+                        it = bindings.erase(it);
+                    else
+                        ++it;
+                }
+            }
             sBinds[target].push_back(newBind);
             PersistBinds(target);
             sCapturingInput = -1;
@@ -1421,7 +1461,8 @@ extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
         Port_TouchControls_NotifyGamepadUsed();
         for (size_t i = 0; i < PORT_INPUT_COUNT; i++) {
             for (const Bind& b : sBinds[i]) {
-                if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT && b.pad == (SDL_GamepadButton)e->gbutton.button) {
+                if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT &&
+                    Port_Config_MapGamepadButton(b.pad) == e->gbutton.button) {
                     sEdgePressed[i] = true;
                     break;
                 }
@@ -1498,7 +1539,8 @@ extern "C" bool Port_Config_EventIsInputDown(const SDL_Event* e, PortInput input
         }
     } else if (e->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
         for (const Bind& b : sBinds[input]) {
-            if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT && b.pad == (SDL_GamepadButton)e->gbutton.button) {
+            if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT &&
+                Port_Config_MapGamepadButton(b.pad) == e->gbutton.button) {
                 return true;
             }
         }
@@ -1543,7 +1585,7 @@ extern "C" bool Port_Config_InputPressed(PortInput input) {
             return true;
         }
         for (SDL_Gamepad* pad : sPads) {
-            if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT && SDL_GetGamepadButton(pad, b.pad)) {
+            if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT && SDL_GetGamepadButton(pad, Port_Config_MapGamepadButton(b.pad))) {
                 Port_TouchControls_NotifyGamepadUsed();
                 return true;
             }
@@ -1660,7 +1702,7 @@ extern "C" void Port_Config_BeginCaptureBinding(PortInput input) {
     if (input < 0 || input >= PORT_INPUT_COUNT)
         return;
     sCapturingInput = (int)input;
-    sCaptureAppend = false; /* replace this action's bindings */
+    sCaptureAppend = false; /* replace bindings for the captured device category */
 }
 
 extern "C" void Port_Config_BeginAddBinding(PortInput input) {

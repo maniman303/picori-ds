@@ -28,6 +28,9 @@
 #include "port_debug_query.h"
 #include "port_debug_actions.h"
 #include "port_widescreen.h"
+#include "port_imgui_menu.h"
+#include "rando/rando_file_menu.h"
+#include "rando/rando_runtime.h"
 #include "item_ids.h" /* BOTTLE_CHARM_* / ITEM_BOTTLE_PICOLYTE_* enum ids (C++-safe) */
 
 /* Console-Parity getter (port_runtime_config.cpp) — used to annotate the
@@ -1119,7 +1122,13 @@ MenuPage BuildMemWatchPage(void) {
 
 MenuPage BuildMainPage(void) {
     MenuPage p;
-    p.title = "DEBUG MENU (F8 to close)";
+    p.title = "SETTINGS (L3 to close)";
+    if (Rando_IsInFileSelect()) {
+        p.items.push_back({ "Port & Randomizer setup", []() {
+                               Port_RandoFileMenu_SetSidebarOpen(true);
+                               Port_DebugMenu_Toggle();
+                           } });
+    }
     p.items.push_back({ "Items / progress", []() { Push(BuildItemsPage()); } });
     p.items.push_back({ "Warp", []() { Push(BuildWarpPage()); } });
     p.items.push_back({ "Save states", []() { Push(BuildSaveStatesPage()); } });
@@ -1133,6 +1142,7 @@ MenuPage BuildMainPage(void) {
                            Port_DebugAction_HealFull();
                            Toast("Healed");
                        } });
+    p.items.push_back({ "Quit", []() { Port_ImGui_RequestQuitModal(); } });
     p.items.push_back({ "Close menu", []() { Pop(); } });
     return p;
 }

@@ -615,98 +615,135 @@ static bool DrawRegionLanguageControls(bool prelaunch) {
 
 #include "port_imgui_memory_tab.inc"
 
-static void DrawRibbon(void) {
+static bool BeginRibbonTab(const char* label, bool focus = false, bool select = false) {
+    const float naturalWidth = ImGui::CalcTextSize(label).x + 2.0f * ImGui::GetStyle().FramePadding.x + 1.0f;
+    ImGui::SetNextItemWidth(naturalWidth * 1.15f);
+    if (focus)
+        ImGui::SetKeyboardFocusHere();
+    return ImGui::BeginTabItem(label, nullptr, select ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None);
+}
+
+static void DrawRibbon(bool justOpened) {
+    /* New tab headers aren't navigable until their first layout completes.
+     * Repeat the opening focus request on the following frame. */
+    static bool focusNextFrame = false;
+    const bool selectSaves = justOpened || focusNextFrame;
+    const bool focusSaves = selectSaves;
+    const bool focusClose = ImGui::IsKeyPressed(ImGuiKey_Home, false) && !ImGui::GetIO().WantTextInput &&
+                            !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+    focusNextFrame = justOpened;
     ImGuiIO& io = ImGui::GetIO();
     const float ribbonW = io.DisplaySize.x;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(ribbonW, 0), ImGuiCond_Always);
+    if (focusSaves)
+        ImGui::SetNextWindowFocus();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     if (ImGui::Begin("##ribbon", nullptr,
                      ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize |
                          ImGuiWindowFlags_NoCollapse)) {
-        /* Close button anchored to the top-right of the ribbon. The
-         * persistent corner trigger sits behind the ribbon when it's
-         * open, so without this button users on mouse-only or who
-         * forgot the F8/Select+Start hotkey have no way out. Render
-         * it BEFORE the tab bar so it sits at the very top edge. */
-        const float closeW = 80.0f;
-        ImGui::SameLine(ImGui::GetWindowWidth() - closeW - 12.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.20f, 0.20f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.30f, 0.30f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.85f, 0.35f, 0.35f, 1.0f));
+        const ImGuiStyle& style = ImGui::GetStyle();
+        const float closeW = 140.0f;
+        const float quitW = 100.0f;
+        const float actionsW = closeW + style.ItemSpacing.x + quitW;
+        const float actionsX = std::max(style.WindowPadding.x,
+                                       ImGui::GetWindowWidth() - actionsW - style.WindowPadding.x);
+        if (ImGui::Button("Port & Randomizer setup")) {
+            Port_RandoFileMenu_SetSidebarOpen(true);
+            Port_DebugMenu_Toggle();
+        }
+        /* Keep the actions on their own row if the setup button needs
+         * the space on a narrow window. */
+        if (ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + style.ItemSpacing.x <= actionsX)
+            ImGui::SameLine();
+        /* Close and Quit stay together at the top-right of the ribbon. */
+        ImGui::SetCursorPosX(actionsX);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.45f, 0.45f, 0.45f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.55f, 0.55f, 0.55f, 1.0f));
+        if (focusClose)
+            ImGui::SetKeyboardFocusHere();
         if (ImGui::Button("Close X", ImVec2(closeW, 0))) {
             Port_DebugMenu_Toggle();
         }
         ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.20f, 0.20f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.30f, 0.30f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.85f, 0.35f, 0.35f, 1.0f));
+        if (ImGui::Button("Quit", ImVec2(quitW, 0))) {
+            Port_ImGui_RequestQuitModal();
+        }
+        ImGui::PopStyleColor(3);
 
-        if (ImGui::BeginTabBar("##ribbonTabs", ImGuiTabBarFlags_None)) {
-            if (ImGui::BeginTabItem("Items")) {
-                DrawRibbonItemsTab();
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem("Display")) {
-                DrawRibbonDisplayTab();
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem("Saves")) {
+        if (ImGui::BeginTabBar("##ribbonTabs", ImGuiTabBarFlags_FittingPolicyScroll)) {
+            if (BeginRibbonTab("Saves", focusSaves, selectSaves)) {
                 DrawRibbonSavesTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Profiles")) {
+            if (BeginRibbonTab("Items")) {
+                DrawRibbonItemsTab();
+                ImGui::EndTabItem();
+            }
+            if (BeginRibbonTab("Display")) {
+                DrawRibbonDisplayTab();
+                ImGui::EndTabItem();
+            }
+            if (BeginRibbonTab("Profiles")) {
                 DrawRibbonProfilesTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Equip")) {
+            if (BeginRibbonTab("Equip")) {
                 DrawRibbonEquipTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Controls")) {
+            if (BeginRibbonTab("Controls")) {
                 DrawRibbonControlsTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Warp")) {
+            if (BeginRibbonTab("Warp")) {
                 DrawRibbonWarpTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Entities")) {
+            if (BeginRibbonTab("Entities")) {
                 DrawRibbonEntitiesTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Flags")) {
+            if (BeginRibbonTab("Flags")) {
                 DrawRibbonFlagsTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Memory")) {
+            if (BeginRibbonTab("Memory")) {
                 DrawRibbonMemoryTab();
                 ImGui::EndTabItem();
             }
-            if ((!Rando_IsInGameplay() || Rando_IsActive()) && ImGui::BeginTabItem("Randomizer")) {
+            if ((!Rando_IsInGameplay() || Rando_IsActive()) && BeginRibbonTab("Randomizer")) {
                 DrawRibbonRandomizerTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Audio")) {
+            if (BeginRibbonTab("Audio")) {
                 DrawRibbonAudioTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Accessibility")) {
+            if (BeginRibbonTab("Accessibility")) {
                 DrawRibbonAccessibilityTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Reborn")) {
+            if (BeginRibbonTab("Reborn")) {
                 DrawRibbonRebornTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Practice")) {
+            if (BeginRibbonTab("Practice")) {
                 DrawRibbonPracticeTab();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Map Editor")) {
+            if (BeginRibbonTab("Map Editor")) {
                 DrawRibbonMapEditorTab();
                 ImGui::EndTabItem();
             }
 #ifdef TMC_RA
-            if (ImGui::BeginTabItem("Achievements")) {
+            if (BeginRibbonTab("Achievements")) {
                 Port_RA_UI_DrawTab();
                 ImGui::EndTabItem();
             }
@@ -729,7 +766,7 @@ static void DrawRibbon(void) {
             Port_Config_SetRibbonEnabled(useRibbon); /* persist (#146) */
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("(F8 or Select+Start also toggles)");
+        ImGui::TextDisabled("(F8, L3 or Select+Start also toggles)");
         ImGui::TextDisabled("F5/F6 quicksave/load   F9 bug report   -   see the Controls tab for all hotkeys");
     }
     ImGui::End();
@@ -976,82 +1013,6 @@ static void DrawMenuPage(int depth) {
     ImGui::PopStyleVar();
 }
 
-/* Persistent click target so users on mouse/touch can open the menu
- * without the F8 hotkey. When the menu is closed we render the
- * smallest, faintest possible affordance — a single "≡" glyph in the
- * top-right — so gameplay isn't covered. The window auto-opacifies on
- * hover. When the menu IS open, the same widget switches to a clear
- * "CLOSE" label since at that point the menu UI already obscures the
- * background, so visibility is fine. */
-static void DrawMenuTrigger(void) {
-    ImGuiIO& io = ImGui::GetIO();
-    const bool open = Port_DebugMenu_IsOpen();
-    /* One-shot discovery hint: mark it seen the moment the menu is first
-     * opened by ANY path (F8, gamepad Select+Start, or this button), so it
-     * never nags a returning player again. */
-    if (open && !Port_Config_GetMenuHintSeen()) {
-        Port_Config_SetMenuHintSeen(true);
-    }
-    const bool showHint = !open && !Port_Config_GetMenuHintSeen();
-    const float pad = 6.0f;
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - pad, pad), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-
-    /* Closed: 12% alpha background, ~minimal padding, single-glyph label —
-     * so the trigger reads as a faint corner dot rather than an opaque UI
-     * element overlapping the player's eye-line. First run (showHint): draw
-     * it boldly with a spelled-out label + the F8 key so a new player learns
-     * the settings door exists. */
-    if (open) {
-        ImGui::SetNextWindowBgAlpha(0.85f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 4));
-    } else if (showHint) {
-        ImGui::SetNextWindowBgAlpha(0.85f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 4));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 3));
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.35f, 0.55f, 0.95f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f, 0.45f, 0.65f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));
-    } else {
-        ImGui::SetNextWindowBgAlpha(0.12f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2));
-        /* Make the closed-state button itself low-alpha too; ImGui's
-         * hover state will bump it on its own when the cursor lands. */
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.22f, 0.28f, 0.30f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f, 0.45f, 0.65f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.92f, 0.92f, 0.92f, 0.50f));
-    }
-
-    /* NoNavInputs + NoNavFocus keep gamepad/keyboard nav from ever
-     * targeting this button, so A on the controller can't accidentally
-     * open the menu during gameplay. Mouse/touch click still works. */
-    if (ImGui::Begin("##menu_trigger", nullptr,
-                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize |
-                         ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavInputs |
-                         ImGuiWindowFlags_NoNavFocus)) {
-        /* Closed: single triple-bar ASCII '=' stacked into a hamburger
-         * shape (the default ImGui font doesn't ship U+2261 ≡). First run:
-         * spelled-out "Settings (F8)". Open: clear close label. */
-        const char* label = open ? " CLOSE MENU " : (showHint ? " Settings  (F8) " : "[=]");
-        if (ImGui::Button(label)) {
-            Port_DebugMenu_Toggle();
-        }
-        if (open) {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
-            ImGui::TextUnformatted("Gamepad: D-pad nav   A activate   B back");
-            ImGui::PopStyleColor();
-        }
-    }
-    ImGui::End();
-    if (open) {
-        ImGui::PopStyleVar();
-    } else {
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar(2);
-    }
-}
-
 /* Quit-save confirm modal state. The X-button (SDL_EVENT_QUIT) routes
  * through Port_ImGui_RequestQuitModal which arms this flag instead of
  * exiting straight away. The user picks Save & Quit / Quit Without
@@ -1060,16 +1021,37 @@ static void DrawMenuTrigger(void) {
  * because ImGui::BeginPopupModal needs to be called every frame while
  * it's open. */
 static bool sQuitModalArmed = false;
+static bool sQuitModalOpen = false;
 static bool sQuitModalConfirmed = false; /* set to true on "Save & Quit" or "Quit" — main loop polls and exits */
+extern "C" void Port_ImGui_SaveAndQuit(void) {
+    if (sQuitModalConfirmed)
+        return;
+    if (Port_QuickSave_SaveSlot(0)) {
+        sQuitModalConfirmed = true;
+    } else {
+        Port_DebugMenu_ToastFromExternal("Save failed. Check free space and folder permissions.");
+    }
+}
 extern "C" bool Port_ImGui_QuitConfirmed(void) {
     return sQuitModalConfirmed;
+}
+extern "C" bool Port_ImGui_IsQuitModalOpen(void) {
+    return sQuitModalOpen;
 }
 extern "C" void Port_ImGui_RequestQuitModal(void) {
     /* If a previous confirm already fired, honour it and let the host
      * exit. This catches the rare double-click on the X button. */
     if (sQuitModalConfirmed)
         return;
-    sQuitModalArmed = true;
+    if (!sQuitModalOpen) {
+        sQuitModalArmed = true;
+        sQuitModalOpen = true;
+    }
+}
+
+/* Match ImGui's built-in navigation choice for custom modal dismissals too. */
+static ImGuiKey GamepadCancelKey(void) {
+    return ImGui::GetIO().ConfigNavSwapGamepadButtons ? ImGuiKey_GamepadFaceDown : ImGuiKey_GamepadFaceRight;
 }
 
 static void DrawQuitModal(void) {
@@ -1080,6 +1062,7 @@ static void DrawQuitModal(void) {
     /* Centre the popup. */
     const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(520.0f, 0.0f), ImVec2(FLT_MAX, FLT_MAX));
     if (ImGui::BeginPopupModal("Quit?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
         ImGui::TextUnformatted("Save before quitting?");
         ImGui::Separator();
@@ -1089,22 +1072,25 @@ static void DrawQuitModal(void) {
                            "your last in-game save is lost.");
         ImGui::Spacing();
         if (ImGui::Button("Save & Quit", ImVec2(140, 0))) {
-            if (Port_QuickSave_SaveSlot(0)) {
-                sQuitModalConfirmed = true;
+            Port_ImGui_SaveAndQuit();
+            if (sQuitModalConfirmed) {
                 ImGui::CloseCurrentPopup();
-            } else {
-                Port_DebugMenu_ToastFromExternal("Save failed. Check free space and folder permissions.");
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Quit Without Saving", ImVec2(180, 0))) {
+        const float cancelW = 100.0f;
+        const float quitW = std::max(180.0f, ImGui::GetContentRegionAvail().x - cancelW - ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::Button("Quit Without Saving", ImVec2(quitW, 0))) {
             sQuitModalConfirmed = true;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(100, 0))) {
+        if (ImGui::Button("Cancel", ImVec2(cancelW, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+            ImGui::IsKeyPressed(GamepadCancelKey(), false)) {
+            sQuitModalOpen = false;
             ImGui::CloseCurrentPopup();
         }
+        ImGui::SetItemDefaultFocus();
         ImGui::EndPopup();
     }
 }
@@ -1118,7 +1104,7 @@ static void DrawQuitModal(void) {
  * holds KEYINPUT released and swallows SDL events). */
 static void DrawRandoFileMenuModal(void) {
     bool forceOpen = Port_RandoFileMenu_IsModalOpen();
-    bool shouldShow = forceOpen || (Rando_IsInFileSelect() && Port_RandoFileMenu_IsSidebarOpen());
+    bool shouldShow = forceOpen || Port_RandoFileMenu_IsSidebarOpen();
     if (!shouldShow)
         return;
 
@@ -1241,7 +1227,8 @@ static void DrawRandoFileMenuModal(void) {
                     if (ImGui::Button("Cancel", ImVec2(actionW, 0))) {
                         Port_RandoFileMenu_Cancel();
                     }
-                    ImGui::TextDisabled("Enter starts   Esc / Gamepad B cancels");
+                    ImGui::TextDisabled("Enter starts   Esc / Gamepad %s cancels",
+                                        Port_Config_GetNintendoLayout() ? "A" : "B");
                 } else {
                     ImGui::TextDisabled("Select an empty save slot to generate and start.");
                 }
@@ -1264,7 +1251,7 @@ static void DrawRandoFileMenuModal(void) {
             DrawRibbonAccessibilityTab();
         }
 
-        /* Close via Escape / Gamepad B. The manual sidebar additionally
+        /* Close via Escape / the configured gamepad cancel button. The manual sidebar additionally
          * closes on a second press of the GBA L button, but that press is
          * masked here (port_bios.c swallows game input while the menu is
          * open) so it is handled in Port_PumpEvents instead. */
@@ -1272,7 +1259,7 @@ static void DrawRandoFileMenuModal(void) {
 
         if (!popupOpen && !ImGui::IsAnyItemActive() && !ImGui::IsAnyItemFocused()) {
             const bool esc_pressed =
-                ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false);
+                ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(GamepadCancelKey(), false);
 
             if (esc_pressed) {
                 if (forceOpen) {
@@ -1321,9 +1308,17 @@ extern "C" bool Port_ImGui_Render(void) {
      * game's KEYINPUT is masked by port_bios.c. */
     static bool sPrevMenuOpen = false;
     const bool menuOpen = Port_DebugMenu_IsOpen();
-    const bool navWanted = menuOpen || Port_RandoFileMenu_IsOpen();
+    const bool menuJustOpened = menuOpen && !sPrevMenuOpen;
+    const bool navWanted = menuOpen || Port_RandoFileMenu_IsOpen() || Port_ImGui_IsQuitModalOpen();
     {
         ImGuiIO& io = ImGui::GetIO();
+        io.ConfigNavSwapGamepadButtons = Port_Config_GetNintendoLayout();
+        /* The ribbon always shows its focused control, including when opened
+         * by a hotkey. B/Escape may cancel an edit or popup, but must not
+         * clear the ribbon's focus when there is nothing left to dismiss. */
+        const bool ribbonOpen = menuOpen && sRibbonEnabled;
+        io.ConfigNavCursorVisibleAlways = ribbonOpen;
+        io.ConfigNavEscapeClearFocusItem = !ribbonOpen;
         if (navWanted) {
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         } else {
@@ -1414,30 +1409,8 @@ extern "C" bool Port_ImGui_Render(void) {
      * pass) so it presents on every backend, independent of the F8 menu. */
     DrawRandoFileMenuModal();
 
-    /* File-select discoverability: the L button opens the Port & Randomizer
-     * setup sidebar, but nothing on the vanilla file screen says so. Show a
-     * small bottom hint whenever we're on the file screen with the sidebar
-     * closed and the L gate enabled. */
-    if (Rando_IsInFileSelect() && !Port_RandoFileMenu_IsSidebarOpen() && !Port_RandoFileMenu_IsModalOpen() &&
-        Port_Config_PortSettingsMenuEnabled()) {
-        const ImGuiViewport* fvp = ImGui::GetMainViewport();
-        ImGui::SetNextWindowBgAlpha(0.55f);
-        ImGui::SetNextWindowPos(ImVec2(fvp->Pos.x + fvp->Size.x * 0.5f, fvp->Pos.y + fvp->Size.y - 10.0f),
-                                ImGuiCond_Always, ImVec2(0.5f, 1.0f));
-        if (ImGui::Begin("##rando_l_hint", nullptr,
-                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
-                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::TextColored(ImVec4(0.85f, 0.95f, 0.85f, 1.0f), "Press  L  for Port & Randomizer setup");
-        }
-        ImGui::End();
-    }
-
     /* Toast survives the menu being closed (e.g. after a warp). */
     DrawToast(Port_DebugMenu_Toast());
-
-    /* Always show the click-to-open trigger so mouse/touch users have a
-     * way in without the F8 hotkey. */
-    DrawMenuTrigger();
 
     /* Quit-save confirm modal — only renders when armed by
      * Port_ImGui_RequestQuitModal (called from port_bios.c when SDL
@@ -1447,7 +1420,7 @@ extern "C" bool Port_ImGui_Render(void) {
 
     if (Port_DebugMenu_IsOpen()) {
         if (sRibbonEnabled) {
-            DrawRibbon();
+            DrawRibbon(menuJustOpened);
         } else {
             /* Render the deepest page only (legacy behaviour: submenu
              * hides its parent). */

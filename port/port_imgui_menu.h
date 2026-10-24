@@ -20,7 +20,9 @@ bool Port_ImGui_RibbonEnabled(void);
 void Port_ImGui_SetRibbonEnabled(bool enabled);
 
 bool Port_ImGui_QuitConfirmed(void);
+bool Port_ImGui_IsQuitModalOpen(void);
 void Port_ImGui_RequestQuitModal(void);
+void Port_ImGui_SaveAndQuit(void);
 
 bool Port_ImGui_Render(void);
 bool Port_ImGui_RenderPrelaunch(bool romPresent,

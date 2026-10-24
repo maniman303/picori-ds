@@ -1204,8 +1204,8 @@ void sub_08050940(void) {
 #ifdef PC_PORT
         case L_BUTTON:
             if (Port_Config_PortSettingsMenuEnabled()) {
-                extern void Port_RandoFileMenu_ToggleSidebar(void);
-                Port_RandoFileMenu_ToggleSidebar();
+                extern void Port_DebugMenu_Toggle(void);
+                Port_DebugMenu_Toggle();
                 SoundReq(SFX_TEXTBOX_SELECT);
             }
             break;
@@ -1246,7 +1246,7 @@ void sub_08050940(void) {
 
 #ifdef PC_PORT
 static void DrawFileSelectSettingsHint(void) {
-    static const u8 sSettingsHintText[] = "L Settings";
+    static const u8 sSettingsHintText[] = "LS Settings";
     Font font;
 
     gChooseFileState.unk_0x12 = 1;

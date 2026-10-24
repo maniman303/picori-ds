@@ -35,19 +35,23 @@ static const char* InputLabel(int input) {
             return "Soft slot R2";
         case PORT_INPUT_ROLL_ATTACK:
             return "Roll attack (D / R3)";
+        case PORT_INPUT_QUIT_SAVE:
+            return "Quit & Save";
+        case PORT_INPUT_OPEN_SETTINGS:
+            return "Open settings (additional)";
         default:
             return Port_Config_InputName((PortInput)input);
     }
 }
 
 static void DrawRibbonControlsTab(void) {
-    if (ImGui::CollapsingHeader("Keyboard shortcuts")) {
+    if (ImGui::CollapsingHeader("Keyboard & controller shortcuts")) {
         struct HotkeyRow {
             const char* key;
             const char* action;
         };
         static const HotkeyRow kHotkeys[] = {
-            { "F8", "Open / close this settings menu (gamepad: Select+Start)" },
+            { "F8 / L3 / Select+Start", "Open / close this settings menu" },
             { "F5 / F6", "Quicksave / quickload" },
             { "F1-F4", "Load save-state slot 1-4  (Shift+Fn = save to slot)" },
             { "F7", "Toggle text-to-speech" },
@@ -116,78 +120,107 @@ static void DrawRibbonControlsTab(void) {
         }
     }
     ImGui::Separator();
-    ImGui::TextWrapped("Click 'Set' to replace an action's binding, or 'Add' to bind an extra "
-                       "key/controller button to it, then press the input. Esc cancels. Mappings "
+    {
+        bool on = Port_Config_GetNintendoLayout();
+        if (ImGui::Checkbox("Use Nintendo layout", &on)) {
+            Port_Config_SetNintendoLayout(on);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Swap controller A/B and X/Y for all bindings.\n"
+                              "Menus: B accepts, A cancels. Keyboard bindings stay the same.");
+        }
+    }
+    ImGui::TextWrapped("Click 'Set' to replace an action's keyboard or controller bindings, keeping "
+                       "the other device's bindings. 'Add' keeps all existing bindings and adds "
+                       "another key/controller input. Press the input to bind it; Esc cancels. Mappings "
                        "save to config.json automatically. In Console-Parity mode each physical "
                        "input maps to only one action.");
     ImGui::Separator();
 
-    /* Two-column-ish table: action label | bindings + buttons. */
-    if (ImGui::BeginTable("##controls", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
-        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 200.0f);
-        ImGui::TableSetupColumn("Bindings", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+    /* Lay out each mapping against the panel bounds directly. The action
+     * group always ends inside the right margin, independently of label widths. */
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float setW = SDL_ceilf(ImGui::CalcTextSize("Set").x + 2.0f * style.FramePadding.x);
+    const float addW = SDL_ceilf(ImGui::CalcTextSize("Add").x + 2.0f * style.FramePadding.x);
+    const float clearW = SDL_ceilf(ImGui::CalcTextSize("Clear").x + 2.0f * style.FramePadding.x);
+    const float actionsW = setW + addW + clearW + 2.0f * style.ItemSpacing.x;
+    const float rightMargin = 10.0f;
 
-        for (int i = 0; i < PORT_INPUT_COUNT; ++i) {
-            ImGui::PushID(i);
-            ImGui::TableNextRow();
+    for (int i = 0; i < PORT_INPUT_COUNT; ++i) {
+        ImGui::PushID(i);
+        const ImVec2 rowStart = ImGui::GetCursorScreenPos();
+        const float rowW = ImGui::GetContentRegionAvail().x - rightMargin;
+        const float actionsX = rowStart.x + std::max(0.0f, rowW - actionsW);
+        const bool stacked = rowW - actionsW - style.ItemSpacing.x < 140.0f;
+        const float bindingsW = std::max(1.0f, stacked ? rowW : actionsX - rowStart.x - style.ItemSpacing.x);
+        const float bindingsRight = rowStart.x + bindingsW;
 
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(InputLabel(i));
-
-            ImGui::TableSetColumnIndex(1);
-            const int n = Port_Config_BindingCount((PortInput)i);
-            if (n == 0) {
-                ImGui::TextDisabled("(unbound)");
-            } else {
-                for (int b = 0; b < n; ++b) {
-                    char label[64];
-                    Port_Config_BindingLabel((PortInput)i, b, label, sizeof(label));
-                    if (b > 0)
-                        ImGui::SameLine(0, 6);
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.30f, 0.45f, 1.0f));
-                    ImGui::Button(label);
-                    ImGui::PopStyleColor();
-                }
+        ImGui::BeginGroup();
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + bindingsW);
+        ImGui::TextWrapped("%s", InputLabel(i));
+        ImGui::PopTextWrapPos();
+        const float bindingsY = ImGui::GetCursorScreenPos().y;
+        ImGui::BeginGroup();
+        const int n = Port_Config_BindingCount((PortInput)i);
+        if (n == 0) {
+            ImGui::TextDisabled("(unbound)");
+        } else {
+            for (int b = 0; b < n; ++b) {
+                char label[64];
+                Port_Config_BindingLabel((PortInput)i, b, label, sizeof(label));
+                const float labelW = ImGui::CalcTextSize(label).x + 2.0f * style.FramePadding.x;
+                const float buttonW = std::max(1.0f, std::min(labelW, bindingsW));
+                if (b > 0 && ImGui::GetItemRectMax().x + 6.0f + buttonW <= bindingsRight)
+                    ImGui::SameLine(0, 6);
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.30f, 0.45f, 1.0f));
+                ImGui::Button(label, ImVec2(buttonW, 0));
+                ImGui::PopStyleColor();
+                if (labelW > buttonW && ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", label);
             }
-
-            ImGui::TableSetColumnIndex(2);
-            if (ImGui::Button("Set")) {
-                Port_Config_BeginCaptureBinding((PortInput)i);
-                ImGui::OpenPopup("Capture binding");
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Add")) {
-                Port_Config_BeginAddBinding((PortInput)i);
-                ImGui::OpenPopup("Capture binding");
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Clear")) {
-                Port_Config_ClearBindings((PortInput)i);
-            }
-
-            /* Modal popup that hangs around until the capture path
-             * commits (which clears IsCapturingBinding). We render the
-             * popup per-row but OpenPopup is fine because only one is
-             * open at a time. */
-            ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-            if (ImGui::BeginPopupModal("Capture binding", nullptr,
-                                       ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
-                ImGui::Text("Press a key or controller button for:");
-                ImGui::TextColored(ImVec4(1, 0.94f, 0.25f, 1), "%s", InputLabel(i));
-                ImGui::Text("Esc cancels.");
-                ImGui::Separator();
-                if (ImGui::Button("Cancel") || !Port_Config_IsCapturingBinding()) {
-                    Port_Config_CancelCaptureBinding();
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
-            }
-
-            ImGui::PopID();
         }
-        ImGui::EndTable();
+        ImGui::EndGroup();
+
+        const float actionsY = stacked ? ImGui::GetCursorScreenPos().y : bindingsY;
+        ImGui::SetCursorScreenPos(ImVec2(actionsX, actionsY));
+        ImGui::BeginGroup();
+        if (ImGui::Button("Set", ImVec2(setW, 0))) {
+            Port_Config_BeginCaptureBinding((PortInput)i);
+            ImGui::OpenPopup("Capture binding");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Add", ImVec2(addW, 0))) {
+            Port_Config_BeginAddBinding((PortInput)i);
+            ImGui::OpenPopup("Capture binding");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear", ImVec2(clearW, 0))) {
+            Port_Config_ClearBindings((PortInput)i);
+        }
+        ImGui::EndGroup();
+        ImGui::EndGroup();
+
+        /* Modal popup that hangs around until the capture path
+         * commits (which clears IsCapturingBinding). We render the
+         * popup per-row but OpenPopup is fine because only one is
+         * open at a time. */
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Capture binding", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+            ImGui::Text("Press a key or controller button for:");
+            ImGui::TextColored(ImVec4(1, 0.94f, 0.25f, 1), "%s", InputLabel(i));
+            ImGui::Text("Esc cancels.");
+            ImGui::Separator();
+            if (ImGui::Button("Cancel") || !Port_Config_IsCapturingBinding()) {
+                Port_Config_CancelCaptureBinding();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        ImGui::PopID();
+        ImGui::Separator();
     }
 
     ImGui::Separator();

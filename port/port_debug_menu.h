@@ -9,7 +9,7 @@ extern "C" {
 
 struct SDL_Renderer;
 
-/* Toggle the debug menu overlay (typically bound to F8). */
+/* Toggle the debug menu overlay (F8, L3 / left stick click, or Select+Start). */
 void Port_DebugMenu_Toggle(void);
 
 /* True while the debug menu is on screen. While open, GBA input is masked

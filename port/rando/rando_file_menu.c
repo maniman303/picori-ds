@@ -318,8 +318,7 @@ void Port_RandoFileMenu_Close(void) {
 }
 
 bool Port_RandoFileMenu_IsOpen(void) {
-    extern bool Rando_IsInFileSelect(void);
-    return sMenu.open || (Rando_IsInFileSelect() && sShowSidebar);
+    return sMenu.open || sShowSidebar;
 }
 
 bool Port_RandoFileMenu_IsModalOpen(void) {

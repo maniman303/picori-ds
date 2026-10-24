@@ -33,6 +33,12 @@
 static bool gQuitRequested = false;
 static bool sFastForward = false;
 static int sFrameNum = 0;
+static bool sWaitForOverlayInputRelease = false;
+
+static bool Port_InputOverlayIsOpen(void) {
+    return Port_DebugMenu_IsOpen() || Port_ImGui_IsQuitModalOpen() || Port_SoftSlots_ConfigIsOpen() ||
+           Port_InGameSettingsModalIsOpen() || Port_RandoFileMenu_IsOpen() || Port_LevelEditor_IsOpen();
+}
 
 /* Soft-reset re-entry. AgbMain arms this with setjmp() at the top of the
  * game loop; SoftReset() longjmp()s back to re-run AgbMain's init (which
@@ -122,12 +128,26 @@ static void Port_UpdateInput(void) {
     { Port_ReproItemGet_Tick(sFrameNum); }
 
     {
-        /* While either overlay is open, hold all GBA buttons released so
-         * the game doesn't observe stray input from key presses we routed
-         * to the overlay. The soft-slot configuration overlay piggybacks
-         * on this behaviour while it's the active focus. */
-        if (Port_DebugMenu_IsOpen() || Port_SoftSlots_ConfigIsOpen() || Port_InGameSettingsModalIsOpen() ||
-            Port_RandoFileMenu_IsOpen() || Port_LevelEditor_IsOpen()) {
+        const bool overlayOpen = Port_InputOverlayIsOpen();
+        if (overlayOpen) {
+            sWaitForOverlayInputRelease = true;
+        } else if (sWaitForOverlayInputRelease) {
+            /* Closing an ImGui button can happen during rendering, before
+             * this poll. Discard menu edges and wait for held inputs too:
+             * clearing edges alone still leaks a held confirm into gameplay.
+             * Include soft slots and the roll macro in the release check. */
+            Port_Config_ClearInputEdges();
+            sWaitForOverlayInputRelease = false;
+            for (int i = 0; i < PORT_INPUT_COUNT; i++) {
+                if (Port_Config_InputPressed((PortInput)i)) {
+                    sWaitForOverlayInputRelease = true;
+                    break;
+                }
+            }
+        }
+        /* Keep GBA buttons released while the overlay owns the input,
+         * including its closing activation until the user releases it. */
+        if (overlayOpen || sWaitForOverlayInputRelease) {
             *(vu16*)(gIoMem + REG_OFFSET_KEYINPUT) = keyinput;
             /* The one-frame edge cache must be cleared on this path too: the
              * event loop keeps stamping edges for keys/pad buttons the overlays
@@ -224,6 +244,20 @@ static void Port_UpdateInput(void) {
 static void Port_PumpEvents(void) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        /* Remember ownership before a close hotkey changes overlay state,
+         * even if the overlay opened and closed between game input polls. */
+        if (Port_InputOverlayIsOpen())
+            sWaitForOverlayInputRelease = true;
+        /* Capture owns keyboard/gamepad input before ImGui navigation and
+         * fixed shortcuts (including Home/End and L3) can consume it. Keep
+         * releases here too so assigning a key doesn't navigate the menu. */
+        if (Port_Config_IsCapturingBinding() &&
+            (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP ||
+             e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP ||
+             e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION)) {
+            Port_Config_HandleEvent(&e);
+            continue;
+        }
         /* Forward every event to ImGui so its window/keyboard tracking
          * stays in sync. ImGui only consumes input when a widget is
          * actively hovered/focused; game input passes through. */
@@ -252,6 +286,9 @@ static void Port_PumpEvents(void) {
             Port_ImGui_RequestQuitModal();
             continue;
         }
+        /* The quit dialog owns keyboard/gamepad input until resolved. */
+        if (Port_ImGui_IsQuitModalOpen())
+            continue;
         if (Port_RandoFileMenu_IsOpen()) {
             /* The ImGui modal owns the randomizer-setup input (the event was
              * already forwarded to ImGui above). The manually-opened sidebar
@@ -270,6 +307,28 @@ static void Port_PumpEvents(void) {
             }
             continue;
         }
+        /* Optional extra settings binding. Opening is idempotent, so a held
+         * controller trigger cannot repeatedly toggle the menu. */
+        if (!Port_InputOverlayIsOpen() && !Port_ImGui_WantsTextInput() &&
+            Port_Config_EventIsInputDown(&e, PORT_INPUT_OPEN_SETTINGS)) {
+            Port_DebugMenu_Toggle();
+            continue;
+        }
+        /* Binding capture and overlays own input; assigning this shortcut must
+         * never trigger a save and exit. Give it priority over fixed hotkeys
+         * during gameplay so any captured key/button can be used. */
+        if (!Port_Config_IsCapturingBinding() && !Port_InputOverlayIsOpen() &&
+            !Port_ImGui_WantsTextInput() && Port_Config_EventIsInputDown(&e, PORT_INPUT_QUIT_SAVE)) {
+            Port_ImGui_SaveAndQuit();
+            continue;
+        }
+        /* L3 (left stick click) toggles settings alongside F8 and Select+Start. */
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && e.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_STICK) {
+            Port_DebugMenu_Toggle();
+            continue;
+        }
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_STICK)
+            continue;
         if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
             /* Soft-slot config overlay is highest priority: it consumes
              * navigation keys before the rest of the routing fires. */
