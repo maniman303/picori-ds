@@ -2,6 +2,10 @@
 
 Research date: 2026-10-24. Status: runtime implementation planned; initial local artwork export completed.
 
+Implementation has started with the port-owned catalog and profile contracts;
+rendering integration remains pending. See the ordered
+[implementation tasks and verification record](aspect-ratio-and-background-overrides-tasks.md).
+
 This document plans the requested removal of the widescreen toggle, true
 256 × 192 rendering for 4:3, corner-anchored live-gameplay UI, bottom gameplay dialogue,
 effect-aware splash extension, named contextual PNG background artwork for every
@@ -74,16 +78,21 @@ Proposed fixed profiles, before optional internal supersampling:
 | --- | --- | --- | --- |
 | 3:2 / GBA | `32` | 240 × 160 | Explicit native geometry. |
 | 4:3 / DS | `43` | **256 × 192** | Exact DS pixel dimensions, not a resized GBA frame. |
-| 16:9 | `169` | 284 × 160 | Floor of 160 × 16/9, matching current pixel-fit behavior at that window aspect. |
-| 21:9 | `219` | 373 × 160 | Same integer policy. |
-| 32:9 | `329` | 568 × 160 | Exceeds the currently shipped 384 capacity and native OBJ X range assumptions. |
+| 16:9 | `169` | 285 × 160 | Ceiling of 160 × 16/9. |
+| 21:9 | `219` | 374 × 160 | Ceiling of 160 × 21/9. |
+| 32:9 | `329` | 569 × 160 | Ceiling of 160 × 32/9; exceeds the currently shipped 384 capacity and native OBJ X range assumptions. |
 
-The wide profiles cannot express the exact mathematical ratio at height 160
-with integer width. Preserve square source pixels and aspect-fit the integer
-canvas inside the requested stage; accept the subpixel-rounding remainder as
-bars/fill. Document these sizes in the settings and override guide. Do not
-silently select 288 for one backend and 284 for another. Profile sizes become a
-versioned public asset contract.
+Except for the explicit 4:3 / DS profile at 256 × 192, every profile keeps a
+height of 160 pixels. Calculate width as `ceil(160 * ratioWidth / ratioHeight)`:
+when the exact ratio requires a fractional width, always round upward to the
+next integer pixel, not down or to the nearest even/tile-aligned width. Thus
+16:9 requires 285 × 160, not 284 × 160 or 286 × 160. This ceiling rule applies
+to canvas dimensions; the native-content centering offsets still use floor.
+Preserve square source pixels and aspect-fit the integer canvas inside the
+requested stage; accept the subpixel-rounding remainder as bars/fill. Document
+these sizes in the settings and override guide. Every backend and PNG validator
+must use the same selected profile. Profile sizes become a versioned public
+asset contract.
 
 Make profile selection determine the renderer target even when the window has
 another aspect. Resizing only changes presentation rectangles. This makes
@@ -106,11 +115,11 @@ must now select native geometry explicitly. Overrides and enhanced layout are
 disabled in parity mode.
 
 Capacity must support the published profiles. Prefer a bounded maximum width
-of at least 568 and height of 192, with runtime **visible** dimensions; capacity
+of at least 569 and height of 192, with runtime **visible** dimensions; capacity
 must not enlarge every loop. Retain native-only N64 constraints. Keep the old
 build option as a deprecated capacity alias initially; update `build.py`, the
 RG script, tools, and documentation together. A capacity-limited build must
-disable unsupported profiles visibly, never accept a 568-pixel override and
+disable unsupported profiles visibly, never accept a 569-pixel override and
 then present only 384 pixels.
 
 ## 3. True 256 × 192 gameplay
@@ -380,9 +389,9 @@ Artist-facing examples:
 ```text
 assets/override/32/menu_background.png      # 240 x 160 native reference
 assets/override/43/menu_background.png      # 256 x 192
-assets/override/169/menu_background.png     # 284 x 160
-assets/override/219/menu_background.png     # 373 x 160
-assets/override/329/menu_background.png     # 568 x 160
+assets/override/169/menu_background.png     # 285 x 160
+assets/override/219/menu_background.png     # 374 x 160
+assets/override/329/menu_background.png     # 569 x 160
 assets/override/43/kinstone_background.png  # 256 x 192, all seven variants
 ```
 
@@ -400,7 +409,10 @@ grayscale, grayscale+alpha, and indexed PNG encodings into RGBA8 as necessary;
 indexed input is optional convenience, not a required palette format. Handle
 standard PNG bit depths and interlacing with libpng's normal normalization.
 The art is not quantized to GBA colors. The only content contract is the exact
-logical canvas size for the chosen ratio, before supersampling.
+logical canvas size for the selected aspect ratio, before supersampling:
+240 × 160 for 3:2, 256 × 192 for 4:3, 285 × 160 for 16:9, 374 × 160 for
+21:9, and 569 × 160 for 32:9. Validate both PNG dimensions against that
+profile, not against a universal 256 × 192 size or the current window size.
 
 Resolve the hardcoded context before lookup:
 
@@ -624,7 +636,7 @@ scales or filters just to make 4:3 work.
 | Current and incoming contextual RGBA8 images | 384 KiB | At most one per context; coexist only during a scene transition. |
 | One 4× RGBA8 canvas | 3 MiB | Allocate/touch only for selected upscale path. |
 | One 10× RGBA8 canvas | 18.75 MiB | Existing worst-case scaling pattern; avoid default activation. |
-| 568 × 192 × 10² RGBA8 maximum-capacity pool | About 41.6 MiB | Expanding compile-time capacity can enlarge BSS even though only one profile is active. Audit before changing macros. |
+| 569 × 192 × 10² RGBA8 maximum-capacity pool | About 41.7 MiB | Expanding compile-time capacity can enlarge BSS even though only one profile is active. Audit before changing macros. |
 | Additional full IO snapshot rows | 32 KiB per 32 rows | Prefer shared stable-state rows when no raster effect needs unique state. |
 
 `port_ppu.cpp` already reserves maximum-scale BSS plus 2×/4× xBRZ pools.
