@@ -177,6 +177,10 @@ static void DrawRibbonDisplayTab(void) {
         StepperRow("Aspect ratio", "aspect",
                    [](char*, size_t) { return Port_Config_AspectModeName(Port_Config_AspectMode()); },
                    Port_Config_CycleAspectMode);
+        RandoUi_HelpTooltip("Standard 4:3 renders at 212x160 with square source pixels. "
+                            "The world is cropped equally on both sides; HUD, dialogue and name entry use compact layouts. "
+                            "Selected smoothing, shaders and other presentation effects still apply. "
+                            "Selected automatically on first launch on a 4:3 display.");
 
         StepperRow("Renderer", "renderer",
                    [](char*, size_t) { return Port_Config_RenderBackendName(Port_Config_RenderBackend()); },

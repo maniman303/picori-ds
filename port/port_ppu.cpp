@@ -11,6 +11,7 @@
 #include "port_softslots.h"
 #include "port_touch_controls.h"
 #include "port_widescreen.h"
+#include "port_narrow.h"
 
 #ifdef launcher
 #include "tmc_launcher.h"
@@ -40,6 +41,7 @@ extern "C" void kmp_set_blocktime(int msec);
  * task field at known offset 2 (interruptFlag, sleepStatus, task —
  * include/main.h). C linkage matches the engine's Main gMain. */
 extern "C" uint8_t gMain[]; // fix for MSVC (UWP PORT)
+extern "C" bool Message_GetWindowRect(int*, int*, int*, int*);
 /* Phase-timer hooks (defined in port_bios.c, C linkage). */
 extern "C" int Port_Profile_Enabled(void);
 extern "C" uint64_t gPortProfileRenderNs;
@@ -102,6 +104,8 @@ static int sSuperH = 0;
 static SDL_Window* sWindow = nullptr;
 
 static int Port_PPU_WindowBaseWidth(void) {
+    if (Port_Narrow_IsActive())
+        return PORT_NARROW_WIDTH;
     return (MODE1_GBA_WIDTH > 240 && Port_Config_WidescreenEnabled()) ? MODE1_GBA_WIDTH : 240;
 }
 
@@ -140,6 +144,8 @@ static size_t sUpscale4xPixels = 0;
  * menus, narrow rooms, overlays) intentionally stay native here and are
  * presented aspect-correct (pillarboxed), never stretched. */
 extern "C" int Port_PPU_VisibleFrameWidth(void) {
+    if (Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3)
+        return 212;
     if (MODE1_GBA_WIDTH == 240) {
         return MODE1_GBA_WIDTH;
     }
@@ -305,6 +311,10 @@ static void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int fbH, 
     int aspH = FH;
     const PortAspectMode mode = Port_Config_AspectMode();
     switch (mode) {
+        case PORT_ASPECT_STANDARD_4_3:
+            aspW = PORT_NARROW_WIDTH;
+            aspH = 160;
+            break;
         case PORT_ASPECT_WIDESCREEN_16_9:
             aspW = 16;
             aspH = 9;
@@ -525,7 +535,9 @@ static void Port_PPU_PresentSurfaceFrame(void) {
     }
 
     const int frameW = Port_PPU_VisibleFrameWidth();
-    Port_PPU_FitAspectRect(windowSurface->w, windowSurface->h, frameW, MODE1_GBA_HEIGHT, &x, &y, &w, &h);
+    int stageX, stageY, stageW, stageH;
+    Port_PPU_ComputeViewportRects(windowSurface->w, windowSurface->h, frameW, MODE1_GBA_HEIGHT,
+                                  &stageX, &stageY, &stageW, &stageH, &x, &y, &w, &h);
     srcRect = { 0, 0, frameW, MODE1_GBA_HEIGHT };
     dstRect = { x, y, w, h };
     SDL_FillSurfaceRect(windowSurface, nullptr, 0);
@@ -1204,6 +1216,10 @@ static bool Port_PPU_GlesEnsure(void) {
 /* Rasterize the current frame on the GPU into virtuappu_frame_buffer. Returns
  * false so the caller runs the CPU rasterizer instead. */
 static bool Port_PPU_TryGpuRaster(void) {
+    // Narrow HUD/background sampling is implemented by the CPU PPU. GPU
+    // presentation, shaders and upscalers still consume its 212px frame.
+    if (Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3)
+        return false;
     if (!Port_Config_GetGpuRaster()) {
         return false;
     }
@@ -1372,12 +1388,29 @@ extern "C" void Port_PPU_PresentFrame(void) {
     if (sBackend == RenderBackend::None) {
         return;
     }
+    const bool pixelPerfect = Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3;
+    // Apply on mode changes too, including when selected from the F8 menu.
+    static int minimumAspect = -1;
+    if (minimumAspect != (int)pixelPerfect && sWindow) {
+        SDL_SetWindowMinimumSize(sWindow, pixelPerfect ? 212 : 1, pixelPerfect ? 160 : 1);
+        minimumAspect = (int)pixelPerfect;
+    }
 #ifdef TMC_GPU_RENDERER
     sSuperValid = false; /* set true only if TryGpuRaster renders the Sx buffer this frame */
 #endif
 
     virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
     virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
+    virtuappu_mode1_narrow_hud = pixelPerfect && Port_Narrow_HudActive();
+    virtuappu_mode1_narrow_keyboard = pixelPerfect && Port_Narrow_KeyboardActive();
+    virtuappu_mode1_narrow_msg_y0 = virtuappu_mode1_narrow_msg_y1 = 0;
+    if (pixelPerfect) {
+        int mx, my, mw, mh;
+        if (Message_GetWindowRect(&mx, &my, &mw, &mh)) {
+            virtuappu_mode1_narrow_msg_y0 = my;
+            virtuappu_mode1_narrow_msg_y1 = my + mh;
+        }
+    }
 
     dispcnt = (uint16_t)(gIoMem[0x00] | (gIoMem[0x01] << 8));
     gbaMode = (uint8_t)(dispcnt & 0x07);

@@ -805,6 +805,17 @@ static u32 sub_0805F7A0(u32 param_1) {
     return (i << 8) | j;
 }
 
+#ifdef PC_PORT
+u32 Port_Text_GlyphAdvance(u32 chr, const WStruct* style) {
+    const u32* glyph = sub_0805F25C(chr);
+    u32 width = 0;
+    const unsigned halves = (chr >> 8) > 4 ? 2 : 1;
+    for (unsigned i = 0; i < halves; ++i, glyph += 0x10)
+        width += style->unk1 ? 8 : sub_0805F7A0(*glyph) >> 8;
+    return width;
+}
+#endif
+
 u32 sub_0805F7DC(u32 r0, WStruct* r1) {
     u32 temp;
     u32 temp2;

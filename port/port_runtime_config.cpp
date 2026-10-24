@@ -1,4 +1,5 @@
 #include "port_runtime_config.h"
+#include "port_narrow.h"
 #include "port_touch_controls.h"
 
 #include <SDL3/SDL.h>
@@ -117,6 +118,7 @@ int sPreferredLanguage = -1;
  * blurred ambient fill so no scene shows dead black bars. "black" restores
  * the historical plain-bars look. */
 PortAspectMode sAspectMode = PORT_ASPECT_NATIVE_3_2;
+bool sDetectInitialAspect = false;
 PortBgFill sBgFill = PORT_BG_FILL_BLURRED_FRAME;
 u8 sBgFillR = 0, sBgFillG = 0, sBgFillB = 0;
 /* Renderer backend selection — read once at PPU init; menu writes
@@ -672,7 +674,9 @@ extern "C" void Port_Config_Load(const char* path) {
     sConfigPath = p;
 
     std::error_code ec;
-    if (std::filesystem::exists(p, ec)) {
+    const bool exists = std::filesystem::exists(p, ec);
+    sDetectInitialAspect = !exists && !ec;
+    if (exists) {
         try {
             std::ifstream(p) >> j;
         } catch (const nlohmann::json::exception& e) {
@@ -743,7 +747,9 @@ extern "C" void Port_Config_Load(const char* path) {
                 if (c >= 'A' && c <= 'Z')
                     c = static_cast<char>(c - 'A' + 'a');
             }
-            if (am == "16:9" || am == "widescreen")
+            if (am == "4:3" || am == "standard")
+                sAspectMode = PORT_ASPECT_STANDARD_4_3;
+            else if (am == "16:9" || am == "widescreen")
                 sAspectMode = PORT_ASPECT_WIDESCREEN_16_9;
             else if (am == "21:9" || am == "ultrawide")
                 sAspectMode = PORT_ASPECT_ULTRAWIDE_21_9;
@@ -1090,8 +1096,14 @@ extern "C" PortAspectMode Port_Config_AspectMode(void) {
     return sAspectMode;
 }
 
+extern "C" bool Port_Narrow_IsActive(void) {
+    return sAspectMode == PORT_ASPECT_STANDARD_4_3;
+}
+
 extern "C" const char* Port_Config_AspectModeName(PortAspectMode mode) {
     switch (mode) {
+        case PORT_ASPECT_STANDARD_4_3:
+            return "Standard 4:3";
         case PORT_ASPECT_WIDESCREEN_16_9:
             return "Widescreen 16:9";
         case PORT_ASPECT_ULTRAWIDE_21_9:
@@ -1108,8 +1120,12 @@ extern "C" void Port_Config_SetAspectMode(PortAspectMode mode) {
     if (mode < 0 || mode >= PORT_ASPECT_COUNT)
         mode = PORT_ASPECT_NATIVE_3_2;
     sAspectMode = mode;
+    sDetectInitialAspect = false;
     const char* name = "native";
     switch (mode) {
+        case PORT_ASPECT_STANDARD_4_3:
+            name = "4:3";
+            break;
         case PORT_ASPECT_WIDESCREEN_16_9:
             name = "16:9";
             break;
@@ -1135,6 +1151,21 @@ extern "C" void Port_Config_CycleAspectMode(int direction) {
     if (next >= PORT_ASPECT_COUNT)
         next = 0;
     Port_Config_SetAspectMode((PortAspectMode)next);
+}
+
+extern "C" void Port_Config_DetectInitialAspect(int displayWidth, int displayHeight) {
+    if (!sDetectInitialAspect)
+        return;
+    sDetectInitialAspect = false;
+    if (displayWidth <= 0 || displayHeight <= 0)
+        return;
+    // Allow 1% rounding error; 5:4 and widescreen panels retain native defaults.
+    const double ratio = (double)displayWidth / displayHeight;
+    if (ratio >= (4.0 / 3.0) * 0.99 && ratio <= (4.0 / 3.0) * 1.01) {
+        Port_Config_SetAspectMode(PORT_ASPECT_STANDARD_4_3);
+        fprintf(stderr, "[CONFIG] Detected 4:3 display (%dx%d); using Standard 4:3.\n",
+                displayWidth, displayHeight);
+    }
 }
 
 extern "C" PortBgFill Port_Config_BgFill(void) {

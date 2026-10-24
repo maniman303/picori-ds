@@ -568,6 +568,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    /* Query the desktop, not the initial game window (which starts at the
+     * GBA ratio). Synthetic headless displays do not describe the monitor. */
+    const char* video_driver = SDL_GetCurrentVideoDriver();
+    if (video_driver && strcmp(video_driver, "dummy") != 0 && strcmp(video_driver, "offscreen") != 0) {
+        const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
+        if (desktop)
+            Port_Config_DetectInitialAspect(desktop->w, desktop->h);
+    }
+    int window_width = window_base_width * window_scale;
+    if (Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3)
+        window_width = 212 * window_scale;
+
     Port_Config_OpenGamepads();
 
     /* ROM probe deferred — the prelaunch screen (rendered after PPU
@@ -617,14 +629,14 @@ int main(int argc, char* argv[]) {
     }
 #endif
     window =
-        SDL_CreateWindow(window_title, window_base_width * window_scale, MODE1_GBA_HEIGHT * window_scale, window_flags);
+        SDL_CreateWindow(window_title, window_width, MODE1_GBA_HEIGHT * window_scale, window_flags);
     if (!window) {
         fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 #else
-    if (!SDL_CreateWindowAndRenderer(window_title, window_base_width * window_scale, MODE1_GBA_HEIGHT * window_scale,
+    if (!SDL_CreateWindowAndRenderer(window_title, window_width, MODE1_GBA_HEIGHT * window_scale,
                                      SDL_WINDOW_RESIZABLE, &window, &prerenderer)) {
         fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
         SDL_Quit();
@@ -632,6 +644,9 @@ int main(int argc, char* argv[]) {
     }
     (void)prerenderer; /* Owned by the window; retrieved via SDL_GetRenderer(window) later. */
 #endif
+
+    if (Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3)
+        SDL_SetWindowMinimumSize(window, 212, 160);
 
     /* Set window icon BEFORE first present so the title-bar and
      * taskbar entry never flash the default SDL icon. */

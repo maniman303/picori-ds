@@ -17,6 +17,7 @@
 #include "port_rom.h"
 #include "port_sprite_region.h"
 #include "port_widescreen.h"
+#include "port_narrow.h"
 extern const u8* gGlobalGfxAndPalettes;
 #endif
 
@@ -110,6 +111,16 @@ void DrawUIElements(void) {
             }
 #endif
             gOamCmd.x = element->x;
+#ifdef PC_PORT
+            if (Port_Narrow_IsActive()) {
+                // PPU centers sprites by removing 14px per side. Compensate
+                // left HUD elements; move the button/item group 28px inward.
+                const bool left = element->type == UI_ELEMENT_HEART ||
+                                  element->type == UI_ELEMENT_EZLONAGSTART ||
+                                  element->type == UI_ELEMENT_EZLONAGACTIVE;
+                gOamCmd.x += left ? 14 : -14;
+            }
+#endif
             gOamCmd.y = element->y;
             definition = &gUIElementDefinitions[element->type];
             gOamCmd._4 = definition->unk_0;

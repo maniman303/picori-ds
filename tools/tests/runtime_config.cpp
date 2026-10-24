@@ -1,8 +1,10 @@
 // Exercise the production loader with user-editable numeric settings.
 #include "port_runtime_config.h"
+#include "port_narrow.h"
 #include <cassert>
 #include <cstdio>
 #include <initializer_list>
+#include <utility>
 
 static void load(const char* path, const char* json) {
     FILE* f = fopen(path, "w");
@@ -15,6 +17,38 @@ static void load(const char* path, const char* json) {
 int main(int argc, char** argv) {
     assert(argc == 2);
     const char* path = argv[1];
+    // Detection applies once to a new config and persists the result.
+    std::remove(path);
+    Port_Config_Load(path);
+    Port_Config_DetectInitialAspect(1024, 768);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3);
+    Port_Config_Load(path);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3);
+    Port_Config_DetectInitialAspect(1920, 1080);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3);
+    // Existing choices (including older configs without the key) win.
+    for (const char* json : {"{}", R"({"aspect_mode":"native"})", R"({"aspect_mode":"16:9"})"}) {
+        load(path, json);
+        const PortAspectMode saved = Port_Config_AspectMode();
+        Port_Config_DetectInitialAspect(800, 600);
+        assert(Port_Config_AspectMode() == saved);
+    }
+    for (const auto& size : {std::pair<int, int>{1280, 1024}, {1920, 1080}, {0, 0}}) {
+        std::remove(path);
+        Port_Config_Load(path);
+        Port_Config_DetectInitialAspect(size.first, size.second);
+        assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
+        Port_Config_DetectInitialAspect(800, 600);
+        assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
+    }
+    load(path, R"({"aspect_mode":"4:3"})");
+    assert(Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3);
+    assert(Port_Narrow_IsActive());
+    Port_Config_CycleAspectMode(1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
+    assert(!Port_Narrow_IsActive());
+    Port_Config_CycleAspectMode(-1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_STANDARD_4_3);
     load(path, "{}");
     assert(Port_Config_BindingCount(PORT_INPUT_OPEN_SETTINGS) == 0);
     load(path, R"({"bindings":{"open_settings":["SDLK:0x0000006f"]}})");

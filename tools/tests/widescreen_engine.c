@@ -19,6 +19,7 @@ static u16* virtuappu_mode1_ws_shadow[4];
 static u32 sWsContentKey;
 static int sWsContentPx;
 static int enabled = 1;
+static bool Port_Narrow_IsActive(void) { return false; }
 static int Port_Config_WidescreenEnabled(void) { return enabled; }
 static int Port_Widescreen_TargetViewWidth(void) { return 384; }
 static int Port_WidescreenEffectiveTarget(void) { return gRoomControls.width < 384 ? gRoomControls.width : 384; }
@@ -31,7 +32,9 @@ enum { TASK_GAME = 2, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
        AREA_CAVE_OF_FLAMES = 0x60, MANAGER = 9, ENTER_ROOM_TEXTBOX_MANAGER = 1 };
 #define MODE1_GBA_BG_COUNT 4
 #define DISPCNT_BG3_ON 0x800
-static struct { int task; } gMain;
+static struct { int task, state, substate; } gMain;
+static struct { unsigned hideFlags; } gHUD;
+enum { GAMETASK_MAIN = 2, GAMEMAIN_SUBTASK = 7, HUD_HIDE_ALL = 255 };
 typedef struct { u32 control; int yOffset; } TestBg;
 static struct { TestBg bg0, bg1, bg2, bg3; struct { int displayControl; } lcd; } gScreen;
 static struct { TestBg* bgSettings; } gMapBottom, gMapTop;
@@ -51,6 +54,15 @@ static Entity* FindEntityByID(int kind, int id, int list) { (void)kind; (void)id
 static int errors;
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #cond); ++errors; } } while (0)
 int main(void) {
+    gMain.task = TASK_GAME;
+    gMain.state = GAMETASK_MAIN;
+    CHECK(Port_Narrow_HudActive());
+    gHUD.hideFlags = HUD_HIDE_ALL;
+    CHECK(!Port_Narrow_HudActive());
+    gHUD.hideFlags = 0;
+    gMain.substate = GAMEMAIN_SUBTASK;
+    CHECK(!Port_Narrow_HudActive());
+    gMain.substate = 0;
     gRoomControls.width = 1024;
     gRoomControls.height = 1024;
     static u16 map[128*128], shadow[MODE1_WS_SHADOW_COLS*32];

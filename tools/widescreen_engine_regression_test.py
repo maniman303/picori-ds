@@ -24,6 +24,7 @@ def main():
     stubs = (ROOT / 'port/port_linked_stubs.c').read_text()
     message = (ROOT / 'src/message.c').read_text()
     functions = [function(stubs, name) for name in (
+        'bool Port_Narrow_HudActive(void)',
         'int Port_Widescreen_FallbackNative(void)',
         'int Port_Widescreen_CameraRestX(int target_x)',
         'static void Port_WidescreenShadow_Populate(',

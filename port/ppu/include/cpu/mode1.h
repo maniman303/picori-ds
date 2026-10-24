@@ -85,6 +85,11 @@ extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
  * instead of in the middle of the revealed world. */
 #define MODE1_WS_HUD_RIGHT_NATIVE_X 176
 extern int virtuappu_mode1_ws_hud_right_anchor;
+/* 212px viewport: BG0 HUD keeps left/right anchors; dialogue uses its
+ * engine-provided compact canvas instead of the right-anchor remap. */
+extern int virtuappu_mode1_narrow_hud;
+extern int virtuappu_mode1_narrow_keyboard;
+extern int virtuappu_mode1_narrow_msg_y0, virtuappu_mode1_narrow_msg_y1;
 
 /* Runtime WIP widescreen message-box centering. The engine composes the
  * textbox on BG0 for a 240-px canvas (default box: tiles 1..27). On a wide

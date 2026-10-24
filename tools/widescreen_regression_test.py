@@ -19,6 +19,14 @@ def main():
         subprocess.run(command, cwd=ROOT, check=True)
         subprocess.run([str(binary)], check=True)
         for width in (240, 384):
+            binary = Path(directory) / f'narrow-{width}'
+            command = shlex.split(os.environ.get('CC', 'cc')) + [
+                '-std=gnu11', '-O2', f'-DMODE1_GBA_WIDTH={width}', '-Iport/ppu/include',
+                'tools/tests/narrow_ppu.c', 'port/ppu/src/mode1.c', '-lm', '-o', str(binary),
+            ]
+            subprocess.run(command, cwd=ROOT, check=True)
+            subprocess.run([str(binary)], check=True)
+        for width in (240, 384):
             binary = Path(directory) / f'dampe-{width}'
             command = shlex.split(os.environ.get('CC', 'cc')) + [
                 '-std=gnu11', '-O2', '-DPC_PORT', '-DUSA', f'-DMODE1_GBA_WIDTH={width}',

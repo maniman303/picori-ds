@@ -6,23 +6,29 @@ extern "C" bool Message_CopyTextCanvas(uint8_t* pixels, int capacity, int* x, in
 
 extern "C" void Port_HDText_Draw(const uint32_t* frame, int frameWidth, int frameHeight, int pitchPixels,
                                   float viewportX, float viewportY, float viewportWidth, float viewportHeight) {
-    if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 || frameWidth < 240 || frameHeight != 160)
+    if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 || frameWidth < 212 || frameHeight != 160)
         return;
     uint8_t pixels[PortHDText::kMaxPixels];
     int x, y, width, height;
     if (!Message_CopyTextCanvas(pixels, sizeof(pixels), &x, &y, &width, &height))
         return;
-    x += (frameWidth - 240) / 2;
+    if (frameWidth > 240)
+        x += (frameWidth - 240) / 2;
     uint32_t colors[16] = {};
     if (!PortHDText::MatchCanvas(pixels, width, height, frame, frameWidth, frameHeight, pitchPixels, x, y, colors))
         return;
-    const float sx = viewportWidth / frameWidth, sy = viewportHeight / frameHeight;
-    if (sx < 2.0f || sy < 2.0f)
+    PortHDText::CanvasViewport canvas;
+    const ImVec2 framebufferScale = ImGui::GetIO().DisplayFramebufferScale;
+    if (!PortHDText::MapCanvasViewport(x, y, width, height, frameWidth, frameHeight,
+                                       viewportX, viewportY, viewportWidth, viewportHeight,
+                                       framebufferScale.x, framebufferScale.y, canvas))
         return;
+    const float sx = canvas.scaleX, sy = canvas.scaleY;
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
-    const ImVec2 origin(viewportX + x * sx, viewportY + y * sy);
-    draw->PushClipRect(origin, ImVec2(origin.x + width * sx, origin.y + height * sy), true);
-    draw->AddRectFilled(origin, ImVec2(origin.x + width * sx, origin.y + height * sy), colors[15]);
+    const ImVec2 origin(canvas.x, canvas.y);
+    const ImVec2 end(canvas.x + canvas.width, canvas.y + canvas.height);
+    draw->PushClipRect(origin, end, true);
+    draw->AddRectFilled(origin, end, colors[15]);
     // shortcut: ROM contours have no extra font detail, use licensed outline glyphs when more detail is needed.
     for (int row = 0; row < height; ++row) {
         for (int col = 0; col < width; ++col) {

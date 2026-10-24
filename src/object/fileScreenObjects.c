@@ -16,6 +16,9 @@
 #include "gfx.h"
 #include "vram.h"
 #include "port_offset_remap.h"
+#ifdef PC_PORT
+#include "port_narrow.h"
+#endif
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -430,6 +433,10 @@ void FileScreenObjects_Type8(FileScreenObjectsEntity* this) {
     s32 y = 255;
     if (gUI.lastState == 1 && gGenericMenu.unk10.a[1] != 5) {
         super->x.HALF.HI = gGenericMenu.unk10.a[0] * 16 + 28;
+#ifdef PC_PORT
+        if (Port_Narrow_IsActive())
+            super->x.HALF.HI = Port_Narrow_KeyboardCursorX(gGenericMenu.unk10.a[0]);
+#endif
         y = gGenericMenu.unk10.a[1] * 16 + 58;
     }
     super->y.HALF.HI = y;

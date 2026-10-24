@@ -31,6 +31,9 @@ typedef struct Mode1TilemapEntry {
 uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT] = { NULL, NULL, NULL, NULL };
 int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT] = { 0, 0, 0, 0 };
 int virtuappu_mode1_ws_hud_right_anchor = 0;
+int virtuappu_mode1_narrow_hud = 0;
+int virtuappu_mode1_narrow_keyboard = 0;
+int virtuappu_mode1_narrow_msg_y0 = 0, virtuappu_mode1_narrow_msg_y1 = 0;
 /* Widescreen message-box centering (see mode1.h). All zero = inactive. */
 int virtuappu_mode1_ws_msg_shift = 0;
 int virtuappu_mode1_ws_msg_x0 = 0;
@@ -553,7 +556,21 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
          * per-pixel remap dispatch (its two flags are per-line invariants) out
          * of the hot loop entirely — A53 win, zero added per-pixel branch. */
         for (x = 0; x < render_max_x; ++x) {
-            MODE1_BG_PIXEL(x);
+            int sample_x = x;
+            if (frame_width == 212) {
+                sample_x += 14; /* centered world/title/menu viewport */
+                const bool message = line >= virtuappu_mode1_narrow_msg_y0 &&
+                                     line < virtuappu_mode1_narrow_msg_y1;
+                if (bg_index == 0 && (virtuappu_mode1_narrow_hud || message)) {
+                    sample_x = x + ((!message && x >= 148) ? 28 : 0);
+                } else if (bg_index <= 2 && virtuappu_mode1_narrow_keyboard &&
+                           line >= 48 && line < 128 && x >= 8) {
+                    // 13 native 8px glyphs retain all pixels. Remove one
+                    // spacer pixel per cell, keeping the cursor at 15px pitch.
+                    sample_x = x < 203 ? x + 12 + (x - 8) / 15 : x + 21;
+                }
+            }
+            MODE1_BG_PIXEL(sample_x);
         }
     } else {
         for (x = 0; x < render_max_x; ++x) {
@@ -668,9 +685,11 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
         if (viewport_width > MODE1_GBA_VIEWPORT_X) {
             viewport_width = MODE1_GBA_VIEWPORT_X;
         }
-        if (obj_x >= mode1_frame_width) {
+        if (obj_x >= (mode1_frame_width == 212 ? 240 : mode1_frame_width)) {
             obj_x -= 512;
         }
+        if (mode1_frame_width == 212)
+            obj_x -= 14;
         sx_start = 0;
         sx_end = bounds_width;
         if (obj_x + bounds_width <= 0 || obj_x >= viewport_width) {
@@ -884,14 +903,15 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
         evy = 16;
     }
 
-    if (win0_right > frame_width) {
-        win0_right = frame_width;
+    const int window_width = frame_width == 212 ? 240 : frame_width;
+    if (win0_right > window_width) {
+        win0_right = window_width;
     }
     if (win0_bottom > MODE1_GBA_HEIGHT) {
         win0_bottom = MODE1_GBA_HEIGHT;
     }
-    if (win1_right > frame_width) {
-        win1_right = frame_width;
+    if (win1_right > window_width) {
+        win1_right = window_width;
     }
     if (win1_bottom > MODE1_GBA_HEIGHT) {
         win1_bottom = MODE1_GBA_HEIGHT;
@@ -937,6 +957,7 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
     }
 
     for (x = 0; x < frame_width; ++x) {
+        const int window_x = x + (frame_width == 212 ? 14 : 0);
         uint8_t win_ctrl = 0x3Fu;
         bool visible_bg[MODE1_GBA_BG_COUNT];
         bool visible_obj;
@@ -957,13 +978,13 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
                 win_ctrl = objwin_ctrl;
             }
             if (win1_v_active) {
-                bool in_h = win1_h_wrap ? (x >= win1_left || x < win1_right) : (x >= win1_left && x < win1_right);
+                bool in_h = win1_h_wrap ? (window_x >= win1_left || window_x < win1_right) : (window_x >= win1_left && window_x < win1_right);
                 if (in_h) {
                     win_ctrl = win1_ctrl;
                 }
             }
             if (win0_v_active) {
-                bool in_h = win0_h_wrap ? (x >= win0_left || x < win0_right) : (x >= win0_left && x < win0_right);
+                bool in_h = win0_h_wrap ? (window_x >= win0_left || window_x < win0_right) : (window_x >= win0_left && window_x < win0_right);
                 if (in_h) {
                     win_ctrl = win0_ctrl;
                 }
@@ -1144,8 +1165,10 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
         if (obj_y >= MODE1_GBA_HEIGHT)
             obj_y -= 256;
         int obj_x = mode1_oam_x(attr);
-        if (obj_x >= viewport_width)
+        if (obj_x >= (mode1_frame_width == 212 ? 240 : viewport_width))
             obj_x -= 512;
+        if (mode1_frame_width == 212)
+            obj_x -= 14;
 
         int sy_sub_start = 0;
         int sy_sub_end = bounds_height * scale;
@@ -1321,8 +1344,9 @@ static void mode1_render_affine_bg2_line(int frame_width, int32_t ref_x, int32_t
     const int16_t pc = (int16_t)virtuappu_mode1_io_read16(0x24u);
 
     for (int x = 0; x < frame_width; ++x) {
-        int32_t src_x = (ref_x + pa * x) >> 8;
-        int32_t src_y = (ref_y + pc * x) >> 8;
+        const int sample_x = x + (frame_width == 212 ? 14 : 0);
+        int32_t src_x = (ref_x + pa * sample_x) >> 8;
+        int32_t src_y = (ref_y + pc * sample_x) >> 8;
 
         if (wrap) {
             /* map_size is a power of two (128..1024) — mask instead of the

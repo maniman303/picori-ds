@@ -35,6 +35,16 @@ int main(void) {
     gScreen.bg0.xOffset = 1;
     assert(!Message_CopyTextCanvas(pixels, sizeof(pixels), &x, &y, &width, &height));
     gScreen.bg0.xOffset = 0;
+    /* Compact 4:3 dialogue keeps a 192px canvas at x=8. Glyph tile storage
+     * retains its native layout, so the HD query must return all pixels. */
+    gCurrentWindow.xPos = 0;
+    gCurrentWindow.width = 24;
+    for (int row = 15; row < 19; ++row)
+        for (int col = 1; col < 25; ++col)
+            gBG0Buffer[row * 32 + col] = 0xf082;
+    assert(Message_CopyTextCanvas(pixels, sizeof(pixels), &x, &y, &width, &height));
+    assert(x == 8 && width == 192 && x + width <= 212);
+    gScreen.bg0.xOffset = 0;
     gTextRender._98.bytes.sizeScale = 7; // Opening/closing animations retain original text.
     assert(!Message_CopyTextCanvas(pixels, sizeof(pixels), &x, &y, &width, &height));
     gTextRender._98.bytes.sizeScale = 8;

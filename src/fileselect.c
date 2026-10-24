@@ -5,6 +5,9 @@
  * @brief File select task
  */
 #include "fileselect.h"
+#ifdef PC_PORT
+#include "port_narrow.h"
+#endif
 
 #include "common.h"
 #include "figurineMenu.h"
@@ -548,6 +551,11 @@ static void (*const sTaskHandlers[])(void) = {
 };
 
 static void HandleFileSelect(void);
+#ifdef PC_PORT
+bool Port_Narrow_KeyboardActive(void) {
+    return gMain.task == TASK_FILE_SELECT && gUI.lastState == STATE_NEW;
+}
+#endif
 extern void HandleFileNew(void);
 static void HandleFileLanguageSelect(void);
 extern void HandleFileOptions(void);

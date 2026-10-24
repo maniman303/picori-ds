@@ -122,18 +122,24 @@ void Port_Config_ToggleConsoleParity(void);
  * the whole window, so the frame fills as much of it as its aspect allows
  * and the fill covers the rest — the default. Fixed-ratio modes constrain
  * the stage (e.g. pin a 16:9 play area on an ultrawide monitor); outside
- * the stage is always black. */
+ * the stage is always black. Standard 4:3 uses a 212x160 internal viewport
+ * with compact HUD/dialogue layout. Presentation scales that square-pixel
+ * frame uniformly, independently of the selected filters/shaders. */
 typedef enum {
     PORT_ASPECT_NATIVE_3_2 = 0,
     PORT_ASPECT_WIDESCREEN_16_9 = 1,
     PORT_ASPECT_ULTRAWIDE_21_9 = 2,
     PORT_ASPECT_SUPER_ULTRAWIDE_32_9 = 3,
+    PORT_ASPECT_STANDARD_4_3 = 4,
     PORT_ASPECT_COUNT,
 } PortAspectMode;
 PortAspectMode Port_Config_AspectMode(void);
 const char* Port_Config_AspectModeName(PortAspectMode mode);
 void Port_Config_SetAspectMode(PortAspectMode mode);
 void Port_Config_CycleAspectMode(int direction);
+/* Call after video init with the primary display's desktop size. Only a
+ * newly created config is eligible; saved choices are never overwritten. */
+void Port_Config_DetectInitialAspect(int displayWidth, int displayHeight);
 
 /* Fill style for the area around the GBA frame (the "pillar bars" or
  * "stage background"). Blurred is the default: it stretches a

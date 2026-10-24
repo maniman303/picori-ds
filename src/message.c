@@ -10,6 +10,8 @@
 #ifdef PC_PORT
 #include <stdio.h>
 #include "../port/port_tts.h"
+#include "../port/port_narrow.h"
+static bool sNarrowDialog;
 #endif
 
 #define MESSAGE_ADVANCE_KEYS (A_BUTTON | B_BUTTON | DPAD_ANY | R_BUTTON)
@@ -388,6 +390,9 @@ void MessageRequest(u32 index) {
 }
 
 void MessageInitialize(void) {
+#ifdef PC_PORT
+    sNarrowDialog = false;
+#endif
     MemClear(&gMessage, sizeof(gMessage));
     MemClear(&gTextRender, sizeof(gTextRender));
     MemClear(&gNewWindow, sizeof(gNewWindow));
@@ -478,6 +483,16 @@ u32 MsgInit(void) {
     MemClear((void*)&gMessageChoices, sizeof(gMessageChoices));
     MemClear((void*)&gTextRender, sizeof(gTextRender));
     MemCopy(&gMessage, &gTextRender, sizeof(gMessage));
+#ifdef PC_PORT
+    sNarrowDialog = Port_Narrow_IsActive();
+    if (sNarrowDialog) {
+        if (gTextRender.message.textWindowWidth > PORT_NARROW_TEXT_TILES)
+            gTextRender.message.textWindowWidth = PORT_NARROW_TEXT_TILES;
+        const unsigned maxX = PORT_NARROW_WIDTH / 8 - gTextRender.message.textWindowWidth - 2;
+        if (gTextRender.message.textWindowPosX > maxX)
+            gTextRender.message.textWindowPosX = maxX;
+    }
+#endif
     if (gTextRender.message.textSpeed == 99) {
         gTextRender.message.textSpeed = gSaveHeader->msg_speed;
     }
@@ -653,6 +668,10 @@ u16 RunTextCommand(TextRender* this) {
                 break;
             case 4:
                 temp = GetFontStrWith(&this->curToken, 0);
+#ifdef PC_PORT
+                if (sNarrowDialog && temp > this->_50.unk4 - this->_50.unk6)
+                    temp = this->_50.unk4 - this->_50.unk6;
+#endif
                 this->_50.unk6 = this->_50.unk6 + (this->_50.unk4 - this->_50.unk6 - temp) / 2;
                 break;
             case 5:
@@ -733,6 +752,19 @@ u16 RunTextCommand(TextRender* this) {
     if (gMessage.unk == 0) {
         gMessage.unk = 0x80;
     }
+#ifdef PC_PORT
+    if (sNarrowDialog && Port_Narrow_TextOverflow(this->_98.bytes.lineNo, this->_50.unk6,
+                                                 Port_Text_GlyphAdvance(chr, &this->_50),
+                                                 this->message.textWindowWidth * 8)) {
+        this->curToken.extended = chr;
+        if (this->_98.bytes.lineNo == 0)
+            MsgChangeLine(1);
+        else
+            this->renderStatus = RENDER_WAIT;
+        this->newlineDelay = 2;
+        return 0;
+    }
+#endif
     this->curToken.extended = 0;
     if (chr >> 8 == 7) {
         this->_90 = this->_8f | 0x80;
@@ -887,6 +919,11 @@ static void MsgChangeLine(u32 lineNo) {
         gTextRender._50.unk6 = 0xd0;
         gTextRender._50.unk4 = 0x1a0;
     }
+#ifdef PC_PORT
+    if (sNarrowDialog)
+        gTextRender._50.unk4 = (lineNo ? PORT_TEXT_LINE_STRIDE : 0) +
+                              gTextRender.message.textWindowWidth * 8;
+#endif
     PaletteChange(&gTextRender, gTextRender._8f | 0x40);
 }
 

@@ -802,9 +802,10 @@ extern "C" bool Port_GPU_PresentFrame(const uint32_t* fb, int fb_w, int fb_h, in
 
     /* Aspect-preserving viewport — mirrors Port_PPU_ComputeViewportRects
      * for the SDL_Renderer path. Two stages:
-     *   1. Stage rect: aspect-mode chosen area (16:9 / 21:9 / 32:9 /
+     *   1. Stage rect: aspect-mode chosen area (4:3 / 16:9 / 21:9 / 32:9 /
      *      native 3:2).
-     *   2. Frame rect: GBA 3:2 fitted inside the stage.
+     *   2. Frame rect: current native/wide frame fitted uniformly inside
+     *      the stage (212x160 for Standard 4:3).
      * Outside the stage is the clear color (black or bg-fill solid
      * RGB above). Between stage and frame is the pillarbox area —
      * gets a stretched-blurred copy of the game when bg-fill ==
@@ -817,6 +818,10 @@ extern "C" bool Port_GPU_PresentFrame(const uint32_t* fb, int fb_w, int fb_h, in
         int aspW = FW, aspH = FH;
         const PortAspectMode mode = Port_Config_AspectMode();
         switch (mode) {
+            case PORT_ASPECT_STANDARD_4_3:
+                aspW = 212;
+                aspH = 160;
+                break;
             case PORT_ASPECT_WIDESCREEN_16_9:
                 aspW = 16;
                 aspH = 9;

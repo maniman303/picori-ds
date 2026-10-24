@@ -35,6 +35,13 @@
 #include "port_rom.h"
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
+#include "port_narrow.h"
+#include "game.h"
+
+bool Port_Narrow_HudActive(void) {
+    return gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN &&
+           gMain.substate != GAMEMAIN_SUBTASK && gHUD.hideFlags != HUD_HIDE_ALL;
+}
 
 #include <string.h>
 
@@ -1118,6 +1125,8 @@ static s32 Port_WidescreenEffectiveTarget(void) {
 
 int Port_Widescreen_FallbackNative(void) {
     s32 eff;
+    if (Port_Narrow_IsActive())
+        return 1;
     if (!Port_Config_WidescreenEnabled()) {
         return 1;
     }

@@ -6,6 +6,9 @@
 #include "structures.h"
 
 #define MESSAGE_ACTIVE 0x7f
+#ifdef PC_PORT
+u32 Port_Text_GlyphAdvance(u32 chr, const WStruct* style);
+#endif
 
 typedef struct {
     u8 state;

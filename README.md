@@ -183,6 +183,13 @@ SDL. An optional **SDL_GPU** backend adds post-processing shader presets (CRT,
 LCD, scanline looks, …). In the **F8** menu:
 
 - **Renderer** toggles software ↔ GPU.
+- **Aspect ratio → Standard 4:3** renders a 212×160 internal viewport with
+  square source pixels. The world is cropped equally on both sides; HUD
+  anchors, dialogue wrapping and the name-entry keyboard use compact layouts.
+  Nearest-neighbor scaling, smoothing, shaders and HD dialogue still apply
+  through the presentation layer. At 640×480 the frame is 636×480 (3× scale).
+  New configs select it automatically on a 4:3 primary display; saved choices
+  are preserved.
 - **CRT filter** cycles the stock CPU/GPU presentation filters.
 - **Shader Preset** picks a `.glslp` preset when the SPIR-V/Vulkan GPU backend is active.
 
