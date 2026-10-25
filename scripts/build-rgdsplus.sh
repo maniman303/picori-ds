@@ -17,7 +17,7 @@ unset PKG_CONFIG_PATH XMAKE_USE_SYSTEM_SDL3 IN_NIX_SHELL
 xmake f -y -p linux -a arm64 -m release --toolchain=cross \
     --cross=aarch64-linux-gnu- -o build/rgdsplus-aarch64 \
     --game_version=USA --multi_region=y --pc_avx2=n --gpu_renderer=y \
-    --widescreen_width=384 --ra=n --repro_harness=n --pc_static_dependencies=y
+    --widescreen_width=569 --ra=n --repro_harness=n --pc_static_dependencies=y
 xmake build -y -j "${BUILD_JOBS:-2}" tmc_pc
 
 OUT="$ROOT/dist/rgdsplus"

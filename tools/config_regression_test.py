@@ -26,17 +26,19 @@ def main():
         json_include = headers[0].parent.parent
     sdl_flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))
     command = shlex.split(os.environ.get('CXX', 'c++')) + [
-        '-std=c++17', '-Iport', '-DMODE1_GBA_WIDTH=384', '-ffunction-sections', '-fdata-sections',
+        '-std=c++17', '-Iport', '-Iport/ppu/include', '-ffunction-sections', '-fdata-sections',
         '-fsanitize=undefined,float-cast-overflow', '-fno-sanitize-recover=all',
     ] + sdl_flags
     if json_include:
         command += ['-I' + str(json_include)]
     with tempfile.TemporaryDirectory(prefix='tmc-config-test-') as directory:
         tmp = Path(directory)
-        binary = tmp / 'config-test'
-        subprocess.run(command + ['port/port_runtime_config.cpp', 'port/port_viewport.c', 'tools/tests/runtime_config.cpp',
-                                 '-Wl,--gc-sections', '-o', str(binary)], cwd=ROOT, check=True)
-        subprocess.run([str(binary), str(tmp / 'config.json')], check=True)
+        for capacity in (384, 569):
+            binary = tmp / f'config-test-{capacity}'
+            subprocess.run(command + [f'-DMODE1_GBA_WIDTH={capacity}', 'port/port_runtime_config.cpp',
+                                     'port/port_viewport.c', 'tools/tests/runtime_config.cpp',
+                                     '-Wl,--gc-sections', '-o', str(binary)], cwd=ROOT, check=True)
+            subprocess.run([str(binary), str(tmp / f'config-{capacity}.json')], check=True)
 
 
 if __name__ == '__main__':

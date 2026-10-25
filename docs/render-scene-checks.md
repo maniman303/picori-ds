@@ -72,3 +72,13 @@ New harness switches:
   queue until the frame is saved; the default retains base framebuffer capture.
 - `TMC_ROOMCAP_MENU=1` opens the existing inventory screen halfway through the
   warp settling period. Use independently of `TMC_ROOMCAP_MSG`.
+
+
+## Local capacity-384/569 comparison (2026-10-25)
+
+The EU ARM64 software/QEMU comparison is retained under
+`.tmp/aspect-capacity-batch/`. `before/` and `after/` contain all five named
+scene cases at `original` and `widescreen`, with separate local hash files and
+`summary.json`. All 12 image pairs match exactly, and committed golden files
+were not changed. This is a capacity-change regression check; it does not
+approve a new platform baseline or complete the regional/effect catalog.

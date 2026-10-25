@@ -620,10 +620,10 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
     # only under #ifdef MULTI_REGION — that the fat multi-region build hides.
     configure_cmd.append("--multi_region=y" if multi_region else "--multi_region=n")
 
-    # 0.5.0 release cutover: ship the real widescreen build. Direct xmake
-    # developer builds still default to 240 unless explicitly configured, but
-    # every build.py/CI/release artifact uses the wide viewport.
-    configure_cmd.append("--widescreen_width=384")
+    # Storage for every v1 profile: width 569, bounded raster height 192.
+    # Direct xmake builds keep their native-width default. Runtime scene/layout
+    # gates still decide which profiles are available; capacity enables none.
+    configure_cmd.append("--widescreen_width=569")
 
     # Keep the TMC_REPRO_* / TMC_PERFCAP harnesses in the artifact: CI's PPU
     # parity gate (tools/ppu_parity_check.sh) drives this binary via

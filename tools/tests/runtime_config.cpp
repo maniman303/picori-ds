@@ -47,6 +47,9 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Config_AspectModeAvailable(PORT_ASPECT_NATIVE_3_2));
     assert(Port_Config_AspectModeAvailable(PORT_ASPECT_WIDESCREEN_16_9));
     assert(Port_Config_AspectModeAvailable(PORT_ASPECT_ULTRAWIDE_21_9));
+    assert(Port_Viewport_Get()->capacityWidth == MODE1_GBA_WIDTH);
+    assert(Port_Viewport_Get()->pitchPixels == MODE1_GBA_WIDTH);
+    assert(Port_Viewport_Get()->capacityHeight == 192);
     assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_DS_4_3));
     assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_SUPER_ULTRAWIDE_32_9));
     Port_Config_CycleAspectMode(1);

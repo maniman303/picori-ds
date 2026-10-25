@@ -46,9 +46,13 @@ the device's older xkbcommon lacks `xkb_keymap_mod_get_mask`, which SDL needs
 when compiled against the host's newer headers. The launcher uses the private
 `lib/` directory; no device system libraries are replaced.
 
-The release uses the existing GPU/SDL_Renderer fallback, a 384-pixel widescreen
-capacity, and no RetroAchievements (avoids a cross-built curl/TLS dependency
-chain). The USA asset baseline and `multi_region=y` match Picori's checked-in
+The release uses the existing GPU/SDL_Renderer fallback, a 569-pixel width
+capacity and bounded 192-row software raster scratch, and no RetroAchievements
+(avoids a cross-built curl/TLS dependency
+chain). Capacity does not enable 4:3 or 32:9: scene, streaming and layout gates
+still keep those profiles unavailable. Optional upscale pools retain a
+`569 * 160` source-pixel budget; see `docs/presentation-allocation-audit.md`.
+The USA asset baseline and `multi_region=y` match Picori's checked-in
 offset headers; the EU ROM is detected at runtime. No ROM or generated assets
 are needed on the build host. The embedded extractor generates assets on the
 device's first launch. `default.logic` is staged for the randomizer.

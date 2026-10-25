@@ -798,12 +798,11 @@ jobs:
       - name: Build libmain.so (arm64-v8a + x86_64)
         shell: bash
         run: |
-          # Mirrors the local recipe: multi-region fat build (xmake default),
-          # 384px widescreen baseline — the on-device default. Each ABI drops
-          # its lib into build/android/<abi>/ where Gradle's jniLibs looks.
+          # Match local multi-region and desktop/RG width capacity; profiles stay gated.
+          # Each ABI drops its lib into build/android/<abi>/ for Gradle's jniLibs.
           for abi in arm64-v8a x86_64; do
             xmake f -y -p android -a "$abi" --ndk="$TMC_NDK" \
-              --game_version=USA --widescreen_width=384
+              --game_version=USA --widescreen_width=569
             xmake build -y tmc_pc
             test -f "build/android/$abi/libmain.so"
           done

@@ -23,7 +23,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='tmc-oam-position-') as directory:
         tmp = Path(directory)
         (tmp / 'oam_functions.inc').write_text('\n'.join(bodies))
-        for capacity in (384, 640):
+        for capacity in (384, 569, 640):
             binary = tmp / f'oam-{capacity}'
             command = shlex.split(os.environ.get('CC', 'cc')) + [
                 '-std=gnu11', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-Wno-unknown-pragmas',

@@ -6,15 +6,26 @@
 #include "virtuappu.h"
 #include "ppu_snapshot.h"
 #include "port_hdma.h"
+#include "port_viewport.h"
 
 #ifdef TMC_N64
 int main(void) {
     PPUMemory p = {0};
+    p.frame_width = 569;
+    p.frame_pitch = 569;
     p.frame_height = 192;
     virtuappu_mode1_set_frame_geometry(&p);
+    assert(virtuappu_mode1_frame_width() == 240 && virtuappu_mode1_frame_pitch() == 240);
     assert(MODE1_MAX_RENDER_HEIGHT == 160);
     assert(virtuappu_mode1_frame_height() == 160);
     assert(VIRTUAPPU_FRAME_BUFFER_SIZE == 240 * 160);
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_NATIVE_3_2, 240, 160));
+    for (int aspect = 1; aspect < PORT_ASPECT_COUNT; ++aspect) {
+        assert(!Port_Viewport_AspectSupported((PortAspectMode)aspect, 569, 192));
+        assert(Port_Viewport_Publish((PortAspectMode)aspect, false, 569, 192, 569));
+        assert(Port_Viewport_Get()->effectiveAspect == PORT_ASPECT_NATIVE_3_2);
+        assert(Port_Viewport_Get()->canvas.width == 240 && Port_Viewport_Get()->canvas.height == 160);
+    }
     puts("N64 geometry remains native: PASS");
     return 0;
 }

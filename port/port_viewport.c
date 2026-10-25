@@ -71,8 +71,13 @@ bool Port_Viewport_ProfileFits(const PortViewportProfile* profile, int capacityW
 
 bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int capacityHeight) {
     const PortViewportProfile* profile = Port_Viewport_ProfileForAspect(aspect);
+#ifdef TMC_N64
+    return aspect == PORT_ASPECT_NATIVE_3_2 &&
+           Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight);
+#else
     return Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight) &&
            profile->width <= 512 && profile->height <= 160;
+#endif
 }
 
 bool Port_Viewport_Publish(PortAspectMode selected, bool consoleParity,

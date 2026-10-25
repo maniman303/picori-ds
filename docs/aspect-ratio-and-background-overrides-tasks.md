@@ -16,7 +16,7 @@ or completed checks, not a claim that the renderer supports the new profiles.
   fractional widths. Reject insufficient capacity rather than truncate geometry.
 - [x] Verify the existing RG cross-build and existing ROM-free renderer/engine
   regressions before changing rendering behavior.
-- [ ] Capture native/wide named scenes with a repro-enabled binary; retain
+- [x] Capture native/wide named scenes with a repro-enabled binary; retain
   original goldens and local before/after captures separately.
 - [ ] Visually verify the full context/state catalog across available regions,
   especially file-operation transitions, prologue and retained credits pages.
@@ -34,10 +34,12 @@ groups shared settings; effect policies remain specific to the active screen.
 Unknown screens return no source until their state mapping is verified.
 
 The profile registry now drives runtime target widths through a shared geometry
-snapshot. Builds with capacity 384 support native, 16:9 and 21:9. The settings
-list also shows 4:3 and 32:9 as unavailable until taller raster rendering and
-wide signed OBJ coordinates are implemented. Configs retain those preferences
-but render effective native geometry. Framebuffer capacities remain unchanged.
+snapshot. Release helpers now request width capacity 569 and publish the
+bounded 192-row raster capacity. Native, 16:9 and 21:9 remain available; 4:3
+and 32:9 stay unavailable pending scene, streaming, effect, individual-sprite
+and layout validation. Configs retain those preferences but render effective
+native geometry. N64 remains native-only. Optional upscale pools retain their
+`capacityWidth * 160` source-pixel budgets.
 
 Image resolution validation must use the **selected aspect ratio**, independent
 of window dimensions and internal scale:
@@ -82,7 +84,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Finish allocation/path audits before increasing build capacity to 569 by
   192, including optional filter/voxel/HD-text behavior and scene composition.
   See the [presentation allocation audit](presentation-allocation-audit.md).
-- [ ] Update `build.py`, RG builds and tools together. Preserve N64 native-only
+- [x] Update `build.py`, RG builds and tools together. Preserve N64 native-only
   constraints and verify original native golden pixels before taller rendering.
 
 ## 3. World rendering
@@ -473,3 +475,44 @@ preserved. Damaged/critical native references and the contact sheet/README were
 regenerated; custom 4:3 damaged/critical artwork remains to be supplied. The RG
 ARM64 build and EU startup smoke under QEMU pass. Regional captures and runtime
 state-adapter/compositor integration remain pending.
+
+
+## Build-capacity synchronization and named captures (2026-10-25)
+
+`build.py`, the RG helper and Android CI now request width capacity 569.
+Direct xmake builds retain the native-width default. Runtime config publishes
+`MODE1_MAX_RENDER_HEIGHT` (192 on PC) as capacity, while selected/effective
+profiles and world apertures still obey all existing readiness gates. No 4:3
+or 32:9 gameplay is enabled. N64's profile registry now explicitly accepts
+only native, even if callers supply wider/taller capacities; its raster and
+framebuffer remain 240 × 160.
+
+The repro-enabled ARM64 builds at capacities 384 and 569 were compared using
+the local EU ROM, QEMU, dummy video/audio and software presentation:
+
+- Both native PPU golden scenes (`intro_logo`, `title`) pass their original
+  Tier A and B hashes at both capacities.
+- All five named scene cases were captured before and after: file selection
+  (two images), Hyrule Field, inventory, bottom dialogue and top dialogue.
+  Each was run with both `original` (240 × 160 base pixels) and `widescreen`
+  (960 × 540 presentation, 16:9 logical profile). All 12 comparison pairs have
+  identical decoded pixels/hashes. The local contact sheet was inspected.
+- Before/after captures and logs are separate under
+  `.tmp/aspect-capacity-batch/before/` and `after/`; local reference hashes are
+  `before-original.json` / `before-widescreen.json`. `summary.json` records the
+  comparisons. These local references are not new approved release goldens.
+  Committed PPU and presentation golden files retain their original hashes.
+- World streaming and signed-OBJ tests now include exact capacity 569 alongside
+  prior capacities; config tests run at 384/569 and verify published height,
+  pitch, and unsupported saved-profile fallback. Standalone PPU readers render
+  native, tall and 569-wide PPU2 fixtures, including a synthetic 569 × 192
+  extent. Presentation workspace tests and the N64 native guards pass under
+  ASan/UBSan. Catalog, engine, scroll and scene-tool regressions pass.
+
+The RG release helper stages the local slim package at `dist/rgdsplus/` with
+capacity 569 and the repro harness disabled. Build/package verification and EU
+startup under QEMU are local checks; there is no device deployment. The memory
+increase follows the prior allocation audit, not a device PSS/RSS measurement.
+Android CI configuration was synchronized but Android execution, GPU execution,
+USA/JP fixtures and physical RG budgets were unavailable. Full visual context/
+effect auditing and final regional/platform acceptance remain open.

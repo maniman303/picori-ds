@@ -1,5 +1,6 @@
 #include "port_runtime_config.h"
 #include "port_touch_controls.h"
+#include <cpu/mode1.h>
 
 #include <SDL3/SDL.h>
 #include <array>
@@ -1105,7 +1106,7 @@ extern "C" void Port_Config_SetAspectMode(PortAspectMode mode) {
 #endif
 
 extern "C" bool Port_Config_AspectModeAvailable(PortAspectMode mode) {
-    return Port_Viewport_AspectSupported(mode, MODE1_GBA_WIDTH, 160);
+    return Port_Viewport_AspectSupported(mode, MODE1_GBA_WIDTH, MODE1_MAX_RENDER_HEIGHT);
 }
 
 extern "C" PortAspectMode Port_Config_EffectiveAspectMode(void) {
@@ -1114,7 +1115,7 @@ extern "C" PortAspectMode Port_Config_EffectiveAspectMode(void) {
 }
 
 extern "C" void Port_Config_PublishViewport(void) {
-    Port_Viewport_Publish(sAspectMode, sConsoleParity, MODE1_GBA_WIDTH, 160, MODE1_GBA_WIDTH);
+    Port_Viewport_Publish(sAspectMode, sConsoleParity, MODE1_GBA_WIDTH, MODE1_MAX_RENDER_HEIGHT, MODE1_GBA_WIDTH);
 }
 
 extern "C" void Port_Config_CycleAspectMode(int direction) {

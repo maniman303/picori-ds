@@ -107,6 +107,8 @@ option_end()
 
 -- Framebuffer capacity (legacy option name). The selected aspect profile
 -- chooses logical world width, capped by safe room content.
+-- PC render scratch is separately bounded at 192 rows; optional upscale pools
+-- retain capacityWidth*160 source pixels. Release helpers request width 569.
 -- Fixed canvases and the digging-cave iris use the native 240px view.
 option("widescreen_width")
     set_default(240)

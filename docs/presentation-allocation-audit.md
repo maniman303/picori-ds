@@ -1,8 +1,9 @@
 # Presentation allocation and path audit
 
 Audited 2026-10-25 for the five version-1 profiles and the prospective PC
-capacity envelope 569 × 192. The configured RG build remains width 384;
-4:3 and 32:9 remain unavailable. This is a source/storage audit with synthetic
+capacity envelope 569 × 192. The audit baseline was width 384; the subsequent
+build-synchronization batch switched release helpers to width 569 and verified
+unchanged native/widescreen captures. 4:3 and 32:9 remain unavailable. This is a source/storage audit with synthetic
 sanitizer coverage, not a device memory or performance measurement.
 
 ## Storage policy
@@ -32,7 +33,8 @@ The optional pool increase for capacity 384 → 569 would be 14,208,000 bytes
 would reserve another 8,739,840 bytes (8.335 MiB) at capacity 569 without a
 profile needing it. These are source-size calculations: BSS reservation,
 touched anonymous pages, RSS/PSS and GPU allocations are different quantities.
-This change does not increase any pool or build capacity.
+The audit step did not increase pool or build capacity; the subsequent
+release-capacity update uses the audited width-569 column above.
 
 The PC base framebuffer and LCD accumulator are each 1,843,200 bytes
 (`1280 * 360 * 4`), and the PPU scratch VRAM is 4 MiB. All remain unchanged.

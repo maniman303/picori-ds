@@ -33,7 +33,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='tmc-world-view-') as directory:
         tmp = Path(directory)
         (tmp / 'world_view_functions.inc').write_text('\n'.join(bodies))
-        for width in (240, 384):
+        for width in (240, 384, 569):
             binary = tmp / f'world-{width}'
             command = shlex.split(os.environ.get('CC', 'cc')) + [
                 '-std=gnu11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
