@@ -5,15 +5,54 @@ from pathlib import Path
 import struct
 import sys
 import unittest
+import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS, SOLID_CONTEXTS,
-                                       Rom, Scene, menu_recipes, png_bytes, solid_bottom_center_reference)
+from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS, SOLID_CONTEXTS, TITLED_MENU_CONTEXTS,
+                                       Rom, Scene, main, menu_recipes, png_bytes, solid_bottom_center_reference)
 
 
 class ExportFormats(unittest.TestCase):
+    def test_add_missing_preserves_artist_pngs_and_refreshes_generated_index(self):
+        pixels = bytes([248, 0, 0, 0, 248, 0]) * (240*160//2)
+        scene = SimpleNamespace(render=lambda *_: pixels)
+        exports = [('title_screen', scene, [], None), ('file_select', scene, [], None)]
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / '32'
+            output.mkdir()
+            artist = output / 'title_screen.png'
+            artist.write_bytes(b'artist bytes must survive')
+            (output / 'README.md').write_text('old generated index')
+            args = ['export', '--rom', 'unused.gba', '--output', str(output), '--add-missing']
+            with patch('export_screen_backgrounds.Rom', return_value=SimpleNamespace(region='EU')), \
+                 patch('export_screen_backgrounds.recipes', return_value=exports), \
+                 patch.object(sys, 'argv', args), patch('builtins.print'):
+                main()
+                new_png = (output / 'file_select.png').read_bytes()
+                main()
+            self.assertEqual(artist.read_bytes(), b'artist bytes must survive')
+            self.assertTrue(new_png.startswith(b'\x89PNG'))
+            self.assertEqual((output / 'file_select.png').read_bytes(), new_png)
+            self.assertIn('menu_titled_background', (output / 'README.md').read_text())
+            self.assertTrue((output.parent / 'background_contact_sheet.png').exists())
+
+    def test_blank_title_removes_letters_preserving_border_and_transparency(self):
+        scene = Scene(None)
+        # First OBJ tile (64), row zero: native border index 10.
+        scene.vram[0x10800] = 0xaa
+        # Same tile, row five: two foreground letter/shadow pixels (index 6).
+        scene.vram[0x10814] = 0x66
+        struct.pack_into('<H', scene.palette, (256 + 80 + 10) * 2, 31 << 5)
+        struct.pack_into('<H', scene.palette, (256 + 80 + 12) * 2, 31)
+        scene.blank_menu_heading()
+        pixels = scene.render([])
+        self.assertEqual(pixels[:3], bytes([0, 248, 0]))
+        self.assertEqual(pixels[(5*240)*3:(5*240)*3+6], bytes([248, 0, 0]*2))
+        self.assertEqual(pixels[(5*240+2)*3:(5*240+2)*3+3], bytes([0, 0, 0]))
+
     def test_local_hint_has_no_image_lookup(self):
         self.assertIn('local_map_hint', SOLID_CONTEXTS)
         self.assertNotIn('local_map_hint', MENU_CONTEXTS)
@@ -24,6 +63,10 @@ class ExportFormats(unittest.TestCase):
         class RecordingScene:
             def __init__(self, rom):
                 self.groups, self.palettes, self.uploads = [], [], []
+                self.heading = False
+
+            def blank_menu_heading(self):
+                self.heading = True
 
             def gfx(self, group):
                 self.groups.append(group)
@@ -42,21 +85,34 @@ class ExportFormats(unittest.TestCase):
             'menu_background_critical': [88], 'kinstone_background_normal': [86,117,118],
             'kinstone_background_damaged': [87,117,118], 'kinstone_background_critical': [88,117,118],
         }
+        for stem, group in (('menu_titled_background',90), ('kinstone_pieces_background',125), ('sword_techniques_background',126)):
+            for i, health in enumerate(MENU_HEALTH_VARIANTS):
+                expected[f'{stem}_{health}'] = [86+i, group]
         self.assertEqual({name for name, *_ in exports}, set(expected))
         for name, scene, layers, backdrop in exports:
             self.assertEqual(scene.groups, expected[name])
-            fusion = name.startswith('kinstone_')
-            self.assertEqual(scene.palettes, [181,203] if fusion else [181])
-            self.assertEqual(scene.uploads, [(bg, control) for bg, control, _, _ in layers])
-            self.assertEqual(layers, [(1,0x1c01,0,0), (2,0x1d02,0,0), (3,0x1e0b,0,0)]
-                             if fusion else [(3,0x1e0b,0,0)])
+            fusion = name.startswith('kinstone_background_')
+            titled = name.startswith('menu_titled_')
+            pieces = name.startswith('kinstone_pieces_')
+            techniques = name.startswith('sword_techniques_')
+            palette = 203 if fusion else 182 if titled else 204 if pieces else 205 if techniques else None
+            self.assertEqual(scene.palettes, [181,palette] if palette else [181])
+            self.assertEqual(scene.heading, titled)
+            self.assertEqual(scene.uploads, [(3,0x1e0b), (2,0x1d03)] if pieces or techniques else
+                             [(1,0x1c01),(2,0x1d02),(3,0x1e0b)] if fusion else [(3,0x1e0b)])
+            self.assertEqual(layers, [(1,0x1c01,0,0), (2,0x1d02,0,0), (3,0x1e0b,0,0)] if fusion else
+                             [(2,0x1d03,0,0), (3,0x1e0b,0,0)] if pieces or techniques else [(3,0x1e0b,0,0)])
             self.assertIsNone(backdrop)
-        self.assertEqual(len(IMAGE_CONTEXTS), 23)
+        self.assertEqual(len(IMAGE_CONTEXTS), 32)
         self.assertNotIn('menu_background', IMAGE_CONTEXTS)
         self.assertNotIn('kinstone_background', IMAGE_CONTEXTS)
         for health in MENU_HEALTH_VARIANTS:
             self.assertEqual(IMAGE_CONTEXTS[f'menu_background_{health}'],
                              tuple(f'{context}_{health}' for context in MENU_CONTEXTS))
+            self.assertEqual(IMAGE_CONTEXTS[f'menu_titled_background_{health}'],
+                             tuple(f'{context}_{health}' for context in TITLED_MENU_CONTEXTS))
+            self.assertEqual(IMAGE_CONTEXTS[f'kinstone_pieces_background_{health}'], (f'pause_kinstone_pieces_{health}',))
+            self.assertEqual(IMAGE_CONTEXTS[f'sword_techniques_background_{health}'], (f'pause_sword_techniques_{health}',))
             self.assertEqual(IMAGE_CONTEXTS[f'kinstone_background_{health}'],
                              tuple(f'kinstone_fusion_{i:02d}_{health}' for i in range(1,8)))
 

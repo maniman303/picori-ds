@@ -4,13 +4,27 @@ Tracks implementation of [the design](aspect-ratio-and-background-overrides-plan
 Work proceeds in the order below. Checked items describe implemented contracts
 or completed checks, not a claim that the renderer supports the new profiles.
 
+The [2026-10-25 menu-family revision](menu-background-family-revision.md)
+reviews every one of the 27 previously checked tasks. The active target is
+32 artwork names / 15 menu family-health combinations; catalog and exporter now implement 32 / 15. The three reopened catalog/agreement
+tasks are completed below;
+six completed tasks retain their evidence but need targeted extensions.
+Historical verification sections retain their original 23-name/six-combination
+results; those results do not certify the revised catalog or title-frame fix.
+
 ## 1. Catalog and baseline
 
-- [x] Add a port-owned, C-compatible catalog for the 23 shared image names (including six menu health/family variants).
+- [x] Research pieces/techniques/top-left-title separation and review all 27
+  completed tasks for impact; record retained evidence and required follow-ups.
+- [x] **Updated (R01):** extend the C-compatible catalog from 23 to 32 artwork
+  names: plain, titled, pieces, techniques and fusion each have three health
+  variants. Append enum IDs and preserve existing names/artist files.
 - [x] Distinguish live/unknown screens, image families, generated black,
   the logo field, and live palette-zero fields. Disable every source in parity.
-- [x] Test actual catalog filenames against the standalone exporter's public
-  names. The map-hint reference swatch must never become a runtime image.
+- [x] **Updated (R03):** update C/C++ filename/source contracts and exporter
+  comparison to all 32 names / 15 menu combinations. Test exact new-family
+  names, no aliases and procedural/parity exclusions. The map-hint swatch must
+  never become a runtime image. The former 23-name check is historical evidence.
 - [x] Define version 1 of the five profile sizes/directory keys and native
   centering. Except for 4:3 at 256 × 192, keep height 160 and ceiling-round
   fractional widths. Reject insufficient capacity rather than truncate geometry.
@@ -24,6 +38,10 @@ or completed checks, not a claim that the renderer supports the new profiles.
 - [x] Audit pause-menu decoration thresholds and installed-state retention across
   functional screens and all 22 detail-map recipes on the available EU fixture;
   compare exposed inventory pixels against independently decoded ROM references.
+- [ ] Extend capture/state audits (R06–R08) with semantic family, heading style
+  and pose, all 15 family/health settings and same-health family transitions.
+  Retain old native captures and health-load evidence; native decoration loads
+  do not imply unchanged PNG identity or decode counts across different families.
 - [ ] Finish the full context/state catalog across available regions, including
   dungeon/fusion/fast-travel/figurine screens and interaction/error paths;
   retain the completed file-operation, prologue, credits and pause-menu evidence.
@@ -95,6 +113,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Finish allocation/path audits before increasing build capacity to 569 by
   192, including optional filter/voxel/HD-text behavior and scene composition.
   See the [presentation allocation audit](presentation-allocation-audit.md).
+- [ ] Extend the allocation/path audit (R18) for bounded title-cap/descriptor
+  storage and new-family switches; keep current/incoming cache budgets and
+  avoid resident buffers for all 32 images. Existing capacity totals remain valid.
 - [x] Update `build.py`, RG builds and tools together. Preserve N64 native-only
   constraints and verify original native golden pixels before taller rendering.
 
@@ -132,6 +153,13 @@ or tile alignment. Native-content centering continues to use floor offsets.
 
 - [ ] Translate each complete fixed-screen composition once using the native
   content rectangle; include HD text and any hit testing.
+- [ ] Implement top-left title-frame completion strictly in added margins,
+  preserving native pixels and label placement. Verify native OBJ source/mask,
+  local effects and animated heading pose; missing PNGs must not leave the cut
+  frame edge. Do not use tile wrapping or move the centered native composition.
+- [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
+  native/canvas edges, all profiles, both presenters, screenshots and optional
+  paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
 - [ ] Resolve functional live gameplay separately from pause/map/fusion states.
 - [ ] Implement semantic corner HUD anchors and bottom dialogue geometry shared
   by BG/OAM, portrait, choices, cursor, arrows and HD text; keep banners separate.
@@ -141,8 +169,13 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Add a game-state adapter selecting catalog contexts at scene boundaries;
   track the installed prologue/credits illustration across text commands/fades
   and the installed normal/damaged/critical menu or kinstone decoration.
+- [ ] Track semantic menu family independently of installed health. Publish
+  titled/plain/pieces/techniques changes after native layout installation and
+  before incoming fade; do not infer family from BG3, current health or task ID.
 - [ ] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
+- [ ] Include the verified title-frame completion mask/pose in foreground
+  composition above artwork, with no task IDs or live health reads in pixel loops.
 - [ ] Implement procedural fields and black fallback with correct global effects;
   preserve every native foreground pixel and exclude gameplay completely.
 - [ ] Retire the old ImGui menu side-art path as its supported screens migrate;
@@ -154,6 +187,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
   resolve only the selected ratio and exact shared family/health filename. Never
   substitute another health state or menu family. Validate width and height
   against the table above, including ceiling-rounded widths.
+- [ ] Resolve all five menu families independently; key cache/publication by
+  family/image ID plus installed health, ratio and renderer generation. Test
+  missing new files with old plain-menu art present: black, never a family alias.
 - [ ] Test accepting each selected profile's exact size and rejecting a file
   sized for another ratio, floor-rounded widths (284/373/568), and wrong heights.
 - [ ] Cache current/incoming image bytes within 8 MiB steady / 16 MiB peak;
@@ -163,7 +199,13 @@ or tile alignment. Native-content centering continues to use floor offsets.
 
 ## 7. Export synchronization
 
-- [x] Add a ROM-free runtime-catalog/exporter agreement gate.
+- [x] **Updated (R27):** expand the ROM-free runtime-catalog/exporter agreement
+  gate and recipe fixtures to 32 artwork names / 15 menu combinations. Keep
+  all existing procedural/reference exclusions and exact profile dimensions.
+- [x] Add nine clean native reference recipes for titled menus, pieces and
+  techniques, with blank-heading/static-frame masks and no live/localized UI.
+  Update README/contact sheet; export 32 artwork references plus one swatch.
+  Preserve existing artist files and require explicit overwrite as before.
 - [ ] Validate all native export recipes against available regional ROMs after
   context/effect auditing; preserve artist edits and existing export names.
 
@@ -527,3 +569,28 @@ increase follows the prior allocation audit, not a device PSS/RSS measurement.
 Android CI configuration was synchronized but Android execution, GPU execution,
 USA/JP fixtures and physical RG budgets were unavailable. Full visual context/
 effect auditing and final regional/platform acceptance remain open.
+
+
+## Five-family catalog and exporter implementation (2026-10-25)
+
+The C catalog appends nine contexts without changing old IDs. A pure family /
+installed-health lookup covers all 15 combinations and rejects invalid values.
+The exporter separates plain, titled, pieces, techniques and fusion roles, with
+32 artwork names plus the reference-only map-hint swatch. The titled recipe
+decodes the native OBJ plate and removes lettering; pieces/techniques combine
+their static BG2 frame/icon with the installed decoration and omit live OBJ/BG0.
+
+The local EU/English exporter ran with `--add-missing`: nine new native PNGs
+were added in `assets/override/32/`, with 33 PNGs total. All 40 pre-existing PNGs
+in `32/` and `43/` retained their SHA-256 hashes. Generated README/contact sheet
+were refreshed. Native pieces/techniques frames fully cover the decoration,
+so their three health references have identical pixels; their files and runtime
+catalog identities remain separate for independent custom artwork.
+
+C11/C++17/UBSan catalog/exporter checks, nine exporter tests and the RG release
+build pass. Six pieces/techniques lower-panel comparisons against the earlier
+EU native captures are byte-exact (rows 64–159). EU startup under QEMU reaches
+`Port layer initialized. Entering AgbMain...`. No artist file was overwritten.
+Runtime PNG loading/composition and animated title-frame completion remain
+their explicit open implementation tasks; the new native reference plate is
+not a claim that the in-game margin seam is already repaired.

@@ -51,8 +51,36 @@ typedef enum {
     /* Fusion's local reveal replaces the installed decoration with a solid
      * BG3 field. It is distinct from the standalone map hint's green field. */
     PORT_BACKGROUND_LOCAL_MAP_HINT,
+    PORT_BACKGROUND_MENU_TITLED_NORMAL,
+    PORT_BACKGROUND_MENU_TITLED_DAMAGED,
+    PORT_BACKGROUND_MENU_TITLED_CRITICAL,
+    PORT_BACKGROUND_KINSTONE_PIECES_NORMAL,
+    PORT_BACKGROUND_KINSTONE_PIECES_DAMAGED,
+    PORT_BACKGROUND_KINSTONE_PIECES_CRITICAL,
+    PORT_BACKGROUND_SWORD_TECHNIQUES_NORMAL,
+    PORT_BACKGROUND_SWORD_TECHNIQUES_DAMAGED,
+    PORT_BACKGROUND_SWORD_TECHNIQUES_CRITICAL,
     PORT_BACKGROUND_COUNT
 } PortBackgroundContext;
+
+typedef enum {
+    PORT_BACKGROUND_MENU_PLAIN,
+    PORT_BACKGROUND_MENU_TITLED,
+    PORT_BACKGROUND_MENU_PIECES,
+    PORT_BACKGROUND_MENU_TECHNIQUES,
+    PORT_BACKGROUND_MENU_FUSION,
+    PORT_BACKGROUND_MENU_FAMILY_COUNT
+} PortBackgroundMenuFamily;
+
+typedef enum {
+    PORT_BACKGROUND_HEALTH_NORMAL,
+    PORT_BACKGROUND_HEALTH_DAMAGED,
+    PORT_BACKGROUND_HEALTH_CRITICAL
+} PortBackgroundHealth;
+
+/* The adapter supplies installed health, not health polled at presentation.
+ * Invalid inputs fail closed. This function never infers game/task state. */
+PortBackgroundContext Port_Background_MenuContext(PortBackgroundMenuFamily family, PortBackgroundHealth installedHealth);
 
 typedef enum {
     PORT_BACKGROUND_SOURCE_NONE,

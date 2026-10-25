@@ -182,7 +182,7 @@ int main(void) {
             assert(background->filename == NULL);
         }
     }
-    assert(images == 23);
+    assert(images == 32);
     assert(strcmp(Port_Background_Get(PORT_BACKGROUND_TITLE, false)->filename, "title_screen.png") == 0);
     assert(strcmp(Port_Background_Get(PORT_BACKGROUND_FILE_SELECT, false)->filename, "file_select.png") == 0);
     static const struct { PortBackgroundContext context; const char* filename; } menus[] = {
@@ -195,5 +195,22 @@ int main(void) {
     };
     for (unsigned i = 0; i < sizeof(menus) / sizeof(menus[0]); ++i)
         assert(strcmp(Port_Background_Get(menus[i].context, false)->filename, menus[i].filename) == 0);
+    /* Existing IDs are unchanged; every family/installed-health pair is unique. */
+    assert(PORT_BACKGROUND_LOCAL_MAP_HINT == 31 && PORT_BACKGROUND_MENU_TITLED_NORMAL == 32);
+    static const char* const stems[] = { "menu_background", "menu_titled_background", "kinstone_pieces_background",
+                                         "sword_techniques_background", "kinstone_background" };
+    static const char* const health[] = { "normal", "damaged", "critical" };
+    for (unsigned family = 0; family < PORT_BACKGROUND_MENU_FAMILY_COUNT; ++family) {
+        for (unsigned state = 0; state < 3; ++state) {
+            char expected[80];
+            snprintf(expected, sizeof(expected), "%s_%s.png", stems[family], health[state]);
+            PortBackgroundContext context = Port_Background_MenuContext((PortBackgroundMenuFamily)family, (PortBackgroundHealth)state);
+            assert(strcmp(Port_Background_Get(context, false)->filename, expected) == 0);
+        }
+    }
+    assert(Port_Background_MenuContext((PortBackgroundMenuFamily)-1, PORT_BACKGROUND_HEALTH_NORMAL) == PORT_BACKGROUND_UNCLASSIFIED);
+    assert(Port_Background_MenuContext(PORT_BACKGROUND_MENU_FAMILY_COUNT, PORT_BACKGROUND_HEALTH_NORMAL) == PORT_BACKGROUND_UNCLASSIFIED);
+    assert(Port_Background_MenuContext(PORT_BACKGROUND_MENU_PLAIN, (PortBackgroundHealth)-1) == PORT_BACKGROUND_UNCLASSIFIED);
+    assert(Port_Background_MenuContext(PORT_BACKGROUND_MENU_PLAIN, (PortBackgroundHealth)3) == PORT_BACKGROUND_UNCLASSIFIED);
     return 0;
 }

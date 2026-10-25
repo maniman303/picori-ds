@@ -34,7 +34,7 @@ def main():
             subprocess.run(compiler + flags + [str(consumer)] + objects + ['-o', str(binary)], check=True)
             names = subprocess.check_output([str(binary)], text=True).splitlines()
             expected = {name + '.png' for name in IMAGE_CONTEXTS}
-            assert len(names) == len(expected) == 23, names
+            assert len(names) == len(expected) == 32, names
             assert set(names) == expected, (set(names), expected)
             assert not set(names) & {name + '.png' for name in COLOR_REFERENCES}
     print('PASS: background catalog, exporter agreement, profile geometry, C/C++ ABI')

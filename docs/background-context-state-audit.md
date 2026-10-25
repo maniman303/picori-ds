@@ -1,5 +1,13 @@
 # Background context/state audit
 
+The [menu-family revision](menu-background-family-revision.md) supersedes the
+original shared-menu classification below. The catalog/exporter now have 32 artwork names
+and five menu families, each with three health variants. This audit's native
+captures, installed-health observations and pixel matches remain evidence;
+they do not verify game-state publication, loading or title-frame completion.
+Clean reference recipes and the pure catalog lookup have since been added;
+the remaining runtime implementation/validation extensions are open.
+
 This audit supports the first open visual-catalog gate in the
 [task list](aspect-ratio-and-background-overrides-tasks.md). It records native
 screen evidence before runtime context selection or margin composition exists.
@@ -78,8 +86,10 @@ native EU capture. This is evidence, not a new runtime RGB constant. The
 standalone map hint copies palette entry 81 into zero and has the distinct
 green artist-reference swatch. The local hint's bottom-center pixel belongs
 to its map label; sampling it would incorrectly classify the field as white.
-No local-hint PNG or new swatch is exported. There are still 23 shared artwork
-filenames; `PORT_BACKGROUND_LOCAL_MAP_HINT` appends a procedural catalog entry.
+No local-hint PNG or new swatch is exported. At that audit step the implementation
+had 23 shared artwork filenames; `PORT_BACKGROUND_LOCAL_MAP_HINT` appended a
+procedural catalog entry. The later family revision adds nine planned artwork
+names without changing this hint rule.
 
 This separates source/color ownership only. A BG3 field and the GBA backdrop
 can have different blend targets even when their colors match. Resolve those
@@ -137,6 +147,11 @@ logo/title hashes. Headless EU startup reaches
 checks, with no asset staging change, device deployment or golden update.
 
 ## Pause-menu health and map matrix (2026-10-25)
+
+This matrix predates implementation of the five-family split. Its ten native
+decoration loads are not an expected PNG decode count for the revised design.
+The title/pieces/techniques family sequence and foreground-cap seams must be
+added as separate assertions; the existing checkpoints remain native baselines.
 
 `--scenario menus` adds 106 staged native cases on the same EU/English fixture.
 The run records 691 PNGs, including transitions and setup, under

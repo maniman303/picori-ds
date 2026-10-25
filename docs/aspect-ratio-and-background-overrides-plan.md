@@ -1,6 +1,6 @@
 # Native 4:3 rendering and background overrides
 
-Research date: 2026-10-24. Status: geometry/settings integration in progress; initial local artwork export completed.
+Research date: 2026-10-24; menu-family revision: 2026-10-25. Status: geometry/settings integration in progress; catalog and native exporter now implement the revised 32-name contract; runtime margin composition remains pending.
 
 Implementation includes the port-owned catalog, profile contracts, fixed target
 widths, frame-boundary geometry publication, widescreen-toggle migration, bounded
@@ -297,7 +297,10 @@ use those same literal names.
 | Title forest | `title_screen.png` |
 | File selection, new/name/language/options/copy/erase screens | `file_select.png` |
 | Local fusion map reveal | Generated live palette-zero field; the installed menu decoration is overwritten. |
-| Inventory, quest status, overworld/dungeon/detail maps, **all 22 detail-map region/state variants**, fast-travel map, kinstone-pieces and sword-techniques tabs, save and sleep confirmations | `menu_background_normal.png`, `menu_background_damaged.png`, `menu_background_critical.png` |
+| Items, quest status and ordinary pause maps, including **all 22 detail-map variants**, with the top-left title frame | `menu_titled_background_{normal,damaged,critical}.png` |
+| Kinstone-pieces tab | `kinstone_pieces_background_{normal,damaged,critical}.png` |
+| Sword-techniques tab | `sword_techniques_background_{normal,damaged,critical}.png` |
+| Save/sleep prompts and verified menu settings without a top-left title; fast travel provisionally pending capture | `menu_background_{normal,damaged,critical}.png` |
 | All seven kinstone fusion variants | `kinstone_background_normal.png`, `kinstone_background_damaged.png`, `kinstone_background_critical.png` |
 | Prologue illustrations | `prologue_01.png` … `prologue_06.png` |
 | Credits illustrations | `credits_01.png` … `credits_08.png` |
@@ -308,28 +311,54 @@ use those same literal names.
 | Standalone map-hint presentation with BG3 disabled | Generated color matching native bottom-center pixel (120,159): **#C8E090 / RGB (200,224,144)** in the EU reference. Keep `map_hint.png` as a solid reference swatch only; original map/markers unchanged |
 | Live world, dialogue over world, room-based cutscenes | No contextual image; extend original world/effect rendering |
 
-Inventory/map/confirmation screens share the general menu family, and all
-seven fusion layouts share the kinstone family. Each family has **three distinct
-health decorations**, making six menu backgrounds:
+Menu artwork has **five families**, each with normal, damaged and critical
+files: **15 menu backgrounds**, and **32 shared artwork names overall**.
+The [family revision and completed-task review](menu-background-family-revision.md)
+records source evidence, the title-frame implementation route and the review
+of all 27 previously completed tasks.
 
-| Installed decoration | General menus | Kinstone fusion |
-| --- | --- | --- |
-| Normal | `menu_background_normal.png` | `kinstone_background_normal.png` |
-| Damaged | `menu_background_damaged.png` | `kinstone_background_damaged.png` |
-| Critical | `menu_background_critical.png` | `kinstone_background_critical.png` |
+| Family | Normal | Damaged | Critical |
+| --- | --- | --- | --- |
+| Plain menu / prompts | `menu_background_normal.png` | `menu_background_damaged.png` | `menu_background_critical.png` |
+| Top-left titled menu | `menu_titled_background_normal.png` | `menu_titled_background_damaged.png` | `menu_titled_background_critical.png` |
+| Kinstone pieces | `kinstone_pieces_background_normal.png` | `kinstone_pieces_background_damaged.png` | `kinstone_pieces_background_critical.png` |
+| Sword techniques | `sword_techniques_background_normal.png` | `sword_techniques_background_damaged.png` | `sword_techniques_background_critical.png` |
+| Kinstone fusion | `kinstone_background_normal.png` | `kinstone_background_damaged.png` | `kinstone_background_critical.png` |
 
 `sub_080A4D34` selects graphics group 0x58 when health is at most 8 (one heart).
 Otherwise it selects 0x57 when missing health is at least 9 (more than one
 heart), or 0x56 for normal. Fusion initialization calls the same loader before
 installing its stone-table layers. The future state adapter must publish the
-variant actually installed by that loader and retain it with that screen;
+variant actually installed by that loader and retain it across menu screens;
 polling current health during presentation is insufficient. Health variants
 change the native decoration itself, so margins must use the matching image.
 A missing image uses effect-aware black; never substitute another health state,
-the other family, or the retired unsuffixed filenames.
+another family, or the retired unsuffixed filenames. Existing plain-menu and
+fusion files retain their names and bytes. The nine added files are separate
+artist choices, with no automatic rename, copy, alias or fallback to old art.
 
-Original slots, maps, frames, text and prompts remain native foreground. There
-are no per-tab, per-region or per-fusion-layout copies within a health state.
+Original slots, maps, frames, text and prompts remain native foreground. Pieces
+and techniques each have their own setting. Items, quest and ordinary pause
+maps share the titled setting; save/sleep prompts select plain. Keep all seven
+fusion layouts in the fusion family. Do not add per-map or per-language copies.
+
+The descriptor resolves family separately from installed health and publishes
+the new family only when its native layout is installed. During pause changes,
+variant 4 calls `sub_080A4DB8` between outgoing/incoming fades. Keep outgoing art
+until that boundary. Reusing health alone as a cache key would retain incorrect
+artwork when changing between titled menus, pieces, techniques and prompts.
+
+The title-box cut edge also requires foreground work. `sub_080A5128` draws the
+heading as OBJ frame 0 (`0x1fa` on EU, `0x1fb` otherwise), anchored at
+`(64, 16 - 2 * unk16)` on ordinary pause screens. Pieces/techniques use `(96,24)`;
+save/sleep screens omit it. A BG3-only background does not contain this frame.
+Complete the top-left title border with a verified bounded cap in added margins,
+following its animation and effects. Preserve all native pixels, label placement
+and centering; do not stretch/move the composition or wrap a whole GBA layer.
+The cap is foreground above the titled artwork and also works when artwork is
+missing. Clean blank-heading reference recipes are implemented. Exact animated cap
+pixels/masks and compositor integration remain open; selecting a new PNG alone
+is not a proven seam fix.
 
 Solid cases never inspect an override path, even if an artist happens to
 leave an old `boot_logos.png` or similarly named file in the directory. An
@@ -350,13 +379,13 @@ artwork-bearing screens, and cases requiring reconstructed-image verification.
 
 | Functional context / proposed ID | Source evidence and actual behavior | Planned fill/export treatment |
 | --- | --- | --- |
-| Inventory / `pause_inventory` | Pause screen 1 dispatches `PauseMenu_ItemMenu`; configuration row 0 selects palette 182 and gfx group 90. Existing `Port_MenuBackground_GetPixels` recognizes its decorative BG3. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Quest status / `pause_quest_status` | Screen 2 dispatches `PauseMenu2`; row 1 selects palette 183/group 91. Existing BG3 extension recognizes it. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Kinstone pieces / `pause_kinstone_pieces` | Screen 7 uses row 5, palette 204/group 125 and `PauseMenu_Screen_7`; existing BG3 extension recognizes it. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Sword techniques / `pause_sword_techniques` | Screen 8 uses row 6, palette 205/group 126 and `PauseMenu_Screen_8`; existing BG3 extension recognizes it. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Overworld map / `pause_map` | Screen 4 uses row 2, palette 185/group 94; `sub_080A6290` also loads group 0x81 and sets map offsets. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Dungeon map / `pause_dungeon_map` | Screen 5 uses row 3, palette 184/group 92. `DrawDungeonMapActually` draws map data; its handler rotates eight palette colors every eight ticks. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Map detail / `pause_map_detail` | Screen 6 uses row 4, palette 185/group 129; `sub_080A67C4` loads area palette 0xba + area and gfx 0x5f + area, with flag-dependent variants 0x70–0x74 and per-line BG control. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Inventory / `pause_inventory` | Pause screen 1 dispatches `PauseMenu_ItemMenu`; configuration row 0 selects palette 182 and gfx group 90. Existing `Port_MenuBackground_GetPixels` recognizes its decorative BG3. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Quest status / `pause_quest_status` | Screen 2 dispatches `PauseMenu2`; row 1 selects palette 183/group 91. Existing BG3 extension recognizes it. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Kinstone pieces / `pause_kinstone_pieces` | Screen 7 uses row 5, palette 204/group 125 and `PauseMenu_Screen_7`; existing BG3 extension recognizes it. | Use the installed normal/damaged/critical `kinstone_pieces_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. This screen has its own health-specific family; no per-region image. |
+| Sword techniques / `pause_sword_techniques` | Screen 8 uses row 6, palette 205/group 126 and `PauseMenu_Screen_8`; existing BG3 extension recognizes it. | Use the installed normal/damaged/critical `sword_techniques_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. This screen has its own health-specific family; no per-region image. |
+| Overworld map / `pause_map` | Screen 4 uses row 2, palette 185/group 94; `sub_080A6290` also loads group 0x81 and sets map offsets. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Dungeon map / `pause_dungeon_map` | Screen 5 uses row 3, palette 184/group 92. `DrawDungeonMapActually` draws map data; its handler rotates eight palette colors every eight ticks. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Map detail / `pause_map_detail` | Screen 6 uses row 4, palette 185/group 129; `sub_080A67C4` loads area palette 0xba + area and gfx 0x5f + area, with flag-dependent variants 0x70–0x74 and per-line BG control. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Fast-travel selection / `fast_travel_map` | `SUBTASK_FASTTRAVEL`, `Subtask_FastTravel_0`, initializes screen 13 (row 7, palette 185/group 93) and uses shared overworld-map setup. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Fusion map reveal / `map_hint` | `SUBTASK_MAPHINT`, `Subtask_MapHint_0`, initializes map screen 4, disables BG3, and copies `gPaletteBuffer[81]` into color zero. | Generate the border color sampled at native (120,159), #C8E090 in the verified EU export. Keep a solid `map_hint.png` reference swatch; do not load it as a runtime override. Preserve the original map/hint UI. |
 | Local fusion map reveal / `local_map_hint` | `SUBTASK_LOCALMAPHINT`, `sub_080A6B04`, initializes map-detail screen 6 and chooses an area from the fusion event. It then replaces BG3 with tile `0x5001` and sets palette zero and entry 95 to `0x475f`. The local EU audit verifies the exposed peach border. | Generate the live palette-zero field, preserving the native map/frame/label. Do not select a menu image or the standalone map-hint swatch. Resolve the BG3 versus backdrop effect target separately. |
@@ -384,8 +413,9 @@ verified unfaded EU border is uniformly RGB (200,224,144), hex #C8E090. All
 240 pixels in its bottom row have that color. The reference contains no map/UI.
 `sub_080A4D34` installs one of three health decorations before menu-specific
 content. `Subtask_KinstoneMenu` reuses that decoration under seven fusion maps.
-These source paths support sharing files within each family and health state,
-while keeping all six family/health combinations distinct.
+These source paths explain the retained health selection. Screen-specific
+panels and heading placement additionally require five semantic families,
+keeping all 15 family/health combinations distinct.
 
 `TASK_DEBUG` is inaccessible during normal play and is not part of the artist
 catalog. Its `src/debug.c` color-zero value 0x1144 can use the same procedural
@@ -421,6 +451,15 @@ assets/override/219/menu_background_normal.png     # 374 x 160
 assets/override/329/menu_background_normal.png     # 569 x 160
 assets/override/43/menu_background_damaged.png
 assets/override/43/menu_background_critical.png
+assets/override/43/menu_titled_background_normal.png
+assets/override/43/menu_titled_background_damaged.png
+assets/override/43/menu_titled_background_critical.png
+assets/override/43/kinstone_pieces_background_normal.png
+assets/override/43/kinstone_pieces_background_damaged.png
+assets/override/43/kinstone_pieces_background_critical.png
+assets/override/43/sword_techniques_background_normal.png
+assets/override/43/sword_techniques_background_damaged.png
+assets/override/43/sword_techniques_background_critical.png
 assets/override/43/kinstone_background_normal.png  # 256 x 192, all seven fusion layouts
 assets/override/43/kinstone_background_damaged.png
 assets/override/43/kinstone_background_critical.png
@@ -456,8 +495,10 @@ Resolve the hardcoded context before lookup:
 Always load the original native screen normally. Only the margin source is
 selected by the PNG lookup; no asset-group interception or background-layer
 replacement is needed. Cache by `(shared image ID, ratio, renderer generation)`
-so switching between inventory and map screens with the same installed health
-decoration can reuse one decoded image.
+so switching between Items, quest and pause maps with the same installed health
+decoration can reuse the titled image. Plain prompts, pieces, techniques and
+fusion are distinct keys even when health is unchanged. Those family changes
+may decode a new file; they must publish it or black fallback without stale art.
 Effect state belongs to the active context, not to the shared image cache.
 
 Use the existing libpng dependency. Check signature/IHDR and exact dimensions
@@ -488,6 +529,10 @@ Keep the full image so artists can use its central area as an alignment guide,
 but initially display only samples in the explicit added-area mask. Preserve
 all pixels of the original screen, including opaque black/white fields, and
 retain its foreground sprites, UI and animations above the contextual artwork.
+Complete the verified top-left title frame only in added margins, above the
+artwork, using its native pose and effect ownership. Include this bounded
+foreground cap in the compositor descriptor's coverage; it must not change any
+pixel inside the native rectangle. Native/parity profiles have no completion.
 A black pixel is not a hole. Neither palette index zero nor a transparent BG
 tile proves the final screen is uncovered: another layer or the original
 backdrop may own that pixel. Do not color-key the final frame or replace its
@@ -617,16 +662,22 @@ artwork. It uses retail offsets from `port/port_rom.c` and regional symbol
 segments/patches from `port/port_rom_stubs.c`, avoiding unrelocated passthrough
 data for staffroll tables.
 
-The public exports are the **23 shared image names** in section 5: title,
-file select, three general-menu health decorations, three fusion health
-decorations, six prologue images, eight credits images, and ending. The
+The revised public export target is the **32 shared image names** in section 5:
+title, file select, five menu families times three health decorations,
+six prologue images, eight credits images, and ending. The
 additional `map_hint.png` is a **solid reference swatch**, bringing native
-exports to 24 PNGs. It is not an extra runtime image family. No boot logo image,
-per-screen menu frame, map-detail variant, per-fusion-layout duplicate, figurine
+exports to 33 PNGs. It is not an extra runtime image family. No boot logo image,
+per-map variant, per-fusion-layout duplicate, figurine
 UI screenshot, map-hint UI screenshot, or JSON is produced.
 
-`menu_background_{normal,damaged,critical}.png` contains each clean common
-decoration without a particular inventory/map screen's UI. Original slots,
+`menu_background_{normal,damaged,critical}.png` contains the clean plain-menu
+decoration. The `menu_titled_background_*` references add the verified blank
+top-left title-frame alignment setting, excluding localized lettering.
+`kinstone_pieces_background_*` and `sword_techniques_background_*` each preserve
+their own clean setting/frame arrangement, excluding live contents and cursors.
+Their clean reference recipes are implemented and locally inspected; runtime
+title-frame seam reconstruction remains open. These sets add nine files; existing artist files
+are preserved without automatic copying, renaming or replacement. Original slots,
 map data, stone frames, text and prompts continue rendering on the native
 240 × 160 foreground. `kinstone_background_{normal,damaged,critical}.png`
 contains the representative stone-table setting with the matching decoration,
@@ -758,9 +809,10 @@ the contextual image plus its normally rendered original content.
 
 ## 11. Verification and acceptance
 
-Documentation-only validation for this task: review source references and
-Markdown links, run `git diff --check`, and confirm only this plan changed.
-No build or game run is needed to validate this documentation change.
+Documentation-only validation for the menu-family revision: review source
+references, all 27 completed-task decisions and Markdown links; run
+`git diff --check` and confirm changes are confined to planning/audit documents.
+No build or game run is needed to validate those documentation changes.
 
 Implementation verification must include:
 
@@ -782,14 +834,19 @@ Implementation verification must include:
 - For every fixed-screen family, compare the centered 240 × 160 crop against
   the original native screen at equivalent state/frame. Require identical
   layout, cursors, map position, line wrapping, popup placement and animation.
-  Verify the offset is exactly (8,16) in 4:3 and no native widget enters the
-  margins. Live-gameplay HUD/dialogue tests are a separate context.
-- Change between inventory, all map-detail variants and save/sleep without
-  re-decoding its installed `menu_background_<state>.png`; change between all seven
-  fusion layouts without re-decoding `kinstone_background_<state>.png`. Verify
-  normal/damaged/critical menu and fusion decorations at their health thresholds;
-  switching health decoration selects its own file and never reuses stale artwork.
-  Effects remain context-specific.
+  Verify the offset is exactly (8,16) in 4:3. Existing widgets keep their native
+  positions; only the explicitly verified title-frame completion may add
+  foreground pixels in margins. Test its left/top seams, animation and effects
+  with valid, absent and corrupt titled artwork, preserving the native crop.
+  Live-gameplay HUD/dialogue tests are a separate context.
+- Change between Items, quest and all pause map-detail variants without
+  re-decoding their installed `menu_titled_background_<state>.png`; change
+  between all seven fusion layouts without re-decoding the fusion image.
+  Verify all 15 family/health combinations. Same-health switches to plain
+  prompts, pieces or techniques must select their own image; returning may
+  require a new decode under the current/incoming cache policy. Test family
+  publication between outgoing and incoming fades and at every health threshold.
+  No fallback across family or health state; effects remain context-specific.
 - Every profile in square, tall, native, and wide windows; aspect changes while
   a message/fade/menu is active; unsupported capacity behavior; no 1-frame
   camera/render mismatch. Explicit 32:9 testing beyond X=511.
@@ -847,7 +904,11 @@ do not complete the full regional/functional-screen audit or resolve compositor
 effect targets.
 
 
-## 12. Current local exports (2026-10-25)
+## 12. Existing local exports before the family revision (2026-10-25)
+
+This is historical/current-on-disk inventory, not the revised 32-name target.
+The nine new-family references, catalog/exporter mapping and generated index
+have now been added; see section 13. This inventory records the preceding state.
 
 The EU/English references contain **24 ordinary RGB PNGs** (23 artwork
 references plus the `map_hint.png` color swatch), each 240 × 160, in
@@ -877,3 +938,25 @@ in `32/` and the contact sheet remain Git-ignored by `assets/.gitignore`;
 custom ratio folders such as `43/` are trackable. Runtime PNG lookup, RGB888 effects,
 fixed-screen centering, black fallback, and procedural fields are specified
 here but are not implemented by the export/documentation work.
+
+
+## 13. Implemented five-family exports (2026-10-25)
+
+The catalog/exporter now agree on 32 artwork names / 15 menu combinations.
+`assets/override/32/` contains 33 ordinary RGB PNGs after an EU/English export
+with `--add-missing`, which preserves existing PNGs and refreshes the generated
+README and contact sheet. The nine new files are the titled, pieces and
+techniques stems listed in section 5, each with all three health suffixes.
+No custom ratio artwork was renamed or generated by scaling a native UI.
+
+The clean titled plate is reconstructed from the native two-piece OBJ data in
+group 90 with palette 182; its letter/shadow indices are replaced by the native
+interior field while retaining border and transparency. Pieces/techniques use
+groups 125/126 and palettes 204/205, composing static BG2 with BG3 and omitting
+live OBJ/BG0. Their opaque panels hide the native health pattern, so identical
+source pixels across their three health files are expected. The names remain
+independent; custom artwork can differ and must never be aliased across states.
+
+The family/installed-health lookup is implemented as a pure C catalog helper.
+Game-state publication, PNG loading and title-frame completion in added margins
+remain open. Native reference generation does not implement that compositor.

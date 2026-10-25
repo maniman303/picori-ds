@@ -2,7 +2,8 @@
 """Export native screen artwork from a verified local retail ROM (stdlib only).
 
 This reconstructs tilemaps, not tile sheets or stretched screenshots. Output is
-local ROM-derived artwork, ignored by Git. Existing files require --overwrite.
+local ROM-derived artwork, ignored by Git. Replacing existing PNGs requires
+--overwrite; --add-missing preserves them while adding new references.
 Filenames are shared by screen families; no JSON or palette files are needed.
 Runtime screen UI remains separate from the exported decorative artwork.
 """
@@ -128,6 +129,7 @@ class Scene:
         self.palette = bytearray(0x400)
         self.groups, self.palettes = [], []
         self.row_controls = {}
+        self.overlays = []  # Indexed, unfaded foreground reference pixels only.
 
     def gfx(self, group):
         self.groups.append(group)
@@ -200,7 +202,7 @@ class Scene:
     def render(self, layers, backdrop=None):
         # layers: (BG number, control, scroll x, scroll y). Front-to-back GBA
         # priority, with lower BG number winning ties. Dynamic OBJ/text omitted.
-        colors = [u16(self.palette, i*2) for i in range(256)]
+        colors = [u16(self.palette, i*2) for i in range(512)]
         if backdrop is not None:
             colors[0] = backdrop
         pixels = bytearray()
@@ -213,26 +215,51 @@ class Scene:
                               if (value := self.sample(control, x+sx, y+sy)) is not None), 0)
                 color = colors[index]
                 pixels.extend(((color & 31) << 3, ((color >> 5) & 31) << 3, ((color >> 10) & 31) << 3))
+        for x, y, index in self.overlays:
+            if 0 <= x < WIDTH and 0 <= y < HEIGHT and index:
+                color = colors[index]
+                at = (y * WIDTH + x) * 3
+                pixels[at:at+3] = bytes(((color & 31) << 3, ((color >> 5) & 31) << 3, ((color >> 10) & 31) << 3))
         return bytes(pixels)
+
+    def blank_menu_heading(self):
+        # sub_080A5128, frame 0: two 64x32 OBJ pieces at x=0/64,y=0.
+        # Group 90 installs tiles 64..127. Palette 5 text uses indices 6..9;
+        # replace only those interior glyph pixels with native field index 12.
+        # Border indices 10/11 and transparent index zero remain intact.
+        for y in range(32):
+            for x in range(128):
+                tile = 64 + (x // 64) * 32 + (y // 8) * 8 + (x % 64) // 8
+                address = 0x10000 + tile * 32 + (y % 8) * 4 + (x % 8) // 2
+                index = (self.vram[address] >> ((x & 1) * 4)) & 15
+                if index in (6, 7, 8, 9) and x < 108 and 5 <= y <= 19:
+                    index = 12
+                if index:
+                    self.overlays.append((x, y, 256 + 5 * 16 + index))
 
 
 # Artist-facing names are literal code constants, shared across all ratios.
 # Runtime implementation will mirror this semantic mapping in its port catalog;
 # it will not read a per-ratio manifest or identify screens by tile hashes.
-MENU_CONTEXTS = (
+TITLED_MENU_CONTEXTS = (
     'pause_inventory', 'pause_quest_status', 'pause_map', 'pause_dungeon_map',
-    'fast_travel_map', 'pause_kinstone_pieces',
-    'pause_sword_techniques', 'save_confirmation', 'sleep_confirmation',
 ) + tuple(f'map_detail_{area:02d}' for area in range(17)) + (
     'map_detail_09_house_built', 'map_detail_11_fusion_done',
     'map_detail_14_interior_1', 'map_detail_14_interior_2', 'map_detail_14_interior_3',
 )
+MENU_CONTEXTS = ('fast_travel_map', 'save_confirmation', 'sleep_confirmation')
 MENU_HEALTH_VARIANTS = ('normal', 'damaged', 'critical')
 IMAGE_CONTEXTS = {
     'title_screen': ('title',),
     'file_select': ('file_select', 'new_file', 'file_copy', 'file_erase',
                     'file_select_name_entry', 'file_select_options', 'file_select_language'),
     **{f'menu_background_{health}': tuple(f'{context}_{health}' for context in MENU_CONTEXTS)
+       for health in MENU_HEALTH_VARIANTS},
+    **{f'menu_titled_background_{health}': tuple(f'{context}_{health}' for context in TITLED_MENU_CONTEXTS)
+       for health in MENU_HEALTH_VARIANTS},
+    **{f'kinstone_pieces_background_{health}': (f'pause_kinstone_pieces_{health}',)
+       for health in MENU_HEALTH_VARIANTS},
+    **{f'sword_techniques_background_{health}': (f'pause_sword_techniques_{health}',)
        for health in MENU_HEALTH_VARIANTS},
     **{f'kinstone_background_{health}': tuple(f'kinstone_fusion_{variant:02d}_{health}' for variant in range(1, 8))
        for health in MENU_HEALTH_VARIANTS},
@@ -264,14 +291,34 @@ def solid_bottom_center_reference(pixels):
 def menu_recipes(rom):
     # sub_080A4D34 selects 0x56/0x57/0x58 at menu installation:
     # critical if health <= 8, otherwise damaged if missing health >= 9.
-    # Keep all three decorations separate in each family. Screen-specific
-    # slots, map UI, frames and prompts are still original foreground.
+    # Keep all three decorations separate in each family. Static frame/plate
+    # references guide alignment; live slots, map data and prompts stay native.
     for index, health in enumerate(MENU_HEALTH_VARIANTS):
         value = Scene(rom)
         value.gfx(0x56 + index)
         value.pal(181)
         value.upload(3, 0x1e0b)
         yield f'menu_background_{health}', value, [(3, 0x1e0b, 0, 0)], None
+
+    for stem, group, palette in (('menu_titled_background', 90, 182),
+                                 ('kinstone_pieces_background', 125, 204),
+                                 ('sword_techniques_background', 126, 205)):
+        for index, health in enumerate(MENU_HEALTH_VARIANTS):
+            value = Scene(rom)
+            for gfx in (0x56 + index, group):
+                value.gfx(gfx)
+            for pal in (181, palette):
+                value.pal(pal)
+            layers = [(3, 0x1e0b, 0, 0)]
+            value.upload(3, 0x1e0b)
+            if stem == 'menu_titled_background':
+                value.blank_menu_heading()
+            else:
+                # Static BG2 frame/icon only. Headings, items, counters and
+                # selection sprites are OBJ/BG0 and are intentionally omitted.
+                value.upload(2, 0x1d03)
+                layers.insert(0, (2, 0x1d03, 0, 0))
+            yield f'{stem}_{health}', value, layers, None
 
     # All seven fusion choices share one stone-table reference per installed
     # health decoration. Retain the same representative fusion layout.
@@ -335,7 +382,10 @@ def main():
     parser.add_argument('--language', type=int, choices=LANGUAGES, default=1,
                         help='1=English, 2=French, 3=German, 4=Spanish, 5=Italian')
     parser.add_argument('--output', type=Path, default=ROOT / 'assets/override/32')
-    parser.add_argument('--overwrite', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--overwrite', action='store_true')
+    mode.add_argument('--add-missing', action='store_true',
+                      help='preserve every existing PNG; add missing references and refresh generated README/contact sheet')
     args = parser.parse_args()
     rom = Rom(args.rom, args.language)
     if rom.region == 'USA' and args.language != 1:
@@ -356,11 +406,13 @@ def main():
     contact_path = args.output.parent / 'background_contact_sheet.png'
     outputs += [args.output / 'README.md', contact_path]
     conflicts = [str(path) for path in outputs if path.exists()]
-    if conflicts and not args.overwrite:
-        parser.error('Existing exports preserved; use --overwrite to replace: ' + ', '.join(conflicts))
+    if conflicts and not args.overwrite and not args.add_missing:
+        parser.error('Existing exports preserved; use --add-missing to add new files or --overwrite to replace: ' + ', '.join(conflicts))
     args.output.mkdir(parents=True, exist_ok=True)
     for name, pixels in images:
-        atomic_write(args.output / (name+'.png'), png_bytes(pixels))
+        target = args.output / (name+'.png')
+        if not (args.add_missing and target.exists()):
+            atomic_write(target, png_bytes(pixels))
     columns, rows = 5, (len(images)+4)//5
     sheet_width, sheet_height = columns*WIDTH, rows*HEIGHT
     sheet = bytearray(sheet_width*sheet_height*3)
@@ -380,10 +432,17 @@ def main():
               'Missing expected artwork uses solid black; boot logos always use generated '
               'white and have no override. Runtime lookup is still planned.\n\n'
               '`menu_background_normal.png`, `menu_background_damaged.png`, and '
-              '`menu_background_critical.png` are the three common decorations for inventory, '
-              'quest status, map menus and all detail-map variants, fast travel, kinstone '
-              'pieces, sword techniques, and save/sleep prompts. The maps and frames are '
-              'original foreground UI, not separate background files.\n\n'
+              '`menu_background_critical.png` are the plain-menu decorations for save/sleep '
+              'prompts and verified settings without a top-left heading. '
+              '`menu_titled_background_{normal,damaged,critical}.png` serves Items, quest '
+              'and pause maps, with a blank native title plate as alignment reference. '
+              '`kinstone_pieces_background_{normal,damaged,critical}.png` and '
+              '`sword_techniques_background_{normal,damaged,critical}.png` each have their '
+              'own static frame/icon setting. Live contents, cursor and localized '
+              'heading lettering remain original foreground. The runtime title-frame '
+              'completion in added margins is still pending.\n\n'
+              'With --add-missing every existing PNG is preserved. This generated '
+              'contact sheet shows ROM recipe references; preserved artist files can differ.\n\n'
               '`kinstone_background_normal.png`, `kinstone_background_damaged.png`, and '
               '`kinstone_background_critical.png` serve all seven fusion variants, '
               'keeping the installed health decoration. The original fusion interface '

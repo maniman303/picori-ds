@@ -69,6 +69,14 @@ can be recreated when scenes or settings change; steady frames reuse them.
 
 ## Scene-composition boundary
 
+The [menu-family revision](menu-background-family-revision.md) requires a
+follow-up for title-frame completion and family-descriptor publication. The
+existing width/height/pool calculations remain valid: 32 artwork names must not
+become 32 resident images. Keep current/incoming byte limits, use bounded cap
+spans or native sprite data in the existing canvas, and verify both presenters,
+screenshots and optional paths before claiming cap support. That follow-up is
+open; no new allocation or renderer behavior is implemented by the revision.
+
 The current PPU frame is still the world/native aperture, rather than a finished
 canvas compositor. A room cap must not become the PNG size or HUD safe rectangle.
 The geometry snapshot preserves those separate dimensions and floor-centered
