@@ -162,4 +162,4 @@ android/app/build/
 roms/
 
 # Private device SSH credentials.
-scripts/deploy-rgdsplus.conf
+scripts/*.conf

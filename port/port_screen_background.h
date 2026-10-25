@@ -48,6 +48,9 @@ typedef enum {
     PORT_BACKGROUND_MENU_CRITICAL,
     PORT_BACKGROUND_KINSTONE_DAMAGED,
     PORT_BACKGROUND_KINSTONE_CRITICAL,
+    /* Fusion's local reveal replaces the installed decoration with a solid
+     * BG3 field. It is distinct from the standalone map hint's green field. */
+    PORT_BACKGROUND_LOCAL_MAP_HINT,
     PORT_BACKGROUND_COUNT
 } PortBackgroundContext;
 
@@ -60,6 +63,7 @@ typedef enum {
     PORT_BACKGROUND_SOURCE_LOGO_FIELD,
     /* Resolve from the active palette-zero field, including palette fades.
      * Figurines copy entry 251 to zero; map hint copies entry 81 to zero.
+     * Local fusion hints set zero and entry 95 together (native 0x475f).
      * Do not use the unfaded EU reference swatch as a runtime RGB constant. */
     PORT_BACKGROUND_SOURCE_PALETTE_ZERO
 } PortBackgroundSource;

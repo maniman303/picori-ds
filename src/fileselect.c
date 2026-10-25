@@ -30,6 +30,7 @@
 #include "port_ppu.h"
 #include "port_runtime_config.h"
 #include "port_tts.h"
+#include "port_repro.h"
 #endif
 #include <stdio.h>
 
@@ -733,6 +734,9 @@ void sub_080503A8(u32 gfxGroup) {
 
 void SetFileSelectState(FileSelectState mode) {
     gUI.state = mode;
+#ifdef PC_PORT
+    Port_ReproBackground_Event("file_state", mode);
+#endif
     MemClear(&gBG0Buffer, sizeof(gBG0Buffer));
     MemClear(&gBG1Buffer, sizeof(gBG1Buffer));
 #ifdef PC_PORT

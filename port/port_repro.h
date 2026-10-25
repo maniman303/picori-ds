@@ -21,6 +21,8 @@ extern "C" {
 #endif
 
 #ifdef TMC_REPRO_HARNESS
+void Port_ReproBackground_Tick(unsigned int frame);
+void Port_ReproBackground_Event(const char* event, unsigned int value);
 void Port_ReproRando_Tick(unsigned int frame);
 void Port_ReproRando_LateTick(void);
 void Port_ReproPerfcap_Tick(unsigned int frame);
@@ -30,6 +32,11 @@ void Port_ReproRollMacro_Tick(unsigned int frame);
 void Port_ReproNpcTalk_Tick(unsigned int frame);
 void Port_ReproItemGet_Tick(unsigned int frame);
 #else
+static inline void Port_ReproBackground_Tick(unsigned int frame) { (void)frame; }
+static inline void Port_ReproBackground_Event(const char* event, unsigned int value) {
+    (void)event;
+    (void)value;
+}
 static inline void Port_ReproRando_Tick(unsigned int frame) { (void)frame; }
 static inline void Port_ReproRando_LateTick(void) {}
 static inline void Port_ReproPerfcap_Tick(unsigned int frame) { (void)frame; }

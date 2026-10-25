@@ -16,6 +16,9 @@
 #include "subtask.h"
 #include "sound.h"
 #include "fade.h"
+#ifdef PC_PORT
+#include "../port/port_repro.h"
+#endif
 
 typedef struct {
     /*0x00*/ Menu base;
@@ -152,6 +155,9 @@ void StaffrollTask_State1MenuType1(void) {
         const StaffrollGfxEntry* ptr = &gUnk_08127CEC[gStaffrollMenu.gfxEntry];
         LoadPaletteGroup(ptr->paletteGroup);
         LoadGfxGroup(ptr->gfxGroup);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("credits_install", gStaffrollMenu.gfxEntry);
+#endif
         MemClear(&gBG1Buffer, sizeof(gBG1Buffer));
         gScreen.bg1.updated = 1;
         gScreen.bg2.xOffset = gStaffrollMenu.bg2XOffset;
@@ -239,6 +245,9 @@ void StaffrollTask_State1MenuType6(void) {
         MemClear(&gBG1Buffer, sizeof(gBG1Buffer));
         gScreen.bg1.updated = 1;
         MemClear(&gBG2Buffer, sizeof(gBG2Buffer));
+#ifdef PC_PORT
+        Port_ReproBackground_Event("credits_clear", 0);
+#endif
         gScreen.bg2.updated = 1;
         gScreen.controls.alphaBlend = 0x1000;
         gMenu.menuType = 0;
@@ -271,6 +280,9 @@ void sub_080A3954(void) {
     gStaffrollMenu.unk_14 = *puVar3;
     gStaffrollMenu.font = *pbVar4;
     gStaffrollMenu.base.field_0xc += 0xc;
+#ifdef PC_PORT
+    Port_ReproBackground_Event("credits_command", gStaffrollMenu.base.menuType);
+#endif
 }
 
 void StaffrollTask_State3(void) {
@@ -296,6 +308,9 @@ void StaffrollTask_State2(void) {
             LoadGfxGroup(4);
             MemClear((void*)VRAM, 0x20);
             SetPopupState(0, 0);
+#ifdef PC_PORT
+            Port_ReproBackground_Event("credits_save", 0);
+#endif
             gScreen.lcd.displayControl |= 0x600;
             gScreen.bg1.control = 0x1c01;
             gScreen.bg2.control = 0x1d05;

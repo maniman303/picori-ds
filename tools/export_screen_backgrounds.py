@@ -221,7 +221,7 @@ class Scene:
 # it will not read a per-ratio manifest or identify screens by tile hashes.
 MENU_CONTEXTS = (
     'pause_inventory', 'pause_quest_status', 'pause_map', 'pause_dungeon_map',
-    'local_map_hint', 'fast_travel_map', 'pause_kinstone_pieces',
+    'fast_travel_map', 'pause_kinstone_pieces',
     'pause_sword_techniques', 'save_confirmation', 'sleep_confirmation',
 ) + tuple(f'map_detail_{area:02d}' for area in range(17)) + (
     'map_detail_09_house_built', 'map_detail_11_fusion_done',
@@ -249,6 +249,7 @@ SOLID_CONTEXTS = {
     'credits_text': 'Black in explicitly cleared/text-only phases.',
     'figurine_collection_and_details': 'Live palette-zero field copied from palette entry 251.',
     'map_hint': 'Generated field matching native bottom-center pixel; EU reference #C8E090.',
+    'local_map_hint': 'Live palette-zero field; fusion reveal replaces the menu decoration with a solid BG3.',
 }
 
 
@@ -393,7 +394,7 @@ def main():
               'Each state has its own file; missing artwork uses black, never a '
               'different health state or the other menu family. Old unsuffixed '
               'menu_background.png and kinstone_background.png are not lookup names.\n\n'
-              'The figurine viewer uses a generated live field color. '
+              'The figurine viewer and the local fusion map reveal use generated live field colors. '
               '`map_hint.png` is a solid color reference sampled from the native screen’s '
               'bottom-center pixel (120, 159): EU #C8E090, RGB (200, 224, 144). '
               'The planned runtime generates that border color and does not load the swatch. '

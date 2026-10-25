@@ -9,11 +9,17 @@ from unittest.mock import patch
 import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS,
+from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS, SOLID_CONTEXTS,
                                        Rom, Scene, menu_recipes, png_bytes, solid_bottom_center_reference)
 
 
 class ExportFormats(unittest.TestCase):
+    def test_local_hint_has_no_image_lookup(self):
+        self.assertIn('local_map_hint', SOLID_CONTEXTS)
+        self.assertNotIn('local_map_hint', MENU_CONTEXTS)
+        for contexts in IMAGE_CONTEXTS.values():
+            self.assertFalse(any(context.startswith('local_map_hint') for context in contexts))
+
     def test_menu_health_recipes(self):
         class RecordingScene:
             def __init__(self, rom):

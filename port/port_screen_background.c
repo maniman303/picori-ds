@@ -4,7 +4,8 @@
 
 /* Shared names are the public artist contract in export_screen_backgrounds.py.
  * Menu includes inventory/quest/pieces/techniques, all map-detail variants,
- * fast travel, local hints, and save/sleep prompts. Kinstone includes all seven
+ * fast travel, and save/sleep prompts. Local hints replace that decoration
+ * with a solid field. Kinstone includes all seven
  * fusion variants. Both families keep separate normal/damaged/critical images.
  * Original frames, maps, widgets and text are foreground. */
 static const PortScreenBackground sBackgrounds[PORT_BACKGROUND_COUNT] = {
@@ -39,6 +40,7 @@ static const PortScreenBackground sBackgrounds[PORT_BACKGROUND_COUNT] = {
     [PORT_BACKGROUND_ENDING_SAVE] = { PORT_BACKGROUND_SOURCE_BLACK, NULL },
     [PORT_BACKGROUND_FIGURINES] = { PORT_BACKGROUND_SOURCE_PALETTE_ZERO, NULL },
     [PORT_BACKGROUND_MAP_HINT] = { PORT_BACKGROUND_SOURCE_PALETTE_ZERO, NULL },
+    [PORT_BACKGROUND_LOCAL_MAP_HINT] = { PORT_BACKGROUND_SOURCE_PALETTE_ZERO, NULL },
 };
 
 const PortScreenBackground* Port_Background_Get(PortBackgroundContext context, bool consoleParity) {

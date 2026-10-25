@@ -26,6 +26,7 @@
 #include "tiles.h"
 #ifdef PC_PORT
 #include "../port/port_tts.h"
+#include "../port/port_repro.h"
 #endif
 
 void sub_08051F78(void);
@@ -271,6 +272,9 @@ void sub_08053800(void) {
         gGenericMenu.base.storyPanelIndex = 0;
         LoadPaletteGroup(index + 0x8a);
         LoadGfxGroup(index + 0x3a);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("prologue_install", index);
+#endif
         MemClear(&gBG1Buffer, 0x800);
         ShowTextBox(TEXT_INDEX(TEXT_PICORI, 1) + index, ptr->font);
 #ifdef PC_PORT
@@ -331,6 +335,9 @@ void sub_08053974(void) {
     if (gFadeControl.active == 0) {
         InitFade();
         DispReset(1);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("prologue_world", 0);
+#endif
         SetBGDefaults();
         sub_08051F78();
         LoadRoomEntityList(gUnk_080FCBC4);
@@ -354,6 +361,9 @@ void sub_080539BC(void) {
 void sub_080539F4(void) {
     if (gFadeControl.active == 0) {
         DispReset(1);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("prologue_clear", 0);
+#endif
         gMenu.overlayType++;
         gMenu.transitionTimer = 60;
     }

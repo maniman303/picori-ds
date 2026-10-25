@@ -219,6 +219,7 @@ static void Port_UpdateInput(void) {
      * a quicksave snapshot, warp to a target room (re-rendered from the active
      * ROM), and dump the base framebuffer. Used to compare per-region render. */
     { Port_ReproRoomCap_Tick(sFrameNum); }
+    { Port_ReproBackground_Tick(sFrameNum); }
 
     /* Randomizer cosmetic palette overrides (tunic / heart colors from
      * !eventdefine). Content-addressed gPaletteBuffer rewrite; runs before

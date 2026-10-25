@@ -296,6 +296,7 @@ use those same literal names.
 | --- | --- |
 | Title forest | `title_screen.png` |
 | File selection, new/name/language/options/copy/erase screens | `file_select.png` |
+| Local fusion map reveal | Generated live palette-zero field; the installed menu decoration is overwritten. |
 | Inventory, quest status, overworld/dungeon/detail maps, **all 22 detail-map region/state variants**, fast-travel map, kinstone-pieces and sword-techniques tabs, save and sleep confirmations | `menu_background_normal.png`, `menu_background_damaged.png`, `menu_background_critical.png` |
 | All seven kinstone fusion variants | `kinstone_background_normal.png`, `kinstone_background_damaged.png`, `kinstone_background_critical.png` |
 | Prologue illustrations | `prologue_01.png` … `prologue_06.png` |
@@ -358,7 +359,7 @@ artwork-bearing screens, and cases requiring reconstructed-image verification.
 | Map detail / `pause_map_detail` | Screen 6 uses row 4, palette 185/group 129; `sub_080A67C4` loads area palette 0xba + area and gfx 0x5f + area, with flag-dependent variants 0x70–0x74 and per-line BG control. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Fast-travel selection / `fast_travel_map` | `SUBTASK_FASTTRAVEL`, `Subtask_FastTravel_0`, initializes screen 13 (row 7, palette 185/group 93) and uses shared overworld-map setup. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Fusion map reveal / `map_hint` | `SUBTASK_MAPHINT`, `Subtask_MapHint_0`, initializes map screen 4, disables BG3, and copies `gPaletteBuffer[81]` into color zero. | Generate the border color sampled at native (120,159), #C8E090 in the verified EU export. Keep a solid `map_hint.png` reference swatch; do not load it as a runtime override. Preserve the original map/hint UI. |
-| Local fusion map reveal / `local_map_hint` | `SUBTASK_LOCALMAPHINT`, `sub_080A6B04`, initializes map-detail screen 6 and chooses an area from the fusion event. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Local fusion map reveal / `local_map_hint` | `SUBTASK_LOCALMAPHINT`, `sub_080A6B04`, initializes map-detail screen 6 and chooses an area from the fusion event. It then replaces BG3 with tile `0x5001` and sets palette zero and entry 95 to `0x475f`. The local EU audit verifies the exposed peach border. | Generate the live palette-zero field, preserving the native map/frame/label. Do not select a menu image or the standalone map-hint swatch. Resolve the BG3 versus backdrop effect target separately. |
 | Sleep confirmation / `sleep_confirmation` | Screen 9 uses row 9, palette 207/group 128. `sub_080A5BB8` explicitly sets `gMain.sleepStatus = SLEEP`. The TTS name “Save” in `sub_080A4DB8` does not describe this action correctly. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Pause save confirmation/result/error / `save_confirmation` | Screens 10/11 share row 10/group 127. `PauseMenu_Screen_10` leads to `HandleSave`, `CreateDialogBox(8/9,...)`, and returns to quest status/items. EU rows 9/10 retain existing palettes (`paletteGroup = 0`). | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Game over / `game_over` | `TASK_GAMEOVER`, `GameOver_Init` calls `sub_08052010` in `src/subtask/subtaskAuxCutscene.c`: reset display, clear BG1/BG2 maps and tile zero, load palette 0xA/group 4, set color zero to black. `DrawGameOverText` draws moving OBJ letters. Later states enable popup BGs and save/continue choices. | The cleared black field is procedural, not a `game_over.png`. Keep letters and popup content above it. Register intro, save/error, and continue/quit phases separately for effect masks; all retain the procedural field and original centered native UI. |
@@ -630,8 +631,8 @@ map data, stone frames, text and prompts continue rendering on the native
 240 × 160 foreground. `kinstone_background_{normal,damaged,critical}.png`
 contains the representative stone-table setting with the matching decoration,
 shared by all seven fusion layouts within that health state. Boot/logo, game-over,
-cleared-credits, post-credits-save, figurine-field, and standalone-map-hint
-solid cases use code-owned procedural rules. The `map_hint.png` swatch is the
+cleared-credits, post-credits-save, figurine-field, local-fusion-map-hint and
+standalone-map-hint solid cases use code-owned procedural rules. The `map_hint.png` swatch is the
 explicit artist-reference exception: it records the bottom-center border color,
 while the runtime generates that same color without opening a PNG. In native
 unfaded EU rendering this is #C8E090. During fades, follow the corresponding
@@ -834,6 +835,12 @@ streaming manager; classify scene-wide versus local effects and margin coverage;
 establish wide signed OBJ metadata;
 and measure the device baseline. These are required early work packages, not
 reasons to weaken the requested 4:3 or all-background acceptance criteria.
+
+The [context/state audit](background-context-state-audit.md) records reproducible
+native capture routes and the local fusion-hint correction. Installed credits
+artwork is observed separately from command IDs; the five-page opening and
+six-page retelling have separate capture routes. These checks do not complete
+the full regional/functional-screen audit or resolve compositor effect targets.
 
 
 ## 12. Current local exports (2026-10-25)

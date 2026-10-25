@@ -18,11 +18,18 @@ or completed checks, not a claim that the renderer supports the new profiles.
   regressions before changing rendering behavior.
 - [x] Capture native/wide named scenes with a repro-enabled binary; retain
   original goldens and local before/after captures separately.
+- [x] Add native state-audit capture routes for file operations, opening/retold
+  prologue, retained credits and the local fusion map reveal. Correct the local
+  hint's source classification without adding an artwork filename.
 - [ ] Visually verify the full context/state catalog across available regions,
   especially file-operation transitions, prologue and retained credits pages.
 - [ ] Resolve per-context effect targets from unfaded source coverage, including
   white logo BG versus backdrop, title local alpha, and masked palette fades.
 - [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
+
+The [context/state audit](background-context-state-audit.md) records the available
+EU evidence and the remaining functional/regional gaps. Capture route coverage
+is distinct from completing the full visual catalog or compositor effect audit.
 
 Implementation: `port/port_screen_background.{h,c}` owns semantic source policy;
 `port/port_viewport.{h,c}` owns logical profile contracts. Neither reads game
