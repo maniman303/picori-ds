@@ -8,7 +8,8 @@ The [2026-10-25 menu-family revision](menu-background-family-revision.md)
 reviews every one of the 27 previously checked tasks. The active target is
 32 artwork names / 15 menu family-health combinations; catalog and exporter now implement 32 / 15. The three reopened catalog/agreement
 tasks are completed below;
-six completed tasks retain their evidence but need targeted extensions.
+completed tasks retain their evidence; outstanding targeted extensions are
+tracked below.
 Historical verification sections retain their original 23-name/six-combination
 results; those results do not certify the revised catalog or title-frame fix.
 
@@ -38,7 +39,7 @@ results; those results do not certify the revised catalog or title-frame fix.
 - [x] Audit pause-menu decoration thresholds and installed-state retention across
   functional screens and all 22 detail-map recipes on the available EU fixture;
   compare exposed inventory pixels against independently decoded ROM references.
-- [ ] Extend capture/state audits (R06–R08) with semantic family, heading style
+- [x] Extend capture/state audits (R06–R08) with semantic family, heading style
   and pose, all 15 family/health settings and same-health family transitions.
   Retain old native captures and health-load evidence; native decoration loads
   do not imply unchanged PNG identity or decode counts across different families.
@@ -594,3 +595,40 @@ EU native captures are byte-exact (rows 64–159). EU startup under QEMU reaches
 Runtime PNG loading/composition and animated title-frame completion remain
 their explicit open implementation tasks; the new native reference plate is
 not a claim that the in-game margin seam is already repaired.
+
+
+## Family/heading capture and state-audit extension (2026-10-25)
+
+The [state audit](background-context-state-audit.md#semantic-family-and-heading-audit-extension-2026-10-25)
+now records schema-v2 semantic family and heading style/position/transition
+observations at native installation and draw boundaries. Pending pause requests
+retain the outgoing family, while independent openings clear it after gameplay
+restoration. Reused map-hint/figurine/fast-travel initialization cannot classify
+a pause-family image. This remains repro-only observation, not runtime artwork
+selection or compositor publication.
+
+The extended EU/English matrix captures 109 cases: the retained 106 pause cases
+and three representative fusion settings. All 15 family/health combinations,
+15 required same-health pause-family switches and all nine ordinary heading
+poses (transition 0,2,…,16) pass. All 212 original ready/held native checkpoints
+are byte-identical to the retained audit. Inventory retains 6,240 independent
+ROM pixel comparisons; pieces/techniques add 276,480 comparisons over 12 lower
+panel checkpoints. There are ten pause and three fusion decoration loads;
+these are not PNG decode counts or evidence of cross-family cache reuse.
+
+Local artifacts, copied repro binaries and their hashes are separate under
+`.tmp/background-family-audit/`: `eu-en/` has 2,082 menu captures and its summary;
+`eu-routes/` retains the 75-frame file route; `eu-hint-final/` has the final
+44-frame procedural hint check. Original native/wide captures, artist files and
+committed goldens remain unchanged. The final hint guard is verified separately
+from the menu matrix; it leaves the pause/fusion observations unchanged.
+
+Verification passes: 16 ROM-free audit-checker tests, catalog/C/C++/UBSan and
+exporter checks, engine/scroll/CPU PPU regressions, RG ARM64 repro and restored
+release builds, and final release startup under QEMU/dummy video/audio reaching
+`Port layer initialized. Entering AgbMain...`. Both native EU logo/title scenes
+retain their original Tier A/B hashes. The original release configuration is
+restored with `repro_harness=n`; no device deployment or packaging was performed.
+The title-cap seam, enhanced margin/native-crop checks, full seven-layout fusion
+coverage, additional regions/languages, GPU execution and RG device budgets
+remain with their explicit open tasks.

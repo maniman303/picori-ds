@@ -30,13 +30,47 @@ static int sInstalled = -1; /* observation only; not a runtime descriptor */
 static int sFinished;
 static int sDecoration = -1, sPauseScreen = -1, sMapGroup = -1;
 
+/* Observation schema v2: semantic identity follows native installation. Heading
+ * pose is sampled at the actual DrawDirect call, including transition frames.
+ * This instrumentation is deliberately independent of the future adapter. */
+static const char* sFamily = "unknown";
+static int sHeading, sHeadingX, sHeadingY, sHeadingTransition;
+static unsigned sHeadingGeneration;
+
+void Port_ReproBackground_Heading(int style, int x, int y, int transition) {
+    if (style != sHeading || x != sHeadingX || y != sHeadingY || transition != sHeadingTransition)
+        ++sHeadingGeneration;
+    sHeading = style;
+    sHeadingX = x;
+    sHeadingY = y;
+    sHeadingTransition = transition;
+}
+
+static void WriteDescriptor(void) {
+    fprintf(sTrace, ",\"schema\":2,\"family\":\"%s\",\"heading_style\":%d,\"heading_x\":%d,"
+                    "\"heading_y\":%d,\"heading_transition\":%d", sFamily, sHeading,
+                    sHeadingX, sHeadingY, sHeadingTransition);
+}
+
 void Port_ReproBackground_Event(const char* event, unsigned int value) {
     if (!sTrace)
         return;
     if (strcmp(event, "menu_decoration") == 0)
         sDecoration = value;
-    if (strcmp(event, "pause_screen") == 0)
+    if (strcmp(event, "pause_screen") == 0) {
         sPauseScreen = value;
+        sFamily = value == 7 ? "pieces" : value == 8 ? "techniques" :
+                  value >= 9 && value <= 11 ? "plain" :
+                  value == 1 || value == 2 || (value >= 4 && value <= 6) ? "titled" : "unknown";
+        /* Map hints/figurines/fast travel reuse this initializer. Its screen
+         * argument alone is not evidence of an installed pause family. */
+        if (gUI.lastState != SUBTASK_PAUSEMENU)
+            sFamily = "unknown";
+    }
+    if (strcmp(event, "fusion_screen") == 0) {
+        sPauseScreen = -1;
+        sFamily = "fusion";
+    }
     if (strcmp(event, "map_detail") == 0)
         sMapGroup = value;
     if (strcmp(event, "credits_install") == 0 || strcmp(event, "prologue_install") == 0)
@@ -45,9 +79,11 @@ void Port_ReproBackground_Event(const char* event, unsigned int value) {
         strcmp(event, "prologue_clear") == 0 || strcmp(event, "prologue_world") == 0)
         sInstalled = -1;
     fprintf(sTrace, "{\"event\":\"%s\",\"value\":%u,\"frame\":%u,\"installed\":%d,"
-            "\"case\":%d,\"decoration\":%d,\"pause_screen\":%d,\"map_group\":%d,\"health\":%u,\"max_health\":%u}\n",
+            "\"case\":%d,\"decoration\":%d,\"pause_screen\":%d,\"map_group\":%d,\"health\":%u,\"max_health\":%u",
             event, value, sFrame, sInstalled, Port_ReproBackground_MenuCase(),
             sDecoration, sPauseScreen, sMapGroup, gSave.stats.health, gSave.stats.maxHealth);
+    WriteDescriptor();
+    fputs("}\n", sTrace);
     sEvent++;
     sLastEventFrame = sFrame;
     if (strcmp(event, "credits_save") == 0 || strcmp(event, "prologue_clear") == 0 ||
@@ -57,7 +93,7 @@ void Port_ReproBackground_Event(const char* event, unsigned int value) {
 
 void Port_ReproBackground_Tick(unsigned int frame) {
     static int mode = -1, stage;
-    static unsigned readyFrame, finishFrame, lastCapturedEvent, fileStart, hintReady;
+    static unsigned readyFrame, finishFrame, lastCapturedEvent, lastHeadingGeneration, fileStart, hintReady;
     if (mode == -1) {
         const char* value = getenv("TMC_BACKGROUND_AUDIT");
         mode = 0;
@@ -81,6 +117,11 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     if (!mode)
         return;
     sFrame = frame;
+    if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK ||
+        (gUI.lastState != SUBTASK_PAUSEMENU && gUI.lastState != SUBTASK_KINSTONEMENU)) {
+        sFamily = "unknown";
+        Port_ReproBackground_Heading(0, 0, 0, 0);
+    }
     const int menuResult = mode == 6 ? Port_ReproBackground_MenusTick(frame, sDecoration, sPauseScreen, sMapGroup) : 0;
     if (menuResult & 2)
         sFinished = 1;
@@ -92,18 +133,20 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     /* Trace every simulation boundary. PNGs sample the completed framebuffer;
      * mutable engine state can lead that image by one tick at an installation.
      * Also capture two ticks after events, after the VBlank upload/present. */
-    const int capture = (menuResult & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
+    const int capture = sHeadingGeneration != lastHeadingGeneration || (menuResult & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
         (sEvent != lastCapturedEvent && frame >= sLastEventFrame + 2);
     fprintf(sTrace, "{\"frame\":%u,\"task\":%u,\"state\":%u,\"substate\":%u,"
             "\"ui\":%u,\"menu\":%u,\"overlay\":%u,\"installed\":%d,"
             "\"fade_active\":%u,\"fade_type\":%u,\"fade_progress\":%u,\"fade_mask\":%u,"
             "\"bldcnt\":%u,\"alpha\":%u,\"case\":%d,\"decoration\":%d,\"pause_screen\":%d,"
-            "\"map_group\":%d,\"health\":%u,\"max_health\":%u,\"capture\":%s}\n",
+            "\"map_group\":%d,\"health\":%u,\"max_health\":%u,\"capture\":%s",
             frame, gMain.task, gMain.state, gMain.substate, gUI.lastState, gMenu.menuType,
             gMenu.overlayType, sInstalled, gFadeControl.active, gFadeControl.type,
             gFadeControl.progress, gFadeControl.mask, gScreen.controls.layerFXControl,
             gScreen.controls.alphaBlend, Port_ReproBackground_MenuCase(), sDecoration, sPauseScreen,
             sMapGroup, gSave.stats.health, gSave.stats.maxHealth, capture ? "true" : "false");
+    WriteDescriptor();
+    fputs("}\n", sTrace);
     if (capture) {
         char path[4096];
         if (snprintf(path, sizeof(path), "%s/%06u.png", sDirectory, frame) >= (int)sizeof(path) ||
@@ -112,6 +155,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
             exit(2);
         }
         lastCapturedEvent = sEvent;
+        lastHeadingGeneration = sHeadingGeneration;
     }
     if (sFinished && !finishFrame)
         finishFrame = frame + 120;

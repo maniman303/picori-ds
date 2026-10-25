@@ -23,6 +23,8 @@ extern "C" {
 #ifdef TMC_REPRO_HARNESS
 void Port_ReproBackground_Tick(unsigned int frame);
 void Port_ReproBackground_Event(const char* event, unsigned int value);
+/* Heading styles: 0 absent, 1 top-left plate, 2 centered pieces/techniques. */
+void Port_ReproBackground_Heading(int style, int x, int y, int transition);
 /* Menu driver returns bit 0 to capture, bit 1 when complete. Repro-only. */
 int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int screen, int mapGroup);
 int Port_ReproBackground_MenuCase(void);
@@ -39,6 +41,9 @@ static inline void Port_ReproBackground_Tick(unsigned int frame) { (void)frame; 
 static inline void Port_ReproBackground_Event(const char* event, unsigned int value) {
     (void)event;
     (void)value;
+}
+static inline void Port_ReproBackground_Heading(int style, int x, int y, int transition) {
+    (void)style; (void)x; (void)y; (void)transition;
 }
 static inline void Port_ReproRando_Tick(unsigned int frame) { (void)frame; }
 static inline void Port_ReproRando_LateTick(void) {}

@@ -24,6 +24,7 @@
 #ifdef PC_PORT
 #include "port_gba_mem.h"
 #include "port_softslots.h"
+#include "port_repro.h"
 #include "rando/rando_runtime.h"
 #endif
 
@@ -245,6 +246,9 @@ void sub_080A5128(void) {
         case PauseMenuScreen_9:
         case PauseMenuScreen_10:
         case PauseMenuScreen_11:
+#ifdef PC_PORT
+            Port_ReproBackground_Heading(0, 0, 0, gPauseMenuOptions.unk16);
+#endif
             return;
         default:
             p[0].x = 0x40;
@@ -256,6 +260,10 @@ void sub_080A5128(void) {
             p[2].y = 0x48;
             break;
     }
+#ifdef PC_PORT
+    Port_ReproBackground_Heading(gPauseMenuOptions.screen == 7 || gPauseMenuOptions.screen == 8 ? 2 : 1,
+                                p[0].x, p[0].y, gPauseMenuOptions.unk16);
+#endif
     gOamCmd._4 = 0;
     gOamCmd._6 = 0;
     gOamCmd._8 = 0x400;

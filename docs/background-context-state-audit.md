@@ -6,7 +6,8 @@ and five menu families, each with three health variants. This audit's native
 captures, installed-health observations and pixel matches remain evidence;
 they do not verify game-state publication, loading or title-frame completion.
 Clean reference recipes and the pure catalog lookup have since been added;
-the remaining runtime implementation/validation extensions are open.
+the family/heading audit extension is recorded below; runtime publication,
+loading and title-frame completion remain open.
 
 This audit supports the first open visual-catalog gate in the
 [task list](aspect-ratio-and-background-overrides-tasks.md). It records native
@@ -34,7 +35,9 @@ that runs `qemu-aarch64 -L /usr/aarch64-linux-gnu /absolute/path/to/tmc_pc "$@"`
 The reported executable hash then identifies the wrapper; retain the actual
 binary separately when comparing runs. `--scenario credits`, `prologue`,
 `intro`, `files`, `local_hint` or `menus` restricts the run; repeat the flag to select
-several. `--language` uses the public language preference (1 is English), not
+several. `--menu-baseline /path/to/old/menus` compares all 212 ready/held
+checkpoints from the original 106-case matrix without modifying that baseline.
+`--language` uses the public language preference (1 is English), not
 the EU save-header slot. The game still validates the supplied ROM.
 
 Each scenario gets a fresh temporary runtime/config/save directory. Existing
@@ -236,3 +239,68 @@ parity retains the original hashes, and the restored release reaches
 `Port layer initialized. Entering AgbMain...` under QEMU/dummy video/audio.
 The original release configuration has `repro_harness=n`; no device deployment,
 asset staging or golden approval occurred.
+
+
+## Semantic family and heading audit extension (2026-10-25)
+
+The repro-only trace schema is now version 2. `family` observes the installed
+`plain`, `titled`, `pieces`, `techniques` or `fusion` setting independently of
+`decoration` (installed health). The pause initializer publishes its observation
+only after loading native layout graphics; a pending screen request retains the
+outgoing identity. Reused hint/figurine/fast-travel initialization does not prove
+a pause family. Non-menu audit routes must keep this observation `unknown`.
+These are audit observations, not the future runtime background adapter.
+
+`heading_style` is 0 for absent, 1 for the top-left plate and 2 for the centered
+pieces/techniques heading. `heading_x`, `heading_y` and `heading_transition`
+are sampled at the native heading draw/skip call. Stable ordinary headings are
+at `(64,16)`, pieces/techniques at `(96,24)` and prompts have no heading. Ordinary
+pause animation uses `y = 16 - 2 * transition`; fusion uses
+`y = 16 - transition`. Changed poses trigger additional captures. Pose fields
+refer to the last draw, so an installation event can still carry the outgoing
+pose; completed-frame checkpoints and the per-tick trace establish the incoming
+pose. The checker validates the pose formula and requires fully exposed,
+intermediate and fully withdrawn ordinary heading poses.
+
+The original 106 pause cases retain their order, threshold fixtures, 22 map
+recipes and ready/held checkpoints. Three appended cases use the native fusion
+initializer, with a staged Tingle fuser identity and a representative fusion
+setting at each installed health. No fusion, save or sleep is confirmed. This
+is family-setting coverage, not coverage of all seven fusion layouts, their
+interactions or normal quest prerequisites.
+
+The checker requires all 15 family/health settings and, for each installed
+health, titled → plain → titled, titled → pieces → techniques → titled switches.
+Live health mutations continue across pause-family changes; native decoration
+reloads remain forbidden inside a pause opening. There are ten original pause
+openings plus three independent fusion openings. These 13 native decoration
+loads say nothing about PNG identity, cache hits or decode counts: a same-health
+family change selects a different artwork identity in the planned loader.
+
+Independent ROM references now also check pieces/techniques rows 64–159, where
+the static BG2 panel is unobscured. The mask excludes the upper localized
+heading and live OBJ/BG0 content. This retains inventory's exposed bottom-row
+check; identical native panel pixels across health states do not merge their
+three artist filenames. Existing native captures and committed goldens remain
+separate from the new local artifacts.
+
+The local EU/English matrix under `.tmp/background-family-audit/eu-en/` has
+2,082 captures, 109 cases, all 15 combinations, 15 required same-health switches
+and all nine ordinary transition poses (0,2,…,16). The 212 original ready/held
+checkpoints are byte-identical to `.tmp/background-menu-audit/eu-en/menus/`.
+Inventory retains 6,240 ROM pixel comparisons; the 12 pieces/techniques
+checkpoints add 276,480 comparisons. `summary.json` records this coverage,
+baseline comparison and native capture hashes. Original artifacts stay intact.
+
+The 75-frame file route is retained under `eu-routes/`; the final map-initializer
+guard passes a separate 44-frame local-hint run under `eu-hint-final/`. Copied
+matrix/final repro binaries and SHA-256 files are in the audit root. The final
+guard excludes reused non-pause initializers without changing the menu-matrix
+branch. Both EU native logo/title parity scenes pass their original Tier A/B
+hashes with the final repro binary. The RG repro and restored release builds,
+final EU startup under QEMU/dummy video/audio, 16 ROM-free checker tests and
+catalog/exporter/engine/scroll/CPU PPU regressions pass. Release configuration
+is restored to `repro_harness=n`.
+
+The foreground title cap, enhanced margin seam/crop checks, GPU execution,
+USA/JP/language coverage and device budgets remain separate open gates.

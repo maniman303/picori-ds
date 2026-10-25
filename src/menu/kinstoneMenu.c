@@ -26,6 +26,9 @@
 #include "ui.h"
 #include "affine.h"
 #include "fade.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#endif
 
 extern u32 sub_08000E44(u32);
 extern void sub_080A3B74(void);
@@ -166,6 +169,9 @@ void KinstoneMenu_Type0(void) {
     sub_080A4398();
     AddKinstoneToBag(KINSTONE_NONE);
     sub_080A70AC((void*)gUnk_081280DC);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("fusion_screen", iVar1);
+#endif
     SetMenuType(1);
     SetFade(FADE_BLACK_WHITE | FADE_INSTANT, 8);
 }
@@ -426,6 +432,9 @@ void KinstoneMenu_080A4080(void) {
     gOamCmd._4 = 0;
     gOamCmd._6 = 0;
     gOamCmd.y = 0x10 - gKinstoneMenu.unk2f;
+#ifdef PC_PORT
+    Port_ReproBackground_Heading(1, 0x40, gOamCmd.y, gKinstoneMenu.unk2f);
+#endif
     gOamCmd.x = 0x40;
     gOamCmd._8 = 0x400;
     if (REGION_IS_EU) {

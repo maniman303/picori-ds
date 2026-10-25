@@ -32,24 +32,38 @@ def menu_cases():
     maps = [(f'detail_{area:02d}', 0x5f + area) for area in range(17)]
     maps += [('detail_09_house_built', 0x70), ('detail_11_fusion_done', 0x71),
              ('detail_14_interior_1', 0x72), ('detail_14_interior_2', 0x73), ('detail_14_interior_3', 0x74)]
-    for decoration, family in enumerate(('normal', 'damaged', 'critical')):
+    for decoration, health in enumerate(('normal', 'damaged', 'critical')):
         for label, screen in screens:
-            cases.append(dict(label=f'{family}_{label}', decoration=decoration, screen=screen, map_group=None))
+            cases.append(dict(label=f'{health}_{label}', decoration=decoration, screen=screen, map_group=None))
         for label, group in maps:
-            cases.append(dict(label=f'{family}_{label}', decoration=decoration, screen=6, map_group=group))
+            cases.append(dict(label=f'{health}_{label}', decoration=decoration, screen=6, map_group=group))
+    for decoration, health in enumerate(('normal', 'damaged', 'critical')):
+        cases.append(dict(label=f'{health}_fusion', decoration=decoration, screen=-1, map_group=None,
+                          health=(24, 15, 8)[decoration], max_health=24))
+    for case in cases:
+        screen = case['screen']
+        case['family'] = ('fusion' if screen == -1 else 'pieces' if screen == 7 else
+                          'techniques' if screen == 8 else 'plain' if screen in (9, 10, 11) else 'titled')
     return cases
 
 
 def validate_menus(events, frames):
     cases = menu_cases()
     by_frame = {row['frame']: row for row in frames}
+    if [row['value'] for row in events if row['event'] == 'menus_complete'] != [len(cases)]:
+        raise ValueError('incorrect menu completion count')
+    if [row['value'] for row in events if row['event'] == 'pause_screen'] != [
+            case['screen'] for case in cases if case['screen'] >= 0]:
+        raise ValueError('incorrect native screen installation sequence')
+    if len([row for row in events if row['event'] == 'fusion_screen']) != 3:
+        raise ValueError('incomplete native fusion installations')
     openings = [row for row in events if row['event'] == 'menu_decoration']
     # Ordinary screen changes must not reinstall the decoration, even when
     # current health would select another variant on a fresh opening.
-    if [row['value'] for row in openings] != [0, 0, 1, 1, 2, 2, 2, 0, 1, 2]:
+    if [row['value'] for row in openings] != [0, 0, 1, 1, 2, 2, 2, 0, 1, 2, 0, 1, 2]:
         raise ValueError('incorrect decoration selection or unexpected reinstallation')
     initial = [(24, 24), (16, 24), (15, 24), (9, 24), (8, 24), (1, 24), (8, 8),
-               (24, 24), (15, 24), (8, 24)]
+               (24, 24), (15, 24), (8, 24), (24, 24), (15, 24), (8, 24)]
     if [(row['health'], row['max_health']) for row in openings] != initial:
         raise ValueError('menu openings did not exercise the required health thresholds')
     for phase in ('menu_case_ready', 'menu_case_held'):
@@ -63,6 +77,9 @@ def validate_menus(events, frames):
             for evidence in (row, capture):
                 if evidence['decoration'] != case['decoration'] or evidence['pause_screen'] != case['screen']:
                     raise ValueError(f'{case["label"]}: wrong installed decoration/screen')
+                if evidence.get('schema') != 2 or evidence.get('family') != case['family']:
+                    raise ValueError(f'{case["label"]}: wrong semantic family/schema')
+                validate_heading(evidence, neutral=True)
                 if case['map_group'] is not None and evidence['map_group'] != case['map_group']:
                     raise ValueError(f'{case["label"]}: wrong native detail-map recipe')
             if phase == 'menu_case_ready' and 'health' in case and (
@@ -70,6 +87,99 @@ def validate_menus(events, frames):
                 raise ValueError(f'{case["label"]}: incorrect health fixture')
             if phase == 'menu_case_held' and row['health'] != (24 if case['decoration'] == 2 else 8):
                 raise ValueError(f'{case["label"]}: health mutation was not exercised')
+
+
+def validate_heading(row, neutral=False):
+    family = row.get('family')
+    style = 0 if family == 'plain' else 2 if family in ('pieces', 'techniques') else 1
+    transition = row.get('heading_transition', -1)
+    if not 0 <= transition <= 16 or (neutral and transition != 0):
+        raise ValueError('incorrect heading transition pose')
+    x, y = ((0, 0) if style == 0 else (96, 24) if style == 2 else
+            (64, 16 - transition * (1 if family == 'fusion' else 2)))
+    if (row.get('heading_style'), row.get('heading_x'), row.get('heading_y')) != (style, x, y):
+        raise ValueError('incorrect heading style/pose')
+
+
+def validate_family_timeline(rows):
+    """Requesting a screen must retain outgoing identity until installation.
+    Native installation events, not pending screen IDs, change observations.
+    """
+    installed = 'unknown'
+    opening_cases = {index for index, case in enumerate(menu_cases())
+                     if 'health' in case or case['label'] in
+                     ('normal_inventory', 'damaged_inventory', 'critical_inventory')}
+    pairs, switches, animated = set(), set(), set()
+    previous = None
+    for row in rows:
+        event = row.get('event')
+        if event == 'menus_complete' or (event == 'menu_case_request' and row['value'] in opening_cases):
+            # The previous opening has restored gameplay before this request.
+            installed = 'unknown'
+        elif event == 'pause_screen':
+            screen = row['value']
+            installed = ('pieces' if screen == 7 else 'techniques' if screen == 8 else
+                         'plain' if screen in (9, 10, 11) else 'titled')
+        elif event == 'fusion_screen':
+            installed = 'fusion'
+        elif 'event' not in row and row.get('family') == 'unknown':
+            installed = 'unknown'
+        if row.get('schema') != 2 or row.get('family') != installed:
+            raise ValueError('semantic family changed outside native installation boundary')
+        if 'event' not in row and installed != 'unknown':
+            validate_heading(row)
+            if installed == 'titled':
+                animated.add(row['heading_transition'])
+        if event == 'menu_case_ready':
+            current = (row['family'], row['decoration'])
+            pairs.add(current)
+            if previous and previous[1] == current[1] and previous[0] != current[0]:
+                switches.add((previous[0], current[0], current[1]))
+            previous = current
+    if pairs != {(family, health) for family in ('plain', 'titled', 'pieces', 'techniques', 'fusion')
+                 for health in range(3)}:
+        raise ValueError('incomplete 15 family/health combinations')
+    for health in range(3):
+        for source, target in (('titled', 'plain'), ('plain', 'titled'), ('titled', 'pieces'),
+                               ('pieces', 'techniques'), ('techniques', 'titled')):
+            if (source, target, health) not in switches:
+                raise ValueError('missing same-health family transition')
+    if not {0, 16}.issubset(animated) or not any(0 < value < 16 for value in animated):
+        raise ValueError('missing animated heading poses')
+    return dict(family_health_combinations=len(pairs),
+                same_health_switches=[list(value) for value in sorted(switches)],
+                titled_transition_poses=sorted(animated))
+
+
+def validate_panel_pixels(directory, events, references):
+    """Only the independently decoded static BG2 lower panel is a valid mask.
+    Upper heading/lettering and OBJ controls are deliberately excluded.
+    """
+    checked = 0
+    for row in events:
+        if row['event'] not in ('menu_case_ready', 'menu_case_held') or row.get('family') not in ('pieces', 'techniques'):
+            continue
+        with Image.open(directory / f"{row['frame']:06d}.png") as image:
+            actual = image.convert('RGB').crop((0, 64, 240, 160)).tobytes()
+        if actual != references[(row['family'], row['decoration'])]:
+            raise ValueError('pieces/techniques pixels disagree with native static panel')
+        checked += 1
+    if checked != 12:
+        raise ValueError('incomplete pieces/techniques pixel checkpoints')
+    return dict(checkpoints=checked, pixels_per_checkpoint=240 * 96,
+                mask=[0, 64, 240, 160])
+
+
+def panel_references(rom, language):
+    from export_screen_backgrounds import Rom, menu_recipes
+    result = {}
+    for name, scene, layers, backdrop in menu_recipes(Rom(rom, language)):
+        for stem, family in (('kinstone_pieces_background_', 'pieces'), ('sword_techniques_background_', 'techniques')):
+            if name.startswith(stem):
+                health = ('normal', 'damaged', 'critical').index(name[len(stem):])
+                image = Image.frombytes('RGB', (240, 160), scene.render(layers, backdrop))
+                result[family, health] = image.crop((0, 64, 240, 160)).tobytes()
+    return result
 
 
 def validate_inventory_pixels(directory, events, reference_rows):
@@ -94,6 +204,32 @@ def validate_inventory_pixels(directory, events, reference_rows):
                 reference_sha256=[hashlib.sha256(row).hexdigest() for row in reference_rows])
 
 
+def compare_menu_baseline(directory, events, baseline):
+    """Compare retained native checkpoints without upgrading them to goldens.
+    Old v1 traces intentionally remain readable only as pixel baselines.
+    """
+    old_rows = [json.loads(line) for line in (baseline / 'trace.jsonl').read_text().splitlines()]
+    compared = 0
+    for phase in ('menu_case_ready', 'menu_case_held'):
+        old = [row for row in old_rows if row.get('event') == phase]
+        new = [row for row in events if row.get('event') == phase]
+        if len(new) < 106:
+            raise ValueError('missing new checkpoints for native baseline comparison')
+        if len(old) != 106 or [row['value'] for row in old] != list(range(106)):
+            raise ValueError('baseline must contain all 106 original native menu cases')
+        for before, after in zip(old, new):
+            if before['value'] != after['value']:
+                raise ValueError('baseline checkpoint order differs')
+            with Image.open(baseline / f"{before['frame']:06d}.png") as image:
+                before_pixels = image.convert('RGBA').tobytes()
+                before_size = image.size
+            with Image.open(directory / f"{after['frame']:06d}.png") as image:
+                if image.size != before_size or image.convert('RGBA').tobytes() != before_pixels:
+                    raise ValueError(f'case {after["value"]}: native pixels differ from retained baseline')
+            compared += 1
+    return dict(directory=str(baseline), checkpoints=compared)
+
+
 def menu_reference_rows(rom, language):
     from export_screen_backgrounds import Rom, menu_recipes
     reference_rows = []
@@ -106,6 +242,8 @@ def menu_reference_rows(rom, language):
 
 
 def validate_trace(rows, scenario):
+    if scenario != 'menus' and any(row.get('family', 'unknown') != 'unknown' for row in rows):
+        raise ValueError('non-menu route claimed a pause/fusion artwork family')
     events = [row for row in rows if 'event' in row]
     install_event = 'credits_install' if scenario == 'credits' else 'prologue_install'
     installs = {row['value'] for row in events if row['event'] == install_event}
@@ -136,6 +274,7 @@ def validate_trace(rows, scenario):
         raise ValueError('no captured frames')
     if scenario == 'menus':
         validate_menus(events, frames)
+        validate_family_timeline(rows)
     return events, frames
 
 
@@ -153,7 +292,8 @@ def summarize(directory, scenario):
             hashes[filename] = hashlib.sha256(image.convert('RGBA').tobytes()).hexdigest()
         # Include transient menu states and both faded and neutral artwork.
         key = (frame['task'], frame['state'], frame['ui'], frame['menu'], frame['overlay'],
-               frame['installed'], frame['fade_active'], frame.get('case', -1))
+               frame['installed'], frame['fade_active'], frame.get('case', -1),
+               frame.get('family'), frame.get('heading_style'), frame.get('heading_y'))
         representatives[key] = frame
     if scenario == 'local_hint':
         ready = [row for row in frames if row['ui'] == 10 and not row['fade_active']]
@@ -179,7 +319,8 @@ def summarize(directory, scenario):
             draw.text((x + 2, y + 160), f"{frame['frame']} art={frame['installed']} "
                       f"state={frame['state']} ui={frame['ui']} menu={frame['menu']}/{frame['overlay']}\n"
                       f"fade={frame['fade_progress']} case={frame.get('case', -1)} "
-                      f"decor={frame.get('decoration', -1)}", fill='white')
+                      f"{frame.get('family', 'unknown')} h={frame.get('decoration', -1)} "
+                      f"pose={frame.get('heading_x', 0)},{frame.get('heading_y', 0)}", fill='white')
         sheet.save(directory / f'contact-{offset // 48 + 1:02d}.png')
     result = dict(events=events, captures=hashes, review_frames=[row['frame'] for row in selected])
     if scenario == 'menus':
@@ -189,6 +330,7 @@ def summarize(directory, scenario):
                 with Image.open(directory / f"{row['frame']:06d}.png") as image:
                     if image.convert('RGB').getbbox() is None:
                         raise ValueError(f'case {row["value"]}: neutral menu checkpoint is blank')
+        result['semantic_coverage'] = validate_family_timeline(rows)
         result['menu_cases'] = [dict(case, frame=row['frame']) for row, case in zip(checkpoints, menu_cases())]
         # A separate neutral matrix is easier to review than the transition sheets.
         for offset in range(0, len(checkpoints), 36):
@@ -212,6 +354,7 @@ def main():
     parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus'], action='append')
     parser.add_argument('--language', type=int, choices=range(6), default=1,
                         help='preferred game language: 0 Japanese, 1 English, 2 French, 3 German, 4 Spanish, 5 Italian')
+    parser.add_argument('--menu-baseline', type=Path, help='retained original 106-case menus directory for pixel comparison')
     parser.add_argument('--timeout', type=float, default=1200)
     args = parser.parse_args()
     if args.timeout <= 0:
@@ -247,7 +390,12 @@ def main():
                                stderr=subprocess.STDOUT, timeout=args.timeout, check=True)
         summary['scenarios'][scenario] = summarize(directory, scenario)
         if scenario == 'menus':
+            if args.menu_baseline:
+                summary['scenarios'][scenario]['native_baseline'] = compare_menu_baseline(
+                    directory, summary['scenarios'][scenario]['events'], args.menu_baseline.resolve(strict=True))
             if code in ('BZME', 'BZMP'):
+                summary['scenarios'][scenario]['panel_pixels'] = validate_panel_pixels(
+                    directory, summary['scenarios'][scenario]['events'], panel_references(rom, args.language))
                 summary['scenarios'][scenario]['inventory_pixels'] = validate_inventory_pixels(
                     directory, summary['scenarios'][scenario]['events'], menu_reference_rows(rom, args.language))
             else:

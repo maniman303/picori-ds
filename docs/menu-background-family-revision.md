@@ -174,3 +174,11 @@ panels exactly; the blank title uses native OBJ pixels with lettering removed.
 The exact animated margin-cap mask, renderer integration and new-family runtime
 publication/loading remain pending. The decisions table above records the
 review at revision time rather than claiming all follow-ups are implemented.
+
+
+The R06–R08 capture/state extension now has a versioned family/heading trace,
+a 109-case native matrix covering 15 family/health combinations, same-health
+pause-family switches, independent pieces/techniques panel masks and retained
+native-baseline comparisons. See the [state audit](background-context-state-audit.md#semantic-family-and-heading-audit-extension-2026-10-25).
+Enhanced title-cap seam/crop verification stays with the pending layout and
+compositor work; native observations do not certify that foreground completion.

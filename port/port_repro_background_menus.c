@@ -11,6 +11,7 @@
 #include "kinstone.h"
 #include "main.h"
 #include "menu.h"
+#include "npc.h"
 #include "pauseMenu.h"
 #include "save.h"
 #include "subtask.h"
@@ -23,7 +24,7 @@ extern void InitPauseMenu(void);
  * Dungeon maps need a real dungeon fixture and are deliberately separate. */
 static const u8 sScreens[] = { 1, 11, 1, 2, 10, 2, 9, 2, 4, 7, 8 };
 enum { THRESHOLDS = 7, MAPS = 22, VIEWS = ARRAY_COUNT(sScreens) + MAPS,
-       CASES = THRESHOLDS + 3 * VIEWS };
+       PAUSE_CASES = THRESHOLDS + 3 * VIEWS, CASES = PAUSE_CASES + 3 };
 
 typedef struct {
     int health, maxHealth, decoration, screen, map, mapGroup;
@@ -37,7 +38,11 @@ static MenuCase GetCase(int index) {
     static const u8 health[] = { 24, 16, 15, 9, 8, 1, 8 };
     static const u8 decoration[] = { 0, 0, 1, 1, 2, 2, 2 };
     MenuCase result = { 24, 24, 0, 1, -1, -1 };
-    if (index < THRESHOLDS) {
+    if (index >= PAUSE_CASES) {
+        result.decoration = index - PAUSE_CASES;
+        result.health = result.decoration == 0 ? 24 : result.decoration == 1 ? 15 : 8;
+        result.screen = -1; /* Native fusion initializer, representative layout. */
+    } else if (index < THRESHOLDS) {
         result.health = health[index];
         result.maxHealth = index == 6 ? 8 : 24;
         result.decoration = decoration[index];
@@ -84,17 +89,29 @@ int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int scree
         gSave.stats.maxHealth = spec.maxHealth;
         gPauseMenuOptions.screen = 1;
         gPauseMenuOptions.unk16 = 0;
-        InitPauseMenu();
+        if (spec.screen < 0) {
+            /* A stable fuser identity survives Subtask_Init's entity-pool clear.
+             * Native code creates its own portrait NPC; no fusion is confirmed. */
+            static Entity fuser;
+            fuser.kind = NPC;
+            fuser.id = TINGLE_SIBLINGS;
+            InitializeFuseInfo(&fuser, 0, 0, 0);
+            gFuseInfo.kinstoneId = KINSTONE_A;
+            MenuFadeIn(SUBTASK_KINSTONEMENU, 0);
+        } else {
+            InitPauseMenu();
+        }
         savedRoom = 0;
-        requestedScreen = 1;
+        requestedScreen = spec.screen < 0 ? -1 : 1;
         Port_ReproBackground_Event("menu_case_request", sCase);
         phase = 1;
         ready = 0;
     }
     if (phase == 1) {
-        if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK ||
-            gUI.lastState != SUBTASK_PAUSEMENU || gUI.nextToLoad != 2 ||
-            gPauseMenuOptions.unk11 != 2 || gPauseMenuOptions.screen != requestedScreen ||
+        const int fusion = requestedScreen < 0;
+        if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK || gUI.nextToLoad != 2 ||
+            gUI.lastState != (fusion ? SUBTASK_KINSTONEMENU : SUBTASK_PAUSEMENU) ||
+            (!fusion && (gPauseMenuOptions.unk11 != 2 || gPauseMenuOptions.screen != requestedScreen)) ||
             !gMenu.menuType || gFadeControl.active)
             return 0;
         if (!ready) {
@@ -145,7 +162,7 @@ int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int scree
         gUI.roomControls.room = originalRoom;
         ++sCase;
         const int newOpening = sCase <= THRESHOLDS ||
-            (sCase - THRESHOLDS) % VIEWS == 0 || sCase == CASES;
+            (sCase - THRESHOLDS) % VIEWS == 0 || sCase >= PAUSE_CASES;
         if (newOpening) {
             Subtask_Exit();
             phase = 0;
