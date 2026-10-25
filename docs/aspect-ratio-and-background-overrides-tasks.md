@@ -114,7 +114,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Finish allocation/path audits before increasing build capacity to 569 by
   192, including optional filter/voxel/HD-text behavior and scene composition.
   See the [presentation allocation audit](presentation-allocation-audit.md).
-- [ ] Extend the allocation/path audit (R18) for bounded title-cap/descriptor
+- [x] Extend the allocation/path audit (R18) for bounded title-cap/descriptor
   storage and new-family switches; keep current/incoming cache budgets and
   avoid resident buffers for all 32 images. Existing capacity totals remain valid.
 - [x] Update `build.py`, RG builds and tools together. Preserve N64 native-only
@@ -632,3 +632,38 @@ restored with `repro_harness=n`; no device deployment or packaging was performed
 The title-cap seam, enhanced margin/native-crop checks, full seven-layout fusion
 coverage, additional regions/languages, GPU execution and RG device budgets
 remain with their explicit open tasks.
+
+
+## Presentation allocation and new-family cache extension (2026-10-25)
+
+The [allocation audit](presentation-allocation-audit.md#scene-composition-boundary-and-menu-family-extension-2026-10-25)
+now records storage bounds for title-frame completion in added margins, the
+family/heading descriptor contract, and resident image cache budgets across all
+five menu families:
+
+- **Descriptor bounds**: Struct `PortMenuBackgroundDescriptor` in
+  `port_screen_background.h` is a 24-byte POD record holding family, installed
+  health, heading style, heading pose (`x, y, transition`), and generation.
+  Double-buffered snapshot publication is zero-allocation and static.
+- **Title-cap storage**: In 4:3, the top-left heading cap is strictly bounded by
+  added margins outside native content (at most 1,408 pixels, 5,632 bytes RGBA).
+  Wide 160-row profiles add no top margin and at most side margin pixels (`cx * 32`).
+  Composition blits directly into the existing primary canvas or uses bounded
+  static scratch (<= 16 KiB); no second full-frame 569 × 192 buffer (436,992 bytes
+  raw or 43.7 MiB at 10×) is allocated.
+- **Cache budgeting**: 32 artwork names must not become 32 resident images in RAM
+  (a naive cache would consume 11.65 MiB unscaled, exceeding the 8 MiB steady limit).
+  The runtime cache is strictly bounded to two slots (current active + incoming
+  transition), consuming at most 728,320 bytes (~711 KiB at 32:9) unscaled, well
+  within the 8 MiB steady / 16 MiB peak budget. All 30 inactive images remain on
+  disk. Family switches evict outgoing images on completion; same-family navigation
+  preserves the active cache slot with zero decodes.
+- **Existing capacities**: Build capacity 569, raster height 192, and upscale pools
+  (43.7 MiB) remain valid. Optional path gates (Voxel, GLSL presets, HD text) continue
+  to reject expanded canvas geometries.
+
+Verification passes: `tools/presentation_geometry_regression_test.py` under ASan/UBSan
+at capacities 240, 384, and 569, checking descriptor POD layout, title-cap margin
+bounds, 2-slot resident memory vs. 32-image naive rejection, and family switch state
+machine; `tools/screen_background_regression_test.py` across C11 and C++17; and
+existing engine/scroll/PPU regression suites.

@@ -212,5 +212,9 @@ int main(void) {
     assert(Port_Background_MenuContext(PORT_BACKGROUND_MENU_FAMILY_COUNT, PORT_BACKGROUND_HEALTH_NORMAL) == PORT_BACKGROUND_UNCLASSIFIED);
     assert(Port_Background_MenuContext(PORT_BACKGROUND_MENU_PLAIN, (PortBackgroundHealth)-1) == PORT_BACKGROUND_UNCLASSIFIED);
     assert(Port_Background_MenuContext(PORT_BACKGROUND_MENU_PLAIN, (PortBackgroundHealth)3) == PORT_BACKGROUND_UNCLASSIFIED);
+    assert(sizeof(PortMenuBackgroundDescriptor) <= 32);
+    assert(PORT_BACKGROUND_HEADING_NONE == 0);
+    assert(PORT_BACKGROUND_HEADING_TITLE_PLATE == 1);
+    assert(PORT_BACKGROUND_HEADING_CENTERED == 2);
     return 0;
 }

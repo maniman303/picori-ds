@@ -2,6 +2,7 @@
 #define PORT_SCREEN_BACKGROUND_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,6 +78,25 @@ typedef enum {
     PORT_BACKGROUND_HEALTH_DAMAGED,
     PORT_BACKGROUND_HEALTH_CRITICAL
 } PortBackgroundHealth;
+
+typedef enum {
+    PORT_BACKGROUND_HEADING_NONE = 0,
+    PORT_BACKGROUND_HEADING_TITLE_PLATE = 1,
+    PORT_BACKGROUND_HEADING_CENTERED = 2
+} PortBackgroundHeadingStyle;
+
+/* Bounded snapshot published at menu/scene installation boundaries.
+ * Zero heap allocation. Describes the semantic family, installed health,
+ * and animated heading pose for title-cap and background composition. */
+typedef struct {
+    PortBackgroundMenuFamily family;
+    PortBackgroundHealth installedHealth;
+    PortBackgroundHeadingStyle headingStyle;
+    int16_t headingX;
+    int16_t headingY;
+    int16_t headingTransition;
+    uint32_t generation;
+} PortMenuBackgroundDescriptor;
 
 /* The adapter supplies installed health, not health polled at presentation.
  * Invalid inputs fail closed. This function never infers game/task state. */

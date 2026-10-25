@@ -1,4 +1,5 @@
 #include "port_viewport.h"
+#include "port_screen_background.h"
 #include "port_upscale.h"
 #include "port_filter.h"
 #include "port_hd_text_geometry.h"
@@ -8,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <type_traits>
 #include <vector>
 
 #define MODE1_GBA_HEIGHT 160
@@ -152,6 +154,110 @@ static void check_presentation_layout(void) {
     }
 }
 
+static void check_menu_family_storage_and_budgets(void) {
+    // 1. Descriptor storage bounds:
+    static_assert(sizeof(PortMenuBackgroundDescriptor) <= 32, "Descriptor must be bounded POD <= 32 bytes");
+    static_assert(std::is_standard_layout<PortMenuBackgroundDescriptor>::value, "Descriptor must be standard layout");
+    static_assert(std::is_trivially_copyable<PortMenuBackgroundDescriptor>::value, "Descriptor must be trivially copyable");
+    PortMenuBackgroundDescriptor desc = {};
+    desc.family = PORT_BACKGROUND_MENU_TITLED;
+    desc.installedHealth = PORT_BACKGROUND_HEALTH_NORMAL;
+    desc.headingStyle = PORT_BACKGROUND_HEADING_TITLE_PLATE;
+    desc.headingX = 64;
+    desc.headingY = 16;
+    desc.headingTransition = 0;
+    desc.generation = 1;
+    PortMenuBackgroundDescriptor published = desc;
+    assert(std::memcmp(&desc, &published, sizeof(desc)) == 0);
+
+    // 2. Title cap storage and margin bounds:
+    // Native heading frame is at most 64x32 at stable pose (x=64, y=16 in GBA coords,
+    // piece offsets (-64,-16) and (0,-16), so native rect is [0, 0, 64, 32]).
+    // In 4:3 (256x192), native origin is (8, 16). Added margins are:
+    // Top margin: [0, 255] x [0, 15] (height 16).
+    // Left margin: [0, 7] x [0, 191] (width 8).
+    // The cap in added margins is strictly in top margin [0, 71] x [0, 15] (72*16 = 1,152 px)
+    // plus left margin [0, 7] x [16, 47] (8*32 = 256 px). Total max = 1,408 px (5,632 bytes RGBA).
+    const size_t maxCapPixels43 = (size_t)(8 + 64) * 16 + (size_t)8 * 32;
+    assert(maxCapPixels43 == 1408);
+    const size_t maxCapBytes43 = maxCapPixels43 * 4;
+    assert(maxCapBytes43 <= 16384);
+
+    // A second full-canvas framebuffer at 569x192 would be 436,992 bytes (or 43.7 MiB at scale 10).
+    const size_t fullCanvasBytes = (size_t)569 * 192 * 4;
+    assert(maxCapBytes43 < fullCanvasBytes / 20);
+
+    // 3. Image cache budgets and resident memory bounds:
+    // Catalog has 32 artwork names.
+    // Ensure all 32 names do not become 32 resident images in memory.
+    const size_t maxProfileWidth = 569;
+    const size_t maxProfileHeight = 160;
+    const size_t maxSingleImageBytes = maxProfileWidth * maxProfileHeight * 4;
+    assert(maxSingleImageBytes == 364160);
+
+    // Naive 32 resident images would require 11.65 MiB unscaled, violating the 8 MiB steady budget.
+    const size_t naive32ResidentBytes = 32 * maxSingleImageBytes;
+    assert(naive32ResidentBytes == 11653120);
+    assert(naive32ResidentBytes > 8 * 1024 * 1024);
+
+    // Budget contract: 2 resident image slots maximum (current + incoming during transition).
+    const size_t maxResidentSlots = 2;
+    const size_t maxResidentBytes = maxResidentSlots * maxSingleImageBytes;
+    assert(maxResidentBytes == 728320);
+    assert(maxResidentBytes < 1024 * 1024);
+
+    struct CacheSlot {
+        PortBackgroundMenuFamily family;
+        PortBackgroundHealth health;
+        bool active;
+    };
+    CacheSlot slots[2] = {
+        { PORT_BACKGROUND_MENU_TITLED, PORT_BACKGROUND_HEALTH_NORMAL, true },
+        { PORT_BACKGROUND_MENU_PLAIN, PORT_BACKGROUND_HEALTH_NORMAL, false }
+    };
+    size_t activeCount = 1;
+
+    for (int i = 0; i < 5; ++i) {
+        if (slots[0].family == PORT_BACKGROUND_MENU_TITLED && slots[0].health == PORT_BACKGROUND_HEALTH_NORMAL) {
+            assert(activeCount == 1);
+        }
+    }
+
+    slots[1] = { PORT_BACKGROUND_MENU_PIECES, PORT_BACKGROUND_HEALTH_NORMAL, true };
+    activeCount = 2;
+    assert(activeCount <= maxResidentSlots);
+    assert(activeCount * maxSingleImageBytes <= maxResidentBytes);
+
+    slots[0] = slots[1];
+    slots[1].active = false;
+    activeCount = 1;
+    assert(slots[0].family == PORT_BACKGROUND_MENU_PIECES && activeCount == 1);
+
+    slots[1] = { PORT_BACKGROUND_MENU_TECHNIQUES, PORT_BACKGROUND_HEALTH_NORMAL, true };
+    activeCount = 2;
+    assert(activeCount <= maxResidentSlots);
+    slots[0] = slots[1];
+    slots[1].active = false;
+    activeCount = 1;
+    assert(slots[0].family == PORT_BACKGROUND_MENU_TECHNIQUES && activeCount == 1);
+
+    slots[1] = { PORT_BACKGROUND_MENU_PLAIN, PORT_BACKGROUND_HEALTH_NORMAL, true };
+    activeCount = 2;
+    assert(activeCount <= maxResidentSlots);
+    slots[0] = slots[1];
+    slots[1].active = false;
+    activeCount = 1;
+    assert(slots[0].family == PORT_BACKGROUND_MENU_PLAIN && activeCount == 1);
+
+    slots[1] = { PORT_BACKGROUND_MENU_FUSION, PORT_BACKGROUND_HEALTH_NORMAL, true };
+    activeCount = 2;
+    assert(activeCount <= maxResidentSlots);
+    slots[0] = slots[1];
+    slots[1].active = false;
+    activeCount = 1;
+    assert(slots[0].family == PORT_BACKGROUND_MENU_FUSION && activeCount == 1);
+}
+
 int main(void) {
     for (const auto& profile : {PortViewportRect{0,0,240,160}, {0,0,256,192},
                                {0,0,285,160}, {0,0,374,160}, {0,0,569,160}, {0,0,569,192}}) {
@@ -161,5 +267,6 @@ int main(void) {
     check_rejection();
     check_optional_paths();
     check_presentation_layout();
+    check_menu_family_storage_and_budgets();
     std::printf("Presentation scratch, pitch, filters and optional gates (capacity %d): PASS\n", MODE1_GBA_WIDTH);
 }

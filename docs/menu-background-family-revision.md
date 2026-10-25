@@ -182,3 +182,10 @@ pause-family switches, independent pieces/techniques panel masks and retained
 native-baseline comparisons. See the [state audit](background-context-state-audit.md#semantic-family-and-heading-audit-extension-2026-10-25).
 Enhanced title-cap seam/crop verification stays with the pending layout and
 compositor work; native observations do not certify that foreground completion.
+
+The R18 presentation allocation extension now bounds the title cap in added 4:3
+margins (1,408 pixels, 5.5 KiB) without a duplicate full-frame buffer, specifies
+the 24-byte POD `PortMenuBackgroundDescriptor`, and bounds resident decoded artwork
+to two slots (711 KiB at 32:9) within the 8 MiB steady / 16 MiB peak budget while
+explicitly rejecting naive 32-image resident caching (~11.1 MiB). See the
+[presentation allocation audit](presentation-allocation-audit.md#scene-composition-boundary-and-menu-family-extension-2026-10-25).

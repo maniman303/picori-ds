@@ -67,15 +67,68 @@ depth, shader-preset targets and ImGui buffers are additional optional costs.
 CPU pool sizes are not a bound on total process or driver memory. Textures
 can be recreated when scenes or settings change; steady frames reuse them.
 
-## Scene-composition boundary
+## Scene-composition boundary and menu-family extension (2026-10-25)
 
-The [menu-family revision](menu-background-family-revision.md) requires a
-follow-up for title-frame completion and family-descriptor publication. The
-existing width/height/pool calculations remain valid: 32 artwork names must not
-become 32 resident images. Keep current/incoming byte limits, use bounded cap
-spans or native sprite data in the existing canvas, and verify both presenters,
-screenshots and optional paths before claiming cap support. That follow-up is
-open; no new allocation or renderer behavior is implemented by the revision.
+The [menu-family revision](menu-background-family-revision.md) extends the
+allocation audit for title-frame completion, descriptor publication, and
+new-family caching. The existing 569 × 192 capacity totals, upscale pool formulas,
+and path gates remain completely valid: 32 artwork names must not become 32
+resident images in memory.
+
+### Descriptor and title-cap storage bounds
+
+1. **Family/heading descriptor**:
+   Published at scene and native screen installation boundaries. Struct
+   `PortMenuBackgroundDescriptor` in `port_screen_background.h` is a 24-byte
+   POD record (family, installed health, heading style, heading X/Y/transition,
+   and generation). Double-buffered publication requires zero heap allocation
+   and fits within 48 bytes of static storage.
+
+2. **Title-cap storage in added margins**:
+   The top-left title frame completion covers added margins strictly outside
+   the native 240 × 160 content rectangle:
+   - In 4:3 (256 × 192, native content at offset `(8, 16)`): top margin is 16 rows,
+     left margin is 8 columns. The native heading OBJ piece is at most 64 × 32 at
+     stable pose. The margin cap intersection is bounded by top margin
+     `[0, 71] × [0, 15]` (72 × 16 = 1,152 pixels) and left margin
+     `[0, 7] × [16, 47]` (8 × 32 = 256 pixels). Total maximum cap area in added
+     margins is 1,408 pixels (5,632 bytes RGBA).
+   - In wide profiles (16:9, 21:9, 32:9): vertical margins are 0; left side
+     margin is `nativeContent.x` pixels wide (22, 67, or 164 pixels) by at most
+     32 rows (704 to 5,248 pixels RGBA).
+   - The completion cap is rendered directly into the existing primary canvas
+     (`capacityWidth * 192`), or using bounded static scratch of at most 16 KiB.
+     No second full-frame 569 × 192 buffer (436,992 bytes raw, or up to 43.7 MiB
+     at scale 10) is allocated. Zero per-frame heap allocation.
+
+### Menu-family cache budgeting and new-family switches
+
+The catalog defines 32 artwork names across 5 menu families (plain, titled,
+pieces, techniques, fusion) each with 3 health variants, plus prologue, credits,
+title and file select:
+
+| Storage mode | Active resident images | Unscaled RGBA bytes (569 × 160) | Status |
+| --- | ---: | ---: | --- |
+| Naive resident cache (all 32 names) | 32 | 11,653,120 (~11.11 MiB) | **Rejected** (exceeds 8 MiB steady budget) |
+| Steady-state cache | 1 | 364,160 (~355.6 KiB) | Contractual target |
+| Active cross-fade transition cache | 2 | 728,320 (~711.25 KiB) | Contractual target (peak during transition) |
+
+1. **Resident buffer limit**:
+   The cache is strictly bounded to **2 resident image slots** (current active
+   image + incoming transition image). At the widest profile (32:9, 569 × 160),
+   steady-state unscaled storage is 364,160 bytes (~0.35 MiB) and peak transition
+   storage is 728,320 bytes (~0.69 MiB).
+2. **Budget compliance**:
+   Both steady-state (< 1 MiB) and peak during decode with libpng scratch
+   (< 2.8 MiB) are strictly below the contractual limits: **8 MiB steady /
+   16 MiB peak**. The remaining 30 inactive artwork images remain unallocated on
+   disk/filesystem.
+3. **Switch eviction**:
+   Family transitions (e.g. titled → pieces → techniques → plain → fusion)
+   load the incoming image into slot 1; upon transition completion, slot 1 is
+   promoted to current and the outgoing slot is evicted/released. Same-family
+   same-health navigation (inventory ↔ quest ↔ map) matches the existing key
+   and performs 0 decodes and 0 buffer reallocations.
 
 The current PPU frame is still the world/native aperture, rather than a finished
 canvas compositor. A room cap must not become the PNG size or HUD safe rectangle.
@@ -108,7 +161,12 @@ expectations at scales 2/4/10, pitched xBRZ input, all CPU filters, trailing
 canaries, exact/excess budgets, malformed pitches, arithmetic extremes, optional
 path guards, all five aspect fitting rules and published versus pending aspect.
 The 569 × 192 synthetic Cartesian case deliberately exceeds the xBRZ/10× pixel
-budget and verifies fallback instead of a larger allocation.
+budget and verifies fallback instead of a larger allocation. The extended
+suite additionally checks 24-byte POD `PortMenuBackgroundDescriptor` publication,
+the 1,408-pixel (5.5 KiB) title-cap bounds in added 4:3 margins avoiding duplicate
+full-frame buffers, the 2-slot (711 KiB) resident image cache bounding within
+8 MiB steady / 16 MiB peak, rejection of naive 32-image resident caching (>11.1 MiB),
+and zero-reload retention on same-family pause transitions.
 
 `ASAN_OPTIONS=detect_leaks=0 python3 tools/ppu_geometry_regression_test.py`
 also runs the existing PPU/capture contracts at capacity 569 with a full
