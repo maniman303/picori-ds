@@ -839,8 +839,12 @@ reasons to weaken the requested 4:3 or all-background acceptance criteria.
 The [context/state audit](background-context-state-audit.md) records reproducible
 native capture routes and the local fusion-hint correction. Installed credits
 artwork is observed separately from command IDs; the five-page opening and
-six-page retelling have separate capture routes. These checks do not complete
-the full regional/functional-screen audit or resolve compositor effect targets.
+six-page retelling have separate capture routes. The pause-menu matrix covers
+health boundaries, installed-decoration retention through health and screen
+changes, both save-entry palettes, and all 22 native detail-map recipes on EU.
+Neutral inventory borders match independently decoded ROM artwork. These checks
+do not complete the full regional/functional-screen audit or resolve compositor
+effect targets.
 
 
 ## 12. Current local exports (2026-10-25)

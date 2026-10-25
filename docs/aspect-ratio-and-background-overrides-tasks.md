@@ -21,8 +21,12 @@ or completed checks, not a claim that the renderer supports the new profiles.
 - [x] Add native state-audit capture routes for file operations, opening/retold
   prologue, retained credits and the local fusion map reveal. Correct the local
   hint's source classification without adding an artwork filename.
-- [ ] Visually verify the full context/state catalog across available regions,
-  especially file-operation transitions, prologue and retained credits pages.
+- [x] Audit pause-menu decoration thresholds and installed-state retention across
+  functional screens and all 22 detail-map recipes on the available EU fixture;
+  compare exposed inventory pixels against independently decoded ROM references.
+- [ ] Finish the full context/state catalog across available regions, including
+  dungeon/fusion/fast-travel/figurine screens and interaction/error paths;
+  retain the completed file-operation, prologue, credits and pause-menu evidence.
 - [ ] Resolve per-context effect targets from unfaded source coverage, including
   white logo BG versus backdrop, title local alpha, and masked palette fades.
 - [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.

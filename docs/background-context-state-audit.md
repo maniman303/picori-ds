@@ -25,7 +25,7 @@ For an ARM64 binary on a desktop, `--binary` can name an executable wrapper
 that runs `qemu-aarch64 -L /usr/aarch64-linux-gnu /absolute/path/to/tmc_pc "$@"`.
 The reported executable hash then identifies the wrapper; retain the actual
 binary separately when comparing runs. `--scenario credits`, `prologue`,
-`intro`, `files` or `local_hint` restricts the run; repeat the flag to select
+`intro`, `files`, `local_hint` or `menus` restricts the run; repeat the flag to select
 several. `--language` uses the public language preference (1 is English), not
 the EU save-header slot. The game still validates the supplied ROM.
 
@@ -111,9 +111,9 @@ clear at frame 12706 and the post-credits prompt at frame 13314. Full
 intermediate-effect correctness is a separate gate; these captures do not validate enhanced margins, GPU execution,
 fixed-screen centering or taller gameplay.
 
-Remaining visual coverage includes menu health/family variants across all
-functional layouts, 22 detail-map variants, seven fusion layouts, standalone
-map hints, figurines, save/sleep/game-over choices, save/copy/erase success and
+Remaining visual coverage includes dungeon menus, seven fusion layouts and
+their health variants, standalone map hints, fast travel, figurines,
+detail-map scrolling, save/sleep/game-over choices, save/copy/erase success and
 error paths, post-credits save/decline/error, additional fusion-event hints and
 other enabled languages. USA/JP ROM fixtures and a physical RG device were
 unavailable. Keep the full visual-catalog, effect-resolution and device-budget
@@ -135,3 +135,89 @@ All pass. The existing EU native parity gate also passes the original Tier A/B
 logo/title hashes. Headless EU startup reaches
 `Port layer initialized. Entering AgbMain...`. These are local cross-build/QEMU
 checks, with no asset staging change, device deployment or golden update.
+
+## Pause-menu health and map matrix (2026-10-25)
+
+`--scenario menus` adds 106 staged native cases on the same EU/English fixture.
+The run records 691 PNGs, including transitions and setup, under
+`.tmp/background-menu-audit/eu-en/`. The copied repro binary, QEMU wrapper and
+actual binary SHA-256 are retained in `.tmp/background-menu-audit/`, separately
+from the original audit artifacts and committed goldens.
+
+The first seven cases open inventory with the following game health values:
+
+| Health / maximum | Installed decoration | Boundary exercised |
+| --- | --- | --- |
+| 24 / 24 | Normal | Full health |
+| 16 / 24 | Normal | Exactly eight health units missing |
+| 15 / 24 | Damaged | Nine health units missing |
+| 9 / 24 | Damaged | Just above the critical threshold |
+| 8 / 24 | Critical | One heart remaining |
+| 1 / 24 | Critical | Lowest positive health |
+| 8 / 8 | Critical | Critical takes precedence even at full maximum health |
+
+Three more menu openings install normal, damaged and critical decorations.
+Within each opening the driver runs 33 views, without reinstalling the field:
+
+- Inventory, its save prompt (screen 11), and inventory again.
+- Quest status, its save prompt (screen 10), and quest status again.
+- Sleep confirmation, followed by quest status.
+- Overworld map, kinstone pieces and sword techniques.
+- All 17 base detail maps (graphics groups `0x5f`–`0x6f`), the built-house and
+  fused-kinstone variants (`0x70`/`0x71`), and the three saved-interior variants
+  (`0x72`–`0x74`).
+
+The EU save/sleep configuration rows retain the preceding palette. Requests
+therefore preserve the real source-screen order: inventory before screen 11,
+quest before screen 10 or sleep. These are prompt/layout checks; no save or
+sleep choice is confirmed. The dungeon-map screen requires a dungeon fixture
+and is not inferred from an overworld menu.
+
+For each case, the driver waits for the native transition and initializer to
+finish, then holds neutral geometry for 24 more ticks before capturing. It
+changes live health to another decoration category and captures again after
+12 ticks. The altered health remains in place while changing screens, exposing
+accidental selection from current health rather than installed content. The
+full-one-heart case also stages a heart-container/heal before checking retention.
+Every one of the 106 ready and 106 held checkpoints keeps the expected installed
+decoration. There are exactly ten decoration loads for ten menu openings, with
+no extra load at a screen change or health mutation.
+
+The driver requests the native pause transition phases directly for screen and
+same-screen map changes; it does not skip those phases or replace their graphics.
+House/fusion flags and saved room identity are controlled fixtures, not evidence
+that the corresponding quest prerequisites or button navigation were exercised.
+The original saved room identity is restored before leaving the menu. The map
+checks use their native initial scroll position and do not establish full
+scrolling/marker/visit-state coverage.
+
+Source observations come from `sub_080A4D34` after decoration installation,
+`sub_080A4DB8` after screen initialization, and `sub_080A67C4` after detail-map
+graphics selection. These events are audit instrumentation. Runtime background
+selection remains unimplemented; nothing classifies all `TASK_GAME` frames as
+menus or enables an override during gameplay.
+
+The checker independently decodes the three native menu backgrounds from the
+verified ROM using the exporter, without opening or overwriting artist files.
+It compares the exposed inventory bottom row at 26 ready/held checkpoints:
+6,240 exact RGB pixel comparisons pass. All three reference rows have different
+hashes, so a stale or wrong health variant fails the comparison. Other screens
+can cover that row with foreground frames or labels, and are reviewed using
+their complete native captures instead of applying an invalid common pixel mask.
+JP exporter recipes remain unavailable and are reported separately if requested.
+
+`summary.json` records named case coverage, captured-frame hashes and the ROM
+pixel checks. `menus-01.png`–`menus-03.png` show the neutral matrix; `contact-*.png`
+also include the transition and health-mutated states. Validation rejects missing,
+reordered or faded checkpoints, a wrong screen/map recipe, unexpected decoration
+reloads, blank neutral menus and wrong inventory pixels. The ROM-free checker
+tests exercise coverage, state, recipe and pixel mismatch failures.
+Existing catalog/exporter and engine/scroll/
+PPU regression checks pass. Full context, effect and regional acceptance remains
+open, including the fusion family's independent decoration/foreground layouts.
+
+The repro and restored RG release builds pass. Native EU logo/title Tier A/B
+parity retains the original hashes, and the restored release reaches
+`Port layer initialized. Entering AgbMain...` under QEMU/dummy video/audio.
+The original release configuration has `repro_harness=n`; no device deployment,
+asset staging or golden approval occurred.

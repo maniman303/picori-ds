@@ -1,5 +1,5 @@
 /* Native fixed-screen audit. Only compiled with repro_harness=y.
- * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint;
+ * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus;
  * TMC_BACKGROUND_AUDIT_OUT=<directory>.
  * The driver stages a synthetic save in memory, then runs native task/subtask
  * code at normal simulation speed. No timer, graphics or fade is skipped.
@@ -28,17 +28,26 @@ static const char* sDirectory;
 static unsigned sFrame, sEvent, sLastEventFrame;
 static int sInstalled = -1; /* observation only; not a runtime descriptor */
 static int sFinished;
+static int sDecoration = -1, sPauseScreen = -1, sMapGroup = -1;
 
 void Port_ReproBackground_Event(const char* event, unsigned int value) {
     if (!sTrace)
         return;
+    if (strcmp(event, "menu_decoration") == 0)
+        sDecoration = value;
+    if (strcmp(event, "pause_screen") == 0)
+        sPauseScreen = value;
+    if (strcmp(event, "map_detail") == 0)
+        sMapGroup = value;
     if (strcmp(event, "credits_install") == 0 || strcmp(event, "prologue_install") == 0)
         sInstalled = (int)value;
     if (strcmp(event, "credits_clear") == 0 || strcmp(event, "credits_save") == 0 ||
         strcmp(event, "prologue_clear") == 0 || strcmp(event, "prologue_world") == 0)
         sInstalled = -1;
-    fprintf(sTrace, "{\"event\":\"%s\",\"value\":%u,\"frame\":%u,\"installed\":%d}\n",
-            event, value, sFrame, sInstalled);
+    fprintf(sTrace, "{\"event\":\"%s\",\"value\":%u,\"frame\":%u,\"installed\":%d,"
+            "\"case\":%d,\"decoration\":%d,\"pause_screen\":%d,\"map_group\":%d,\"health\":%u,\"max_health\":%u}\n",
+            event, value, sFrame, sInstalled, Port_ReproBackground_MenuCase(),
+            sDecoration, sPauseScreen, sMapGroup, gSave.stats.health, gSave.stats.maxHealth);
     sEvent++;
     sLastEventFrame = sFrame;
     if (strcmp(event, "credits_save") == 0 || strcmp(event, "prologue_clear") == 0 ||
@@ -56,7 +65,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
             return;
         mode = strcmp(value, "credits") == 0 ? 1 : strcmp(value, "prologue") == 0 ? 2 :
                strcmp(value, "files") == 0 ? 3 : strcmp(value, "intro") == 0 ? 4 :
-               strcmp(value, "local_hint") == 0 ? 5 : 0;
+               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : 0;
         sDirectory = getenv("TMC_BACKGROUND_AUDIT_OUT");
         char path[4096];
         if (!mode || !sDirectory || snprintf(path, sizeof(path), "%s/trace.jsonl", sDirectory) >= (int)sizeof(path)) {
@@ -72,6 +81,9 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     if (!mode)
         return;
     sFrame = frame;
+    const int menuResult = mode == 6 ? Port_ReproBackground_MenusTick(frame, sDecoration, sPauseScreen, sMapGroup) : 0;
+    if (menuResult & 2)
+        sFinished = 1;
     if (frame > 30000) {
         fprintf(stderr, "[background-audit] timed out\n");
         exit(2);
@@ -80,16 +92,18 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     /* Trace every simulation boundary. PNGs sample the completed framebuffer;
      * mutable engine state can lead that image by one tick at an installation.
      * Also capture two ticks after events, after the VBlank upload/present. */
-    const int capture = frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
+    const int capture = (menuResult & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
         (sEvent != lastCapturedEvent && frame >= sLastEventFrame + 2);
     fprintf(sTrace, "{\"frame\":%u,\"task\":%u,\"state\":%u,\"substate\":%u,"
             "\"ui\":%u,\"menu\":%u,\"overlay\":%u,\"installed\":%d,"
             "\"fade_active\":%u,\"fade_type\":%u,\"fade_progress\":%u,\"fade_mask\":%u,"
-            "\"bldcnt\":%u,\"alpha\":%u,\"capture\":%s}\n",
+            "\"bldcnt\":%u,\"alpha\":%u,\"case\":%d,\"decoration\":%d,\"pause_screen\":%d,"
+            "\"map_group\":%d,\"health\":%u,\"max_health\":%u,\"capture\":%s}\n",
             frame, gMain.task, gMain.state, gMain.substate, gUI.lastState, gMenu.menuType,
             gMenu.overlayType, sInstalled, gFadeControl.active, gFadeControl.type,
             gFadeControl.progress, gFadeControl.mask, gScreen.controls.layerFXControl,
-            gScreen.controls.alphaBlend, capture ? "true" : "false");
+            gScreen.controls.alphaBlend, Port_ReproBackground_MenuCase(), sDecoration, sPauseScreen,
+            sMapGroup, gSave.stats.health, gSave.stats.maxHealth, capture ? "true" : "false");
     if (capture) {
         char path[4096];
         if (snprintf(path, sizeof(path), "%s/%06u.png", sDirectory, frame) >= (int)sizeof(path) ||

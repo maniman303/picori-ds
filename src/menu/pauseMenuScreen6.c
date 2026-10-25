@@ -13,6 +13,9 @@
 #include "save.h"
 #include "screen.h"
 #include "affine.h"
+#ifdef PC_PORT
+#include "../port/port_repro.h"
+#endif
 
 typedef struct {
     u8 unk0;
@@ -175,6 +178,9 @@ void sub_080A67C4(u32 param_1) {
     }
 
     LoadGfxGroup(iVar4);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("map_detail", iVar4);
+#endif
     ptr = &gUnk_08128E94[param_1];
     puVar2 = &gUnk_02017AA0[gUnk_03003DE4[0] * 0x500];
 

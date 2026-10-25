@@ -28,6 +28,7 @@
 #ifdef PC_PORT
 #include "port_rom.h"
 #include "../port/port_tts.h"
+#include "../port/port_repro.h"
 #endif
 
 void sub_080A4DA8(u32);
@@ -627,6 +628,9 @@ void sub_080A4D34(void) {
         }
     }
     LoadGfxGroup(iVar1 + 0x56);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("menu_decoration", iVar1);
+#endif
     gScreen.bg3.xOffset = 0;
     gScreen.bg3.yOffset = 0;
     gScreen.bg3.control = 0x1e0b;
@@ -737,6 +741,9 @@ void sub_080A4DB8(u32 param_1) {
     if (ptr->gfxGroup != 0) {
         LoadGfxGroup(ptr->gfxGroup);
     }
+#ifdef PC_PORT
+    Port_ReproBackground_Event("pause_screen", param_1);
+#endif
 }
 
 void sub_080A4E84(u8 param_1) {
