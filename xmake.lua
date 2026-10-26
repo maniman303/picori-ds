@@ -809,6 +809,7 @@ target("tmc_pc")
         add_files("port/port_repro_background.c") -- fixed-screen context audit
         add_files("port/port_repro_background_menus.c") -- installed decoration / map matrix
         add_files("port/port_repro_background_travel.c") -- native fast-travel selection/cancel audit
+        add_files("port/port_repro_background_travel_actions.c") -- native confirmation/decline and arrivals
         add_files("port/port_repro_background_figurines.c") -- native collection/detail audit
         add_files("port/port_repro_background_hints.c") -- standalone hint reveal and exit audit
         add_files("port/port_repro_background_dungeons.c") -- native dungeon rooms/floors and item states

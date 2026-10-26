@@ -10,6 +10,7 @@
 #ifdef PC_PORT
 #include <stdio.h>
 #include "../port/port_tts.h"
+#include "../port/port_repro.h"
 #endif
 
 #define MESSAGE_ADVANCE_KEYS (A_BUTTON | B_BUTTON | DPAD_ANY | R_BUTTON)
@@ -325,6 +326,18 @@ typedef struct {
 MessageChoices gMessageChoices;
 #else
 extern MessageChoices gMessageChoices;
+#endif
+
+#ifdef TMC_REPRO_HARNESS
+int Port_ReproBackground_MessageChoice(void) {
+    return gTextRender.renderStatus == RENDER_ENQUIRY && gUnk_02000040.unk_00 == 2 &&
+           gMessageChoices.choiceCount == 2 ? gMessageChoices.currentChoice : -1;
+}
+int Port_ReproBackground_MessageWaiting(void) {
+    return (gTextRender.renderStatus == RENDER_WAIT ||
+            (gTextRender.renderStatus == RENDER_DIE && gTextRender._8e != 1)) &&
+           (gMessage.state & MESSAGE_ACTIVE);
+}
 #endif
 
 extern u8 gTextGfxBuffer[0xD00];

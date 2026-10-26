@@ -72,6 +72,9 @@ void Subtask_FastTravel_1(void) {
             gMenu.field_0x0 = 2;
             SetMenuType(2);
             MessageFromTarget(TEXT_INDEX(TEXT_WINDCRESTS, 0x04));
+#ifdef PC_PORT
+            Port_ReproBackground_Event("fast_travel_prompt", gMenu.field_0x3);
+#endif
             break;
         case B_BUTTON:
             gMenu.field_0x0 = 3;
@@ -116,9 +119,15 @@ void Subtask_FastTravel_2(void) {
     if (REGION_IS_EU) {
         switch (sub_08056338()) {
             case 0:
+#ifdef PC_PORT
+                Port_ReproBackground_Event("fast_travel_answer", 0);
+#endif
                 gMenu.field_0x0 = 2;
                 break;
             case 1:
+#ifdef PC_PORT
+                Port_ReproBackground_Event("fast_travel_answer", 1);
+#endif
                 gMenu.field_0x0 = 3;
                 tmp = 1;
                 break;
@@ -132,10 +141,16 @@ void Subtask_FastTravel_2(void) {
     } else {
         switch (sub_08056338()) {
             case 0:
+#ifdef PC_PORT
+                Port_ReproBackground_Event("fast_travel_answer", 0);
+#endif
                 gMenu.field_0x0 = 2;
                 tmp = 3;
                 break;
             case 1:
+#ifdef PC_PORT
+                Port_ReproBackground_Event("fast_travel_answer", 1);
+#endif
                 tmp = 1;
                 break;
             default:
@@ -149,6 +164,9 @@ void Subtask_FastTravel_3(void) {
     if (gMenu.field_0x0 == 2) {
         SetMenuType(4);
         SetFade(FADE_IN_OUT | FADE_INSTANT, 8);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fast_travel_fade", gMenu.field_0x3);
+#endif
     } else {
         ResetPlayerAnimationAndAction();
         sub_080042D0(&gPlayerEntity.base, (u32)gPlayerEntity.base.animIndex, gPlayerEntity.base.spriteIndex);
@@ -163,7 +181,13 @@ void Subtask_FastTravel_3(void) {
 
 void Subtask_FastTravel_4(void) {
     if (gFadeControl.active == 0) {
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fast_travel_depart", gMenu.field_0x3);
+#endif
         sub_080A71F4(&gUnk_08128024[gMenu.field_0x3]);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fast_travel_handoff", gMenu.field_0x3);
+#endif
     }
 }
 

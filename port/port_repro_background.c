@@ -1,5 +1,5 @@
 /* Native fixed-screen audit. Only compiled with repro_harness=y.
- * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons;
+ * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions;
  * TMC_BACKGROUND_AUDIT_OUT=<directory>.
  * The driver stages a synthetic save in memory, then runs native task/subtask
  * code at normal simulation speed. No timer, graphics or fade is skipped.
@@ -16,6 +16,9 @@
 #include "game.h"
 #include "main.h"
 #include "menu.h"
+#include "player.h"
+#include "message.h"
+#include "item.h"
 #include "screen.h"
 #include "subtask.h"
 #include "port_gba_mem.h"
@@ -71,6 +74,29 @@ static void WriteDescriptor(void) {
             Port_ReproBackground_DungeonCase(), gArea.dungeon_idx, gMenu.field_0x3,
             gArea.dungeon_idx < 16 ? gSave.dungeonItems[gArea.dungeon_idx] : 0,
             gMain.substate == GAMEMAIN_SUBTASK ? gUI.roomControls.area : gRoomControls.area);
+    fprintf(sTrace, ",\"travel_text_status\":%u,\"travel_first_warp\":%u",
+            gTextRender.renderStatus, (unsigned)CheckGlobalFlag(WARP_1ST));
+    fprintf(sTrace, ",\"travel_story_progress\":%u,\"travel_ocarina\":%u",
+            gSave.global_progress, (unsigned)GetInventoryValue(ITEM_OCARINA));
+    fprintf(sTrace, ",\"travel_story_flags\":%u",
+            (CheckGlobalFlag(EZERO_1ST) ? 1u : 0u) |
+            (CheckLocalFlagByBankB(FLAG_BANK_1, SOUGEN_01_ZELDA) ? 2u : 0u) |
+            (CheckLocalFlagByBankB(FLAG_BANK_1, MORI_ENTRANCE_1ST) ? 4u : 0u) |
+            (CheckLocalFlagByBankB(FLAG_BANK_1, MORI_00_KOBITO) ? 8u : 0u) |
+            (CheckGlobalFlag(TABIDACHI) ? 16u : 0u));
+    fprintf(sTrace, ",\"travel_action_case\":%d,\"travel_phase\":%u,\"travel_choice\":%d,\"travel_message\":%u,"
+                    "\"travel_subtask\":%u,\"travel_game_state\":%u,\"travel_ui\":%u,"
+                    "\"travel_fade_active\":%u,\"travel_fade_type\":%u,\"travel_fade_progress\":%u,\"travel_fade_mask\":%u",
+            Port_ReproBackground_TravelActionCase(), gMenu.menuType, Port_ReproBackground_MessageChoice(),
+            gMessage.state, gMain.substate, gMain.state, gUI.lastState,
+            gFadeControl.active, gFadeControl.type, gFadeControl.progress, gFadeControl.mask);
+    fprintf(sTrace, ",\"world_area\":%u,\"world_room\":%u,\"player_layer\":%u,\"player_action\":%u,\"player_control\":%u,"
+                    "\"target_area\":%u,\"target_room\":%u,\"target_x\":%u,\"target_y\":%u,\"target_layer\":%u",
+            gRoomControls.area, gRoomControls.room, gPlayerEntity.base.collisionLayer,
+            gPlayerEntity.base.action, gPlayerState.controlMode,
+            gRoomTransition.player_status.area_next, gRoomTransition.player_status.room_next,
+            (unsigned)(u16)gRoomTransition.player_status.start_pos_x, (unsigned)(u16)gRoomTransition.player_status.start_pos_y,
+            gRoomTransition.player_status.layer);
 }
 
 void Port_ReproBackground_Event(const char* event, unsigned int value) {
@@ -94,6 +120,8 @@ void Port_ReproBackground_Event(const char* event, unsigned int value) {
         sTravelInstalled = 1;
         Port_ReproBackground_Heading(0, 0, 0, 0);
     }
+    if (strcmp(event, "fast_travel_handoff") == 0)
+        sTravelInstalled = 0;
     if (strcmp(event, "hint_screen") == 0) {
         sHintInstalled = 1;
         Port_ReproBackground_Heading(0, 0, 0, 0);
@@ -137,7 +165,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
             return;
         mode = strcmp(value, "credits") == 0 ? 1 : strcmp(value, "prologue") == 0 ? 2 :
                strcmp(value, "files") == 0 ? 3 : strcmp(value, "intro") == 0 ? 4 :
-               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : 0;
+               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : 0;
         sDirectory = getenv("TMC_BACKGROUND_AUDIT_OUT");
         char path[4096];
         if (!mode || !sDirectory || snprintf(path, sizeof(path), "%s/trace.jsonl", sDirectory) >= (int)sizeof(path)) {
@@ -164,14 +192,15 @@ void Port_ReproBackground_Tick(unsigned int frame) {
         sFigurineInstalled = 0;
     if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK || gUI.lastState != SUBTASK_MAPHINT)
         sHintInstalled = 0;
+    const int travelActionResult = mode == 11 ? Port_ReproBackground_TravelActionsTick(frame) : 0;
     const int dungeonResult = mode == 10 ? Port_ReproBackground_DungeonsTick(frame) : 0;
     const int hintResult = mode == 9 ? Port_ReproBackground_HintsTick(frame) : 0;
     const int figurineResult = mode == 8 ? Port_ReproBackground_FigurinesTick(frame) : 0;
     const int menuResult = mode == 6 ? Port_ReproBackground_MenusTick(frame, sDecoration, sPauseScreen, sMapGroup) : 0;
     const int travelResult = mode == 7 ? Port_ReproBackground_TravelTick(frame, sDecoration) : 0;
-    if ((menuResult | travelResult | figurineResult | hintResult | dungeonResult) & 2)
+    if ((menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult) & 2)
         sFinished = 1;
-    if (frame > 30000) {
+    if (frame > (mode == 11 ? 60000u : 30000u)) {
         fprintf(stderr, "[background-audit] timed out\n");
         exit(2);
     }
@@ -179,7 +208,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     /* Trace every simulation boundary. PNGs sample the completed framebuffer;
      * mutable engine state can lead that image by one tick at an installation.
      * Also capture two ticks after events, after the VBlank upload/present. */
-    const int capture = sHeadingGeneration != lastHeadingGeneration || ((menuResult | travelResult | figurineResult | hintResult | dungeonResult) & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
+    const int capture = sHeadingGeneration != lastHeadingGeneration || ((menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult) & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
         (sEvent != lastCapturedEvent && frame >= sLastEventFrame + 2);
     fprintf(sTrace, "{\"frame\":%u,\"task\":%u,\"state\":%u,\"substate\":%u,"
             "\"ui\":%u,\"menu\":%u,\"overlay\":%u,\"installed\":%d,"

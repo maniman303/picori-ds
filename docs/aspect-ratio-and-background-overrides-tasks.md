@@ -72,6 +72,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   replace its provisional plain-family alias with the single dedicated
   `fast_travel_background.png` catalog/export contract. Confirmation/travel
   effects remain open.
+- [x] Extend native fast-travel coverage to enquiry/decline/accepted travel on
+  EU/English: both answers at eight destinations plus the single-unlock fixture,
+  at three health preloads. Verify all 54 cases, first-use tutorial, fixed-field
+  lifetime through outgoing fade/scene replacement and normal player-control
+  return. Preserve all 54 previous selection/cancel checkpoint pixels. Broader
+  masks, languages/regions and resolved intermediate effects remain open.
 - [ ] Resolve per-context effect targets from unfaded source coverage, including
   white logo BG versus backdrop, title local alpha, and masked palette fades.
 - [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
@@ -838,3 +844,29 @@ unchanged; no runtime PNG, compositor, packaging or device work is claimed.
 
 The full task stays open for the interaction/error paths enumerated in the
 audit, other dungeon languages and broader regional/quest-state evidence.
+
+
+## Native fast-travel interaction coverage (2026-10-26)
+
+The [confirmation/scene-handoff audit](background-context-state-audit.md#native-fast-travel-confirmation-and-scene-handoff-2026-10-26)
+completes the next native interaction slice: both answers at all eight travel
+destinations plus a single-unlock fixture, at three health preloads. All 54
+cases pass, including 27 declines, 27 actual native arrivals, first-use tutorial
+completion and normal player-control return. The synthetic post-Fortress save
+includes completed intro flags; the native room/arrival code is not bypassed.
+
+The fixed field remains installed through enquiry/outgoing fade and clears at
+native scene replacement or cancellation restoration. All 162 neutral source
+checkpoints match independent ROM pixels (324 comparisons). The final binary
+also preserves decoded pixels from all 54 prior selection/cancel checkpoints
+byte for byte.
+New observations and input driving are repro-only; no artwork filename or
+runtime adapter/compositor/cache behavior is added.
+
+Twelve new checker tests and 46 retained audit-checker tests, 11 exporter tests,
+C/C++ catalog agreement, engine/scroll/CPU PPU regressions, ARM64 build and EU
+QEMU startup pass. Exact artifacts, staged fixture flags and remaining coverage
+are recorded in the audit. Original goldens, artist files, build options and
+profile availability remain unchanged. Other travel masks/languages/regions,
+resolved effect pixels and the full task's other interaction/error paths stay
+open; no packaging or device acceptance is claimed.

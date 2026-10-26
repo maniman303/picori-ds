@@ -35,7 +35,8 @@ that runs `qemu-aarch64 -L /usr/aarch64-linux-gnu /absolute/path/to/tmc_pc "$@"`
 The reported executable hash then identifies the wrapper; retain the actual
 binary separately when comparing runs. `--scenario credits`, `prologue`,
 `intro`, `files`, `local_hint`, `menus`, `travel`, `figurines`, `hints` or
-`dungeons` restricts the run; repeat the flag to select
+`dungeons` restricts the run. The EU-only `travel_actions` route adds native
+confirmation/decline and arrival coverage. Repeat the flag to select
 several. `--menu-baseline /path/to/old/menus` compares all 212 ready/held
 checkpoints from the original 106-case matrix without modifying that baseline.
 `--language` uses the public language preference (1 is English), not
@@ -87,6 +88,7 @@ corners to match native `0x475f` with neutral colors.
 | Dungeon maps | The new native room/floor route enters all six map-bearing dungeons and installs screen 5 through the pause transition. | Titled menu family; retain the installed health decoration across floor changes and item overlays. |
 | Standalone map hints | Native hint initialization installs screen 4, disables BG3 and copies palette 81 into zero; the new route covers all six timer-driven reveals and A/B/START exits. | Procedural live palette-zero field, separate from the local fusion hint and all menu images. |
 | Figurine collection | Native screen 3 copies palette entry 251 into zero, retaining its field across owned/missing entries and native navigation. | Procedural live palette-zero field; collection/reveal foreground remains native. |
+| Fast-travel enquiry/travel | The native enquiry retains group 93; accepted travel fades out, then `sub_080A71F4` replaces the scene before the real bird arrival/tutorial path. EU decline exits to gameplay. | Retain the fixed image through confirmation/outgoing fade; clear at scene handoff or native cancellation restoration. Stale menu type 4 is not source evidence. |
 | Local fusion map reveal | `sub_080A6B04` initially calls `sub_080A4D34`, then fills BG3 with `0x5001`. Its character 1 is uniformly index 15 in the local EU graphics. Palette bank 5 entry 15 (95) and palette zero are set to `0x475f`. | A separate procedural context using live palette zero. The earlier health decoration is no longer the field. Never load `menu_background_*.png` for this state. |
 
 The local fusion-hint border is RGB (248,208,136), `#F8D088`, in the neutral
@@ -680,3 +682,125 @@ quest/room/item combinations and broader language/regional captures also
 remain. USA/JP ROM fixtures were unavailable. Compositor effect resolution,
 runtime source publication, PNG loading and margin rendering are separate
 implementation gates; this audit does not enable them.
+
+## Native fast-travel confirmation and scene handoff (2026-10-26)
+
+`--scenario travel_actions` extends the retained selection/cancel route without
+renumbering its 27 cases. The new EU-only matrix requests both native answers
+at all eight destinations and the single-unlock destination-7 fixture, at three
+health preloads: 54 cases, 27 declines and 27 accepted trips. Requests stage
+post-Fortress story flags (`TABIDACHI`, `LV1_CLEAR`–`LV3_CLEAR`), derive progress 5
+with `UpdateGlobalProgress`, and supply the ocarina in memory. Completed intro
+flags include `EZERO_1ST`, `SOUGEN_01_ZELDA`, `MORI_ENTRANCE_1ST` and
+`MORI_00_KOBITO`; bank-B access preserves the regional ordinal remapping. The
+checker requires the staged story flags, progress and item at requests and all
+neutral checkpoints. This avoids the
+fresh-save festival redirect at Hyrule Town; it does not verify normal quest or
+windcrest-unlock prerequisites. All destinations are visited through native
+travel code, not a room assignment or forced player state.
+
+The driver uses real RIGHT edges to select destinations, A/START to open the
+enquiry, native choice navigation to select Yes/No, then A/START to submit it.
+Read-only helpers observe when the text renderer has a ready two-choice enquiry
+or a completed page awaiting input. No message result, selected cursor, fade,
+player action or player-control state is assigned. Live health changes between
+the ready and held checkpoints; the enquiry adds a third neutral checkpoint.
+Each result waits for normal player action/control and a further 24 stable ticks
+before capturing gameplay. Result case identity remains fixed through that
+simulation boundary and advances on the next tick.
+
+The first accepted arrival leaves `WARP_1ST` unset until the native bird/script
+path sets it. The driver advances queued story-hint and first-use ocarina
+pages with real A edges, including the final close prompt. Subsequent trips
+retain the native flag. Per-case timeouts allow these dialogues and the player
+leave animation to complete. Source lifetime is therefore checked across the
+first-use tutorial as well as repeated travel, rather than merely observing the
+requested destination fields before arrival.
+
+Native `fast_travel_prompt`, `fast_travel_answer`, `fast_travel_fade`,
+`fast_travel_depart` and `fast_travel_handoff` events identify confirmation,
+answer consumption, outgoing fade and native scene replacement. Additive
+schema-v2 fields record case, native menu/text/choice state, story/ocarina and
+first-use state, fade controls, actual room/player control and the requested
+native destination tuple. The checker requires exact native lifecycle order,
+input-driven selection, no extra decoration load, all destination handoffs,
+normal gameplay return and agreement between completed result events/captures.
+
+The fixed fast-travel source remains installed through enquiry and outgoing
+fade. Decline retains it through cancellation until native gameplay restoration.
+Accepted travel waits for the outgoing fade to finish, then `sub_080A71F4`
+replaces the scene; the observation clears the installed field at that explicit
+handoff. `gMenu.menuType` can still contain 4 in gameplay and must not be used to
+infer that the travel background remains installed. This is audit observation,
+not implementation of the runtime adapter or image cache.
+
+The two exposed top corners, (0,0) and (239,0), are compared against independent
+ROM-decoded fixed BG3 pixels before/after health mutation and with the enquiry
+open. Decoding checks BG1/BG2 transparency there using their native -4 scroll.
+The bottom row used by the earlier selection audit is excluded because dialogue
+can cover it. The field references are identical for all three health preloads;
+the neutral corner color is RGB (168,216,248). Native map/frame/OBJ/dialogue
+pixels stay outside this source mask. These neutral checks and recorded fade
+boundaries do not resolve unfaded-source effect coverage or certify intermediate
+fade pixels, custom artwork, enhanced margins or renderer/cache behavior.
+
+This route currently rejects non-EU ROMs explicitly: their decline path returns
+to destination selection, whereas EU exits the subtask. The existing generic
+selection/cancel route remains available independently. Other regions require
+their own interaction expectations and native fixtures.
+
+The completed EU/English run passes all 54 cases: 54 native enquiries/answers,
+27 native decline restorations and 27 outgoing fades/handoffs/arrivals. All
+162 neutral ready/held/enquiry checkpoints match the independent fixed-BG3
+reference (324 pixel comparisons); all 54 completed gameplay captures are
+nonblank and agree with their native case/room/control events. The first-use
+path consumes eight native page/final-close inputs, then retains `WARP_1ST`
+for subsequent travel. The run records 1,506 captures; both enquiry matrices
+and both completed-gameplay matrices were inspected.
+
+Authoritative artifacts are
+`.tmp/background-travel-actions-audit/eu-en-story/`; `summary.json` records
+coverage, ROM/wrapper hashes and decoded capture hashes. Adjacent
+`binary-story.sha256` identifies the copied ARM64 executable. Earlier runs in
+that parent directory are incomplete development evidence: they exposed queued
+arrival pages, too-short per-case timeouts and missing completed-intro flags.
+The `eu-en-current/` run was deliberately interrupted while updating the
+fixture. In particular, fresh-save festival redirection and the South Hyrule
+Field white intro are not accepted destination results; the checker fails those
+cases instead of assigning a room, cancelling a fade or forcing player control.
+
+A separate final-binary `--scenario travel` run is retained at
+`.tmp/background-travel-actions-audit/eu-en-selection-final/`. All 54 original
+ready/held checkpoints have byte-identical decoded RGBA pixels compared with
+`.tmp/background-travel-audit/eu-en-fixed/travel/`; `baseline-comparison.json`
+records that comparison. Original capture files and committed goldens are not
+rewritten. Neither native decoration load counts nor these tests claim PNG
+cache/decode behavior.
+
+Reproduce with the current repro-enabled binary and a verified EU ROM:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario travel_actions \
+  --output .tmp/background-travel-actions-new
+python3 tools/tests/background_travel_actions_audit.py
+```
+
+The 12 new failure-oriented checker tests and 46 retained capture/figurine/
+functional-checker tests pass, along with the 11 exporter tests, C11/C++/UBSan
+catalog agreement and engine/scroll/CPU PPU regressions. ARM64
+`xmake build -y tmc_pc` and final EU startup under QEMU/dummy SDL pass, reaching
+`Port layer initialized. Entering AgbMain...`. The retained menu/fusion, travel,
+figurine, hint and dungeon traces still validate. Incoming xmake options,
+including `repro_harness=y`, are preserved. No artist files, renderer pixel
+loops, profile gates, runtime packaging, approved goldens or physical device
+state change.
+
+This completes the EU/English native confirmation/decline/arrival slice.
+Remaining travel coverage includes other sparse masks/wraparound, other
+languages/regions and resolved effect-source/intermediate-fade pixels. The
+full context/state task also retains fusion interactions, figurine prize/
+duplicate/scrolling behavior, detail-map scrolling, save/sleep/game-over and
+file/post-credits success/error paths. Runtime context publication, image
+loading, margin/native-crop checks and both-presenter/cache acceptance remain
+their separate open tasks.
