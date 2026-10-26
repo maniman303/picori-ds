@@ -79,6 +79,7 @@ def validate_ending_actions(rows, events, frames):
 def validate_file_writes(rows, events, frames, extended=False):
     count = 9 if extended else 7
     checked_delete = any(r.get("writes_delete_checked") == 1 for r in rows)
+    if extended and not checked_delete: raise ValueError("checked erase contract missing")
     captures, states = _base(rows, frames)
     if [r['value'] for r in events if r['event'] == 'file_writes_complete'] != [count]:
         raise ValueError('incomplete file commit matrix')

@@ -1573,3 +1573,146 @@ routes. Incoming build options, artist files and approved goldens remain intact.
 C2/C3 are complete as coverage groups; C4–C7 remain. Production erase/flush
 failure handling, broader localization/regions and resolved effects stay with
 their explicit existing groups and parent tasks.
+
+
+## Native map navigation and remaining error paths (2026-10-26)
+
+C4 and C5 are complete in the [closure checklist](background-context-closure-checklist.md).
+The remaining catalog groups are EU localization (C6) and additional verified
+regional ROM fixtures (C7). Existing effect-resolution, composition, packaging
+and physical-device tasks remain separate.
+
+### C4: cursor entry, markers and local hints
+
+The `map_navigation` route opens the real world map, traverses the native
+adjacency graph with released DPAD edges and presses A to enter each detail
+map. It never assigns the live cursor or invokes the detail-map initializer
+directly. There are 44 entries: the 17 ordinary recipes plus house/fusion and
+three interior variants, repeated with hint/fusion markers hidden and visible.
+Normal and critical decorations are installed once for the two openings;
+retained 66-case detail scrolling evidence covers all three installed healths.
+Fixture flags and saved room identity select the conditional recipes; native
+B return retains the selected world cursor, and native START restores the
+original game room. The marker-visible fixture must increase actual marker
+list population; no marker list may exceed its bounded 128-entry capacity.
+
+Local-hint representatives are independently enumerated by the offline checker
+from the regional kinstone/world-event tables and overworld location bounds.
+The runtime independently discovers the same first representative for each
+reachable `(map area, nonzero marker icon)` combination. All 49 combinations
+are required; a smaller self-reported count cannot pass. Each stages native
+local-hint installation with its real event ID, waits through the timer, checks
+ready/held source state across a live-health change and exits with A/B/START.
+The initializer reuses the same conditional map loader covered by the 22
+recipes; interactions are not multiplied across already verified name layouts
+or every possible marker-mask bit pattern. The native procedural field stays
+palette-zero `0x475f`, with no pause-family image or heading.
+
+The native process completes all 93 cases at frame 12,186 with 2,402 captures.
+Final trace/pixel validation passes 230 source checkpoints / 3,680 pixels:
+132 world/detail/returned samples against independently decoded health fields,
+and 98 local-hint samples against the live-field contract. Cursor/input,
+conditional recipe, marker, health mutation and original-room checks pass.
+The retained 22-recipe scroll/ROM-map checks remain separate evidence.
+
+### C5: durable erase and host failure
+
+The PC erase path now brackets both deletion-status copies in a reversible
+transaction. It reports success only after both writes and the atomic host
+flush succeed. A failed device write aborts before flushing; a failed host
+write restores the prior EEPROM RAM image and dirty state. This prevents a
+failed erase from becoming a pending deletion that a later save/profile switch
+could silently commit. Older pending ordinary saves must become durable before
+starting deletion; inability to flush them rejects deletion without discarding
+the pending save. Existing ordinary save dirty-retry behavior is unchanged.
+The rollback buffer is one bounded static 8 KiB allocation; no frame-loop heap
+allocation or artwork-cache budget changes are introduced.
+
+`HandleSave(1)` now propagates this result on PC. The file erase handler clears
+the visible slot only on success; failure retains its record and uses the
+existing native save-error dialog with a 30-tick A/START dismissal path. The
+original GBA deletion and menu tables remain unchanged behind `PC_PORT` guards.
+This supersedes C2's retained failed-erase observation, not its raw evidence.
+
+The nine-case `file_errors` route preserves the earlier create/copy/erase
+success/refusal/device-error cases and adds a real host failure and recovery.
+A directory placed at the active EEPROM's `.tmp` path makes the production
+atomic writer fail; no return value is forged. The complete 8 KiB durable file
+must remain byte-identical, native checksum readback must retain all prior
+records and the visible source slot must remain valid. After removal of the
+blocker, the next native erase succeeds. All nine cases pass, completing at
+frame 3,577 with 202 captures and 38 field checkpoints / 608 ROM-derived pixels.
+The new `writes_delete_checked=1` observation distinguishes these contracts from
+historical C2 traces that deliberately recorded false success/cache loss.
+
+The initial raw reload test fixture lacked a retail EEPROM signature and was
+correctly rejected by the loader. The corrected fixture starts from a valid
+retail image and changes a scratch block without invalidating the live slot;
+the full storage suite then passes.
+
+Storage regressions exercise blocked atomic writes, partial-write cancellation,
+RAM rollback, successful recovery and nested-transaction refusal in all three
+save-layout regions. Existing dirty normal-save/profile-switch behavior,
+quicksaves and item-slot ownership still pass: 20 scratch-directory cases.
+These region-specific storage tests are not USA/JP ROM rendering acceptance.
+
+### C5: Game Over returns
+
+The separate `gameover_returns` route extends the retained five-case route
+without changing its IDs or input expectations. Six new native-death cases
+cover Save/Continue, DOWN/UP Save/Continue, refusal with DOWN/UP Continue,
+write error / B dismissal / refusal, write error / START dismissal / successful
+retry, and Save/Quit. Together with retained A-dismissal and Don't Save/Quit
+coverage, this exercises all native error-dismissal branches and both title-
+return save outcomes. All animation, prompt waits, error timers and soft reset
+remain native; the observer only resets its diagnostic write-fault counter
+between the two independent error cases.
+
+The final native process and capture command exit zero at frame 5,061 with
+312 captures. Four successful records, two errors, five normal player-control
+returns and one title return pass lifecycle/readback/input checks. Sixteen
+neutral checkpoints verify 98,304 black-field pixels and visible native
+foreground. The initial observer's missing second fault event is retained as
+failed checker evidence; it is not substituted for the final passing run.
+
+### Artifacts and verification
+
+Evidence is under `.tmp/background-navigation-errors-audit/`:
+
+- `eu-en/map_navigation/` holds the complete native map run. Its enclosing
+  multi-scenario command was interrupted (exit 130) only after map completion
+  and final offline validation, to stop duplicate subsequent error-route work.
+  `map_navigation-verification.json` records the closed native trace, checked
+  pixels and hash. No success is claimed for that enclosing command.
+- `eu-en-errors/file_errors/` holds the successful native file run and checker.
+  Its parent command exits 1 later because the then-built Game Over observer
+  omits the second write-fault event. Both native processes exit zero; the
+  failing Game Over trace and `capture-outcome.json` are retained separately.
+  `file_errors-verification.json` revalidates final file contracts and pixels.
+- `eu-en-returns/` holds the independent final Game Over command, with native
+  and command exit zero, plus its complete summary. `returns-verification.json`
+  records final binary/trace hashes and all checks.
+- Copied `tmc_pc-repro`, `tmc_pc-final` and `tmc_pc-verified` binaries and wrappers
+  identify the distinct observation builds. The final two differ only by the
+  per-case diagnostic fault-counter reset. Representative native erase-error
+  output was inspected. Original captures, artist files and goldens stay intact.
+
+Reproduce fresh runs with the final binary/tools:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --language 1 --scenario map_navigation \
+  --scenario file_errors --scenario gameover_returns \
+  --output .tmp/background-navigation-errors-new
+python3 tools/tests/background_map_navigation_audit.py
+python3 tools/tests/background_write_actions_audit.py
+python3 tools/tests/background_gameover_audit.py
+python3 tools/persistence_regression_test.py
+```
+
+Fifteen new checker tests bring the audit suite to 176 passing tests, alongside
+11 exporter tests and the 20 storage/quicksave/ownership cases. Catalog/profile
+C/C++ agreement, engine/scroll and CPU PPU ASan/UBSan checks pass (LeakSanitizer
+disabled for the sandbox). The ARM64 incremental build and isolated EU startup
+reach `Port layer initialized. Entering AgbMain...`. Incoming build options,
+profile availability, artist artwork and approved goldens remain unchanged.

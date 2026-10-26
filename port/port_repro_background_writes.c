@@ -3,7 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#define AUDIT_MKDIR(path) _mkdir(path)
+#define AUDIT_RMDIR(path) _rmdir(path)
+#else
 #include <unistd.h>
+#define AUDIT_MKDIR(path) mkdir(path, 0700)
+#define AUDIT_RMDIR(path) rmdir(path)
+#endif
 #include "common.h"
 #include "fade.h"
 #include "fileselect.h"
@@ -215,7 +223,7 @@ int Port_ReproBackground_FileWritesTick(unsigned frame) {
             char path[512];
             snprintf(path, sizeof(path), "%s.tmp", Port_Save_GetActivePath());
             ReadHostDisk(sHostDiskBefore);
-            if (mkdir(path, 0700)) { perror("[background-audit] block atomic write"); exit(2); }
+            if (AUDIT_MKDIR(path)) { perror("[background-audit] block atomic write"); exit(2); }
             Port_ReproBackground_Event("file_host_fault", 1);
         }
         Key(frame, &since, A_BUTTON, "file_write_input");
@@ -231,7 +239,7 @@ int Port_ReproBackground_FileWritesTick(unsigned frame) {
             u8 after[8192]; ReadHostDisk(after);
             if (memcmp(after, sHostDiskBefore, sizeof(after))) { fprintf(stderr, "[background-audit] host failure changed durable data\n"); exit(2); }
             Port_ReproBackground_Event("file_host_disk_unchanged", 1);
-            if (rmdir(path)) { perror("[background-audit] unblock atomic write"); exit(2); }
+            if (AUDIT_RMDIR(path)) { perror("[background-audit] unblock atomic write"); exit(2); }
             Port_ReproBackground_Event("file_host_recovered", 1);
         }
         Port_ReproBackground_Event("file_write_error_ready", sFileCase);

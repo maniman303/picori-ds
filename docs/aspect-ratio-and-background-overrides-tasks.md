@@ -123,6 +123,15 @@ additional automatically reopened tasks.
   and failure/refusal from the native post-credits initializer. Verify prior
   record retention, checksum readback, error waits, B/START dismissal, generated
   black and native title return. Retain full credits evidence; close group C3.
+- [x] Close C4 map/navigation boundaries on EU/English: 44 real cursor/A
+  detail-map entries across the 22 recipes with markers hidden/visible, plus
+  all 49 distinct reachable local-hint map-area/icon combinations. Verify native
+  B return, retained cursor, source lifetime, health mutation and room restoration.
+- [x] Close C5 error/return paths on EU/English: propagate durable PC erase
+  failure without clearing its slot or leaving a pending deletion; verify a real
+  blocked atomic-write path, full durable-file retention and successful recovery.
+  Extend native Game Over with B/START error dismissal, retry refusal, recovery
+  and Save-and-Quit; preserve historical failure evidence and GBA behavior.
 - [x] Audit native fast-travel selection/cancel on EU/English: all eight
   destinations and a single-unlock mask at three health preload states.
   Verify group 93 replaces the health decoration with a fixed BG3 field;
@@ -1117,3 +1126,33 @@ Build options, artwork and goldens remain unchanged. The
 [closure checklist](background-context-closure-checklist.md) has three completed
 and four remaining catalog groups; the implementation list still has 29
 unchecked parent items because the broad context/state parent remains open.
+
+
+## Map navigation and remaining error/return coverage (2026-10-26)
+
+Completed closure groups C4/C5. The native map route completes at frame 12,186
+with 2,402 captures: 44 cursor/A entries and all 49 distinct reachable local
+hint area/icon combinations. Final validation passes all 230 source checkpoints
+(3,680 pixels), retained cursor/room, marker visibility and hint health mutation.
+Existing 22-recipe scroll and conditional-map evidence is retained.
+
+PC file erasure now commits both status copies durably before clearing the
+visible slot. Device/host failure rolls back the EEPROM RAM snapshot and shows
+the native save-error dialog instead of a false success. Ordinary save dirty-
+retry behavior and non-PC deletion remain unchanged. Nine file cases verify
+the corrected error path, a real blocked `.tmp` write, byte-identical durable
+storage on failure and later successful erasure (38 field checkpoints). Six
+extended Game Over cases cover B/START error dismissal, refusal after failure,
+retry and Save-and-Quit (16 black-field checkpoints).
+
+All native routes and final offline checks pass; the separate final Game Over
+capture command exits zero. Diagnostic parent-command interruption/observer
+failure and the exact distinct binaries remain documented in the
+[C4/C5 audit](background-context-state-audit.md#native-map-navigation-and-remaining-error-paths-2026-10-26),
+without claiming those enclosing commands succeeded. Fifteen new checker tests
+bring the audit suite to 176 passing tests, plus 11 exporter tests and 20 storage/
+quicksave/ownership cases. Catalog/profile, engine/scroll, CPU PPU, ARM64 build
+and isolated EU startup checks pass. Original artwork, goldens and build options
+are preserved. The [closure checklist](background-context-closure-checklist.md)
+has five completed groups and only C6 localization / C7 regional fixtures left;
+the broad context/state parent is still one of 29 unchecked parent tasks.

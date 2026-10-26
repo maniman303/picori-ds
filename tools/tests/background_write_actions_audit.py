@@ -242,11 +242,16 @@ class WriteActionTests(unittest.TestCase):
 
 class CheckedEraseTests(unittest.TestCase):
     def test_checked_erase_and_host_failure(self):
+        _, standard_frames = validate_trace(file_trace(True), 'file_writes')
+        self.assertEqual(len(standard_frames), 29)
         events, frames = validate_trace(file_trace(True, True), 'file_errors')
         self.assertEqual(len(frames), 38)
         self.assertEqual(sum(r['event'] == 'file_host_disk_unchanged' for r in events), 1)
 
     def test_false_success_and_empty_cache_rejected(self):
+        rows = file_trace(True, True)
+        for r in rows: r.pop('writes_delete_checked', None)
+        with self.assertRaises(ValueError): validate_trace(rows, 'file_errors')
         for name, changes in (('file_erase_result', dict(value=1)), ('file_write_returned', dict(writes_slot0=0))):
             rows = file_trace(True, True)
             next(r for r in rows if r.get('event') == name and r['file_write_case'] == 6).update(changes)

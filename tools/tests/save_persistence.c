@@ -41,28 +41,29 @@ static void MakeSave(u32 flagsOffset, int beaten) {
 int main(int argc, char** argv) {
     assert(argc == 2);
     if (strcmp(argv[1], "delete") == 0) {
+        MakeSave(SAVE_RETAIL_FLAGS, 0);
         EEPROMConfigure(0x40);
         const u16 original[4] = {1, 2, 3, 4}, replacement[4] = {5, 6, 7, 8};
         u16 actual[4];
-        assert(EEPROMWrite0_8k_Check(100, original) == 0);
+        assert(EEPROMWrite0_8k_Check(1000, original) == 0);
         assert(mkdir("tmc.sav.tmp", 0700) == 0);
         assert(Port_Save_BeginDeleteTransaction());
         assert(!Port_Save_BeginDeleteTransaction());
-        assert(EEPROMWrite0_8k_Check(100, replacement) == 0);
+        assert(EEPROMWrite0_8k_Check(1000, replacement) == 0);
         assert(!Port_Save_EndDeleteTransaction(1));
         assert(!sEepromDirty && sSaveTxnDepth == 0);
-        assert(EEPROMRead(100, actual) == 0 && !memcmp(actual, original, sizeof(actual)));
+        assert(EEPROMRead(1000, actual) == 0 && !memcmp(actual, original, sizeof(actual)));
         assert(rmdir("tmc.sav.tmp") == 0);
         assert(Port_Save_BeginDeleteTransaction());
-        assert(EEPROMWrite0_8k_Check(100, replacement) == 0);
+        assert(EEPROMWrite0_8k_Check(1000, replacement) == 0);
         assert(!Port_Save_EndDeleteTransaction(0));
-        assert(EEPROMRead(100, actual) == 0 && !memcmp(actual, original, sizeof(actual)));
+        assert(EEPROMRead(1000, actual) == 0 && !memcmp(actual, original, sizeof(actual)));
         assert(!sEepromDirty);
         assert(Port_Save_BeginDeleteTransaction());
-        assert(EEPROMWrite0_8k_Check(100, replacement) == 0);
+        assert(EEPROMWrite0_8k_Check(1000, replacement) == 0);
         assert(Port_Save_EndDeleteTransaction(1));
         sEepromInited = 0;
-        assert(EEPROMRead(100, actual) == 0 && !memcmp(actual, replacement, sizeof(actual)));
+        assert(EEPROMRead(1000, actual) == 0 && !memcmp(actual, replacement, sizeof(actual)));
         Port_Save_BeginTransaction();
         assert(!Port_Save_BeginDeleteTransaction());
         assert(Port_Save_EndTransaction());
