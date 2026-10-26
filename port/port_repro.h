@@ -32,6 +32,8 @@ int Port_ReproBackground_TravelTick(unsigned int frame, int decoration);
 int Port_ReproBackground_TravelCase(void);
 int Port_ReproBackground_FigurinesTick(unsigned int frame);
 int Port_ReproBackground_FigurineCase(void);
+int Port_ReproBackground_FigurineActionsTick(unsigned int frame);
+int Port_ReproBackground_FigurineActionCase(void);
 int Port_ReproBackground_HintsTick(unsigned int frame);
 int Port_ReproBackground_HintCase(void);
 int Port_ReproBackground_DungeonsTick(unsigned int frame);

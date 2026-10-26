@@ -51,8 +51,14 @@ results; those results do not certify the revised catalog or title-frame fix.
 - [x] Audit the native figurine collection viewer on EU/English before/after
   credits at three health preloads: owned/missing entries, native navigation,
   B/START cancellation and gameplay restoration. Verify the live palette-zero
-  field survives health changes without selecting a menu-family image. Prize
-  reveal, description scrolling and other regions remain open.
+  field survives health changes without selecting a menu-family image. Other
+  regions remain open; the prize/scroll extension is recorded below.
+- [x] Audit native figurine prizes, duplicates and both description viewers in
+  all five EU languages: four capsule types, three health preloads and pre-/post-
+  credits ownership, 270 cases total. Verify native award/reveal timing,
+  brightness controls, scroll input/clamps, rendered description movement and
+  game-task/room restoration. Retain interrupted captures explicitly and verify
+  disjoint completed prefixes/suffixes; preserve 54 original viewer checkpoints.
 - [x] Audit all six native map-bearing dungeons on EU/English, entering real
   rooms before screen installation. Cover every floor at three health preloads
   with map/compass/big-key bits absent/present: 138 cases, native navigation and
@@ -870,3 +876,25 @@ are recorded in the audit. Original goldens, artist files, build options and
 profile availability remain unchanged. Other travel masks/languages/regions,
 resolved effect pixels and the full task's other interaction/error paths stay
 open; no packaging or device acceptance is claimed.
+
+## Native figurine prize and description interaction coverage (2026-10-26)
+
+Added a repro-only 54-case route per EU language for all four native capsule
+types, new/duplicate awards, health/credits preloads and description scrolling
+in prize/collection views. Read-only events and trace fields verify native
+award counter 64, reveal completion 128, raw duplicate masks, the full brightness
+control timeline, ownership lifetime, native navigation/exit and scroll clamps.
+Independent ROM source points and native text crops verify neutral field and
+rendered description behavior. Runtime image publication remains a separate task.
+
+The five-language union verifies 270 canonical cases, 1,080 neutral checkpoints
+and 810 description comparisons. Initial process timeouts are retained as
+failures; explicit completed-prefix verification plus successful independent
+suffix runs provides complete disjoint case coverage. No full-run success is
+inferred from those timeouts. The final binary preserves all 54 retained English
+collection checkpoint pixels. Sixteen new and 58 retained audit tests, 11
+exporter tests, the ARM64 build and EU startup pass. See the
+[native figurine audit](background-context-state-audit.md#native-figurine-prizes-duplicates-and-description-scrolling-2026-10-26)
+for exact artifact ranges, recovery commands and limits, including game-task
+restoration without a claim of normal player-control readiness. The broad
+context/state catalog and effect-source audit remain open.

@@ -180,6 +180,9 @@ void FigurineMenu0_Type2(void) {
         switch (gFigurineMenu.unk20) {
             case 0x40:
                 gFigurineMenu.duplicate = WriteBit(gSave.figurines, gFigurineMenu.figure_idx);
+#ifdef PC_PORT
+                Port_ReproBackground_Event("figurine_award", gFigurineMenu.duplicate);
+#endif
                 gMenu.column_idx = 1;
             default:
                 bVar1 = gFigurineMenu.unk20 >> 2;
@@ -202,6 +205,9 @@ void FigurineMenu0_Type2(void) {
                     sound = SFX_MENU_ERROR;
                 }
                 SoundReq(sound);
+#ifdef PC_PORT
+                Port_ReproBackground_Event("figurine_reveal_done", gFigurineMenu.duplicate);
+#endif
                 return;
         }
     }
@@ -233,6 +239,10 @@ void FigurineMenu0_ViewFigurineAfterDrawing(void) {
     }
     gFigurineMenu.unk1f = infoY;
     gScreen.bg1.yOffset = infoY - 112;
+#ifdef PC_PORT
+    if (gInput.menuScrollKeys == DPAD_RIGHT || gInput.menuScrollKeys == DPAD_LEFT)
+        Port_ReproBackground_Event("figurine_scroll", gInput.menuScrollKeys);
+#endif
 }
 
 void FigurineMenu1_Type0(void) {
@@ -303,6 +313,10 @@ void FigurineMenu1_ViewAllFigurines(void) {
     }
     gFigurineMenu.unk1f = infoY;
     gScreen.bg1.yOffset = infoY - 112;
+#ifdef PC_PORT
+    if (gInput.menuScrollKeys == DPAD_RIGHT || gInput.menuScrollKeys == DPAD_LEFT)
+        Port_ReproBackground_Event("figurine_scroll", gInput.menuScrollKeys);
+#endif
 }
 
 void FigurineMenu1_Type2(void) {

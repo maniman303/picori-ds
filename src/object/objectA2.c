@@ -12,6 +12,9 @@
 #include "physics.h"
 #include "color.h"
 #include "save.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#endif
 
 void ObjectA2_Init(Entity*);
 void ObjectA2_Action1(Entity*);
@@ -49,6 +52,9 @@ void ObjectA2_Init(Entity* this) {
     this->action = 1;
     ChangeObjPalette(this, gUnk_08124704[this->type]);
     SetEntityPriority(this, PRIO_HIGHEST);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("figurine_capsule", this->type);
+#endif
 }
 
 void ObjectA2_Action1(Entity* this) {
@@ -92,6 +98,9 @@ void ObjectA2_Action3(Entity* this) {
             this->frame = 0;
             CreateFx(this, FX_BIG_EXPLOSION2, 0);
             gMenu.field_0x0 = 1;
+#ifdef PC_PORT
+            Port_ReproBackground_Event("figurine_capsule_open", this->type);
+#endif
             break;
         case 0x80:
             gMenu.field_0x4 = 1;

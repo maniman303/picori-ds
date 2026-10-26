@@ -811,6 +811,7 @@ target("tmc_pc")
         add_files("port/port_repro_background_travel.c") -- native fast-travel selection/cancel audit
         add_files("port/port_repro_background_travel_actions.c") -- native confirmation/decline and arrivals
         add_files("port/port_repro_background_figurines.c") -- native collection/detail audit
+        add_files("port/port_repro_background_figurine_actions.c") -- prize/duplicate reveal and description scroll
         add_files("port/port_repro_background_hints.c") -- standalone hint reveal and exit audit
         add_files("port/port_repro_background_dungeons.c") -- native dungeon rooms/floors and item states
     end

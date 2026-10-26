@@ -804,3 +804,123 @@ duplicate/scrolling behavior, detail-map scrolling, save/sleep/game-over and
 file/post-credits success/error paths. Runtime context publication, image
 loading, margin/native-crop checks and both-presenter/cache acceptance remain
 their separate open tasks.
+
+## Native figurine prizes, duplicates and description scrolling (2026-10-26)
+
+`--scenario figurine_actions` adds a separate native matrix, retaining the old
+27-case collection route. Each language has 54 cases: 48 prizes covering four
+capsule types, first/duplicate ownership, three health preloads and pre-/post-
+credits state, plus six collection-description cases. Native EU type-table
+representatives are figurines 47/1/68 and 130 before credits or 136 afterward;
+the latter two also provide scrollable collection descriptions. The driver
+checks the active regional type table before entering a prize. Eligibility,
+lottery selection and shell spending are staged rather than exercised: this
+route begins at the native prize/viewer subtask with synthetic in-memory save
+ownership, not at the figurine-device interaction in the live world.
+
+The capsule object runs its real bounce and animation, enables the native reveal
+timer and creates its explosion effect. The native menu sets ownership at
+counter 64, distinguishes a new award from a duplicate, then finishes the
+brightness sequence at counter 128. `WriteBit` returns the previous bit mask,
+not a normalized boolean: duplicate values can be 128/2/16/4/1 for these IDs.
+The checker preserves those values and requires the ownership bit to change
+only at the native award boundary. No capsule frame, timer, ownership result,
+selected index, scroll offset or effect control is forced by the driver.
+
+Read-only native events identify capsule initialization/opening, award and
+reveal completion. Additive schema-v2 observations record action case, native
+prize/collection variant and menu, reveal counter, raw duplicate mask,
+brightness/BLDCNT, description offset/limit, BG1 Y and input. Every prize must
+retain every engine-state counter from 1 through 127, with brightness
+`counter / 4` rising to 16 and folding down as `32 - counter / 4`, and BLDCNT
+`0xbf`. Completion must clear both controls. Frames are sampled every four
+simulation ticks during that sequence. These are native control observations;
+engine state can lead the completed raster by a tick, so they do not certify
+intermediate flash pixels or resolved source/window effect coverage.
+
+After neutral reveal/viewer readiness, the driver mutates live health, then
+uses real RIGHT/LEFT edges to scroll to the description limit and back to zero.
+An extra edge at each end checks both clamps, including zero-length descriptions.
+Collection cases reach their target using native R/DOWN navigation. Native B
+and START exits restore gameplay; each result retains its case ID through the
+capture boundary before the next opening starts.
+
+Four neutral checkpoints per case (ready, held, bottom, top) require the same
+installed procedural palette-zero field, no menu family/heading and no leftover
+brightness controls. BG1 Y must equal `scroll - 112`. The independently decoded
+ROM palette and exposed source samples remain those of the original figurine
+field; neither health mutation nor prize/collection mode selects a menu image.
+A separate native description crop, x=16..223 / y=120..143, excludes figure,
+frame and edge arrows: held and returned-top pixels must equal the ready text;
+scrollable bottom pixels must differ, while a zero-limit crop stays unchanged.
+This checks rendered text movement as well as engine scroll registers. It does
+not assert every localized glyph or enhanced/HD-text layout.
+
+Restoration here means the native game task/update state, original room,
+retained award ownership and cleared figurine source. The staged route can
+return with the player in the native scroll-wait action; it does not establish
+normal player-control readiness or a full live-world figurine-device round trip.
+
+Local evidence is in `.tmp/background-figurine-actions-audit/`.
+`verified-coverage.json` combines disjoint canonical ranges for each language;
+`coverage-language-{1..5}.json` and each segment's verification report retain
+trace/ROM hashes, every retained PNG's decoded RGBA hash and checkpoint paths.
+The original five runs hit the former 1200-second process timeout. English
+recorded all 54 cases and the native terminal marker before timing out during
+the final capture tail. French/German/Spanish/Italian completed prefixes of
+50/46/51/51 cases. Explicit offline recovery retained those completed receipts;
+separate suffix runs starting at 50/46/51/51 completed successfully under the
+new 2400-second budget. Original raw traces, including incomplete EOF fragments,
+remain unchanged. `capture-outcome.json` sidecars record the timeouts separately
+from successful suffix process exits. No interrupted process is reported as a
+successful full run.
+
+Across the five languages the verified union contains exactly 270 cases:
+240 native prize lifecycles (120 first awards and 120 duplicates) and 30
+collection cases. It checks 30,480 native brightness counter values, 1,080
+neutral field checkpoints / 2,160 ROM-derived source-pixel comparisons and 810
+description-crop comparisons. Contact matrices retain ready/bottom/top images;
+`localized-scroll-review.png` provides visually inspected pre-/post-credits
+scroll samples in all five languages. The final range-enabled binary also
+reran the original English collection route in `eu-en-viewer-final/`; all 54
+ready/held checkpoints remain byte-identical in decoded RGBA to
+`.tmp/background-figurine-context-audit/eu-en-verified/figurines/`.
+
+Reproduce a full language run with a repro-enabled binary and a verified EU ROM
+(the default scenario budget is now 2400 seconds):
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario figurine_actions --language 1 \
+  --output .tmp/background-figurine-actions-new
+python3 tools/tests/background_figurine_actions_audit.py
+```
+
+An interrupted capture can be inspected explicitly, without declaring it a
+successful process or silently accepting an incomplete normal capture:
+
+```sh
+python3 tools/verify_figurine_actions.py \
+  --capture /path/to/interrupted/figurine_actions --rom /path/to/EU.gba \
+  --language 2 --completed-prefix --output /tmp/figurine-prefix.json
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario figurine_actions --language 2 \
+  --figurine-start-case 50 --output .tmp/background-figurine-suffix
+```
+
+The start value must match the first missing canonical case; a suffix stages
+each independent save fixture and executes its complete native lifecycle.
+`combine_coverage()` rejects duplicate IDs, gaps and mixed languages/ROMs.
+Normal capture validation still requires a native terminal marker and a
+successful process exit. Recovery rejects corruption before EOF and validates
+only cases with matching restoration/capture receipts.
+
+The 16 new failure-oriented checker tests and 58 retained audit tests pass,
+along with 11 exporter tests. C11/C++/UBSan catalog checks and engine/scroll/CPU
+PPU regressions pass. ARM64 `xmake build -y tmc_pc` and the final EU QEMU/dummy-SDL
+viewer run pass, reaching `Port layer initialized. Entering AgbMain...`.
+Incoming build options remain intact. This audit does not implement the runtime
+image adapter/compositor or change approved goldens. Other regions, live-device
+lottery/shell flows, normal player-control readiness and resolved intermediate
+effect pixels remain open, alongside the full catalog's remaining interaction
+and error paths.
