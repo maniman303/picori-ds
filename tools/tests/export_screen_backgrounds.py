@@ -12,10 +12,33 @@ import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS, SOLID_CONTEXTS, TITLED_MENU_CONTEXTS,
-                                       Rom, Scene, main, menu_recipes, png_bytes, solid_bottom_center_reference)
+                                       Rom, Scene, main, menu_recipes, fast_travel_recipe, png_bytes, solid_bottom_center_reference)
 
 
 class ExportFormats(unittest.TestCase):
+    def test_fast_travel_does_not_alias_plain_health_art(self):
+        self.assertNotIn('fast_travel_map', MENU_CONTEXTS)
+        self.assertEqual(IMAGE_CONTEXTS['fast_travel_background'], ('fast_travel_map',))
+        self.assertEqual([name for name in IMAGE_CONTEXTS if name.startswith('fast_travel')],
+                         ['fast_travel_background'])
+        for name, contexts in IMAGE_CONTEXTS.items():
+            if name != 'fast_travel_background':
+                self.assertFalse(any(context.startswith('fast_travel_map') for context in contexts))
+
+
+    def test_fast_travel_exports_only_fixed_bg3_without_native_map_or_sprites(self):
+        scene = SimpleNamespace(gfx=lambda _: None, pal=lambda _: None, upload=lambda *_: None)
+        with patch('export_screen_backgrounds.Scene', return_value=scene), \
+             patch.object(scene, 'gfx') as gfx, patch.object(scene, 'pal') as pal, \
+             patch.object(scene, 'upload') as upload:
+            value, layers, backdrop = fast_travel_recipe(None)
+        self.assertIs(value, scene)
+        self.assertEqual([call.args for call in gfx.call_args_list], [(86,), (93,), (129,)])
+        self.assertEqual([call.args for call in pal.call_args_list], [(181,), (185,)])
+        self.assertEqual([call.args for call in upload.call_args_list], [(3, 0x1e0b)])
+        self.assertEqual(layers, [(3, 0x1e0b, 0, 0)])
+        self.assertIsNone(backdrop)
+
     def test_add_missing_preserves_artist_pngs_and_refreshes_generated_index(self):
         pixels = bytes([248, 0, 0, 0, 248, 0]) * (240*160//2)
         scene = SimpleNamespace(render=lambda *_: pixels)
@@ -103,7 +126,7 @@ class ExportFormats(unittest.TestCase):
             self.assertEqual(layers, [(1,0x1c01,0,0), (2,0x1d02,0,0), (3,0x1e0b,0,0)] if fusion else
                              [(2,0x1d03,0,0), (3,0x1e0b,0,0)] if pieces or techniques else [(3,0x1e0b,0,0)])
             self.assertIsNone(backdrop)
-        self.assertEqual(len(IMAGE_CONTEXTS), 32)
+        self.assertEqual(len(IMAGE_CONTEXTS), 33)
         self.assertNotIn('menu_background', IMAGE_CONTEXTS)
         self.assertNotIn('kinstone_background', IMAGE_CONTEXTS)
         for health in MENU_HEALTH_VARIANTS:

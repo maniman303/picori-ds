@@ -72,7 +72,7 @@ can be recreated when scenes or settings change; steady frames reuse them.
 The [menu-family revision](menu-background-family-revision.md) extends the
 allocation audit for title-frame completion, descriptor publication, and
 new-family caching. The existing 569 × 192 capacity totals, upscale pool formulas,
-and path gates remain completely valid: 32 artwork names must not become 32
+and path gates remain completely valid: 33 artwork names must not become 33
 resident images in memory.
 
 ### Descriptor and title-cap storage bounds
@@ -103,13 +103,13 @@ resident images in memory.
 
 ### Menu-family cache budgeting and new-family switches
 
-The catalog defines 32 artwork names across 5 menu families (plain, titled,
+The catalog defines 33 artwork names: 5 menu families (plain, titled,
 pieces, techniques, fusion) each with 3 health variants, plus prologue, credits,
-title and file select:
+title, file select and the fixed fast-travel image:
 
 | Storage mode | Active resident images | Unscaled RGBA bytes (569 × 160) | Status |
 | --- | ---: | ---: | --- |
-| Naive resident cache (all 32 names) | 32 | 11,653,120 (~11.11 MiB) | **Rejected** (exceeds 8 MiB steady budget) |
+| Naive resident cache (all 33 names) | 33 | 12,017,280 (~11.46 MiB) | **Rejected** (exceeds 8 MiB steady budget) |
 | Steady-state cache | 1 | 364,160 (~355.6 KiB) | Contractual target |
 | Active cross-fade transition cache | 2 | 728,320 (~711.25 KiB) | Contractual target (peak during transition) |
 
@@ -121,7 +121,7 @@ title and file select:
 2. **Budget compliance**:
    Both steady-state (< 1 MiB) and peak during decode with libpng scratch
    (< 2.8 MiB) are strictly below the contractual limits: **8 MiB steady /
-   16 MiB peak**. The remaining 30 inactive artwork images remain unallocated on
+   16 MiB peak**. The remaining 31 inactive artwork images remain unallocated on
    disk/filesystem.
 3. **Switch eviction**:
    Family transitions (e.g. titled → pieces → techniques → plain → fusion)
@@ -165,7 +165,7 @@ budget and verifies fallback instead of a larger allocation. The extended
 suite additionally checks 24-byte POD `PortMenuBackgroundDescriptor` publication,
 the 1,408-pixel (5.5 KiB) title-cap bounds in added 4:3 margins avoiding duplicate
 full-frame buffers, the 2-slot (711 KiB) resident image cache bounding within
-8 MiB steady / 16 MiB peak, rejection of naive 32-image resident caching (>11.1 MiB),
+8 MiB steady / 16 MiB peak, rejection of naive 33-image resident caching (~11.46 MiB),
 and zero-reload retention on same-family pause transitions.
 
 `ASAN_OPTIONS=detect_leaks=0 python3 tools/ppu_geometry_regression_test.py`
@@ -182,3 +182,15 @@ scene composition, graphics-manager residency, effect continuation, semantic
 HUD/dialogue layout and packaging/capacity synchronization remain their listed
 tasks. Passing this storage audit permits that later work; it does not enable
 4:3/32:9 or certify their gameplay/rendering behavior.
+
+
+## Fixed fast-travel image count update (2026-10-26)
+
+The independent fixed blue image raises the catalog from 32 to 33 names without
+adding a sixth menu/health descriptor family. It uses the same exact profile
+sizes and two-slot cache as other images; do not allocate a third resident slot
+or retain a separate health image after switching into travel. Destination,
+unlock-mask and live health changes preserve this single key and require no
+decode. The presentation budget harness now rejects naive 33-image residency;
+per-image and current/incoming storage bounds stay unchanged. Actual runtime
+cache/publication, effects and device measurements remain pending.

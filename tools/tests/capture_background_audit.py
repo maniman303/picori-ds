@@ -10,7 +10,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from capture_background_audit import (menu_cases, summarize, validate_trace, validate_inventory_pixels,
-                                      validate_panel_pixels, compare_menu_baseline)
+                                      validate_panel_pixels, compare_menu_baseline, travel_cases, validate_travel_pixels)
 
 
 def frame(number, ui=0):
@@ -57,7 +57,125 @@ def menu_trace():
     return rows
 
 
+def travel_trace():
+    rows = []
+    for index, case in enumerate(travel_cases()):
+        sample = dict(frame(0, 9), task=2, substate=7, travel_case=index, schema=2,
+                      decoration=case['decoration'], pause_screen=13,
+                      travel_destination=0 if case['unlocks'] == 255 else 7,
+                      travel_unlocks=case['unlocks'], health=case['health'], max_health=24,
+                      travel_field=0, display_control=0x1f40, heading_style=0, heading_x=0, heading_y=0,
+                      heading_transition=0, family='unknown')
+
+        def event(name, value, capture=False):
+            sample['frame'] = len(rows)
+            row = dict(sample, event=name, value=value)
+            row.pop('capture')
+            rows.append(row)
+            if capture:
+                rows.append(dict(sample))
+
+        event('travel_case_request', index)
+        event('menu_decoration', case['decoration'])
+        event('pause_screen', 13)
+        sample['travel_field'] = 1
+        event('fast_travel_screen', sample['travel_destination'])
+        if case['unlocks'] == 255:
+            for choice in range(1, case['destination'] + 1):
+                sample['travel_destination'] = choice
+                event('fast_travel_choice', choice)
+        event('travel_case_ready', index, True)
+        sample['health'] = 24 if case['decoration'] == 2 else 8
+        event('travel_health_mutated', sample['health'])
+        event('travel_case_held', index, True)
+        event('fast_travel_cancel', case['destination'])
+        sample['travel_field'] = 0
+        event('travel_case_restored', index)
+    rows.append(dict(event='travel_complete', value=27, travel_case=27, family='unknown'))
+    return rows
+
+
 class AuditCoverage(unittest.TestCase):
+    def test_travel_covers_all_destinations_and_sparse_unlock_at_each_health(self):
+        self.assertEqual(len(travel_cases()), 27)
+        for health in range(3):
+            group = travel_cases()[health * 9:(health + 1) * 9]
+            self.assertEqual([case['destination'] for case in group], list(range(8)) + [7])
+            self.assertEqual([case['unlocks'] for case in group], [255] * 8 + [128])
+        validate_trace(travel_trace(), 'travel')
+
+    def test_travel_checks_both_checkpoint_and_capture_state(self):
+        for event in ('travel_case_ready', 'travel_case_held', None):
+            for field, value in (('travel_destination', 6), ('travel_unlocks', 1),
+                                 ('decoration', 0)):
+                rows = travel_trace()
+                sample = next(row for row in rows if row.get('event') == event and row.get('travel_case') == 26)
+                sample[field] = value
+                with self.assertRaisesRegex(ValueError, 'wrong installed travel'):
+                    validate_trace(rows, 'travel')
+
+    def test_travel_requires_native_installation_input_cancel_and_restore(self):
+        for event, message in (('fast_travel_screen', 'installation'),
+                               ('fast_travel_choice', 'cursor sequence'),
+                               ('fast_travel_cancel', 'cancellation'),
+                               ('travel_case_restored', 'incomplete or unordered')):
+            rows = travel_trace()
+            index = next(i for i, row in enumerate(rows) if row.get('event') == event)
+            rows.pop(index)
+            with self.assertRaisesRegex(ValueError, message):
+                validate_trace(rows, 'travel')
+        rows = travel_trace()
+        next(row for row in rows if row.get('event') == 'fast_travel_screen')['value'] = 7
+        with self.assertRaisesRegex(ValueError, 'initial unlocked destination'):
+            validate_trace(rows, 'travel')
+
+    def test_travel_reused_initializer_does_not_publish_family_early(self):
+        rows = travel_trace()
+        next(row for row in rows if row.get('event') == 'pause_screen')['travel_field'] = 1
+        with self.assertRaisesRegex(ValueError, 'outside native installation'):
+            validate_trace(rows, 'travel')
+        rows = travel_trace()
+        next(row for row in rows if row.get('event') == 'fast_travel_cancel')['travel_field'] = 0
+        with self.assertRaisesRegex(ValueError, 'outside native installation'):
+            validate_trace(rows, 'travel')
+
+    def test_travel_requires_neutral_retained_decoration_and_absent_heading(self):
+        for field, value, message in (('fade_active', 1, 'neutral travel'),
+                                      ('health', 24, 'health mutation'),
+                                      ('heading_style', 1, 'heading style/pose'),
+                                      ('display_control', 0x1740, 'native BG3')):
+            rows = travel_trace()
+            row = next(row for row in rows if row.get('event') == 'travel_case_held') if field == 'health' else next(row for row in rows if row.get('event') is None)
+            row[field] = value
+            with self.assertRaisesRegex(ValueError, message):
+                validate_trace(rows, 'travel')
+        rows = travel_trace()
+        index = next(i for i, row in enumerate(rows) if row.get('event') == 'menu_decoration')
+        rows.insert(index, dict(rows[index]))
+        with self.assertRaisesRegex(ValueError, 'unexpected reinstallation'):
+            validate_trace(rows, 'travel')
+
+    def test_travel_cannot_alias_plain_menu_art(self):
+        rows = travel_trace()
+        next(row for row in rows if row.get('event') == 'fast_travel_screen')['family'] = 'plain'
+        with self.assertRaisesRegex(ValueError, 'non-menu route'):
+            validate_trace(rows, 'travel')
+
+    def test_travel_pixel_mask_and_corruption(self):
+        events = [dict(event=phase, frame=1) for phase in ('travel_case_ready', 'travel_case_held')
+                  for _ in range(27)]
+        reference = bytes([96] * 720)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            image = Image.new('RGB', (240, 160), (96, 96, 96))
+            image.putpixel((120, 100), (0, 0, 0))  # Live map/marker content is outside this mask.
+            image.save(directory / '000001.png')
+            self.assertEqual(validate_travel_pixels(directory, events, reference)['checkpoints'], 54)
+            image.putpixel((0, 159), (0, 0, 0))
+            image.save(directory / '000001.png')
+            with self.assertRaisesRegex(ValueError, 'native fixed BG3'):
+                validate_travel_pixels(directory, events, reference)
+
     def test_retained_v1_baseline_compares_native_pixels(self):
         events = [dict(event=phase, value=index, frame=1) for phase in ('menu_case_ready', 'menu_case_held')
                   for index in range(106)]

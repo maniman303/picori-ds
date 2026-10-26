@@ -247,10 +247,12 @@ TITLED_MENU_CONTEXTS = (
     'map_detail_09_house_built', 'map_detail_11_fusion_done',
     'map_detail_14_interior_1', 'map_detail_14_interior_2', 'map_detail_14_interior_3',
 )
-MENU_CONTEXTS = ('fast_travel_map', 'save_confirmation', 'sleep_confirmation')
+# Group 93 replaces the health tilemap: fast travel has one separate image.
+MENU_CONTEXTS = ('save_confirmation', 'sleep_confirmation')
 MENU_HEALTH_VARIANTS = ('normal', 'damaged', 'critical')
 IMAGE_CONTEXTS = {
     'title_screen': ('title',),
+    'fast_travel_background': ('fast_travel_map',),
     'file_select': ('file_select', 'new_file', 'file_copy', 'file_erase',
                     'file_select_name_entry', 'file_select_options', 'file_select_language'),
     **{f'menu_background_{health}': tuple(f'{context}_{health}' for context in MENU_CONTEXTS)
@@ -334,6 +336,20 @@ def menu_recipes(rom):
         yield f'kinstone_background_{health}', value, layers, None
 
 
+def fast_travel_recipe(rom):
+    # Subtask_FastTravel_0: the normal preload supplies shared character data;
+    # group 93 replaces its BG3 tilemap. Groups 87/88 give identical final BG3.
+    # Only the fixed blue decoration is artwork. BG1/BG2 map/frame and live
+    # OBJ windcrests/cursor remain native foreground, so do not upload them.
+    value = Scene(rom)
+    for group in (86, 93, 129):
+        value.gfx(group)
+    for palette in (181, 185):
+        value.pal(palette)
+    value.upload(3, 0x1e0b)
+    return value, [(3, 0x1e0b, 0, 0)], None
+
+
 def recipes(rom):
     def scene(groups, palettes):
         value = Scene(rom)
@@ -354,6 +370,7 @@ def recipes(rom):
     yield 'file_select', value, [(3, 0x1e0b, 0, 0)], None
 
     yield from menu_recipes(rom)
+    yield 'fast_travel_background', *fast_travel_recipe(rom)
 
     # Subtask_MapHint_0 disables BG3 and exposes the solid border. Keep only
     # its bottom-center color as a swatch; the map itself stays native UI.
@@ -453,6 +470,10 @@ def main():
               'Each state has its own file; missing artwork uses black, never a '
               'different health state or the other menu family. Old unsuffixed '
               'menu_background.png and kinstone_background.png are not lookup names.\n\n'
+              '`fast_travel_background.png` is the fixed blue fast-travel decoration, '
+              'shared by all destinations, unlock masks and health values. It has no '
+              'normal/damaged/critical variants. The original map, frame, markers and '
+              'cursor stay native foreground and are excluded from this reference.\n\n'
               'The figurine viewer and the local fusion map reveal use generated live field colors. '
               '`map_hint.png` is a solid color reference sampled from the native screen’s '
               'bottom-center pixel (120, 159): EU #C8E090, RGB (200, 224, 144). '

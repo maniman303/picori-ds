@@ -1,6 +1,6 @@
 # Native 4:3 rendering and background overrides
 
-Research date: 2026-10-24; menu-family revision: 2026-10-25. Status: geometry/settings integration in progress; catalog and native exporter now implement the revised 32-name contract; runtime margin composition remains pending.
+Research date: 2026-10-24; menu-family revision: 2026-10-25. Status: geometry/settings integration in progress; catalog and native exporter now implement the revised 33-name contract (including the fixed fast-travel background); runtime margin composition remains pending.
 
 Implementation includes the port-owned catalog, profile contracts, fixed target
 widths, frame-boundary geometry publication, widescreen-toggle migration, bounded
@@ -300,7 +300,8 @@ use those same literal names.
 | Items, quest status and ordinary pause maps, including **all 22 detail-map variants**, with the top-left title frame | `menu_titled_background_{normal,damaged,critical}.png` |
 | Kinstone-pieces tab | `kinstone_pieces_background_{normal,damaged,critical}.png` |
 | Sword-techniques tab | `sword_techniques_background_{normal,damaged,critical}.png` |
-| Save/sleep prompts and verified menu settings without a top-left title; fast travel provisionally pending capture | `menu_background_{normal,damaged,critical}.png` |
+| Save/sleep prompts and verified menu settings without a top-left title | `menu_background_{normal,damaged,critical}.png` |
+| Fast-travel selection and retained map field | `fast_travel_background.png` — one fixed blue decoration, independent of health, destination and unlock mask |
 | All seven kinstone fusion variants | `kinstone_background_normal.png`, `kinstone_background_damaged.png`, `kinstone_background_critical.png` |
 | Prologue illustrations | `prologue_01.png` … `prologue_06.png` |
 | Credits illustrations | `credits_01.png` … `credits_08.png` |
@@ -312,7 +313,7 @@ use those same literal names.
 | Live world, dialogue over world, room-based cutscenes | No contextual image; extend original world/effect rendering |
 
 Menu artwork has **five families**, each with normal, damaged and critical
-files: **15 menu backgrounds**, and **32 shared artwork names overall**.
+files: **15 menu backgrounds**, and **33 shared artwork names overall**.
 The [family revision and completed-task review](menu-background-family-revision.md)
 records source evidence, the title-frame implementation route and the review
 of all 27 previously completed tasks.
@@ -386,7 +387,7 @@ artwork-bearing screens, and cases requiring reconstructed-image verification.
 | Overworld map / `pause_map` | Screen 4 uses row 2, palette 185/group 94; `sub_080A6290` also loads group 0x81 and sets map offsets. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Dungeon map / `pause_dungeon_map` | Screen 5 uses row 3, palette 184/group 92. `DrawDungeonMapActually` draws map data; its handler rotates eight palette colors every eight ticks. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
 | Map detail / `pause_map_detail` | Screen 6 uses row 4, palette 185/group 129; `sub_080A67C4` loads area palette 0xba + area and gfx 0x5f + area, with flag-dependent variants 0x70–0x74 and per-line BG control. | Use the installed normal/damaged/critical `menu_titled_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
-| Fast-travel selection / `fast_travel_map` | `SUBTASK_FASTTRAVEL`, `Subtask_FastTravel_0`, initializes screen 13 (row 7, palette 185/group 93) and uses shared overworld-map setup. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
+| Fast-travel selection / `fast_travel_map` | `SUBTASK_FASTTRAVEL`, `Subtask_FastTravel_0`, initializes screen 13 (row 7, palette 185/group 93) and uses shared overworld-map setup. | Use the dedicated `fast_travel_background.png`: group 93 overwrites all three health tilemaps with the same fixed blue BG3 decoration. Share this one image across destinations and unlock masks; no health variants or plain-menu fallback. Preserve native BG1/BG2 map/frame, OBJ markers/cursor and confirmation UI above it. Publish FAST_TRAVEL only after native installation; effect and travel-transition lifetimes still need validation. |
 | Fusion map reveal / `map_hint` | `SUBTASK_MAPHINT`, `Subtask_MapHint_0`, initializes map screen 4, disables BG3, and copies `gPaletteBuffer[81]` into color zero. | Generate the border color sampled at native (120,159), #C8E090 in the verified EU export. Keep a solid `map_hint.png` reference swatch; do not load it as a runtime override. Preserve the original map/hint UI. |
 | Local fusion map reveal / `local_map_hint` | `SUBTASK_LOCALMAPHINT`, `sub_080A6B04`, initializes map-detail screen 6 and chooses an area from the fusion event. It then replaces BG3 with tile `0x5001` and sets palette zero and entry 95 to `0x475f`. The local EU audit verifies the exposed peach border. | Generate the live palette-zero field, preserving the native map/frame/label. Do not select a menu image or the standalone map-hint swatch. Resolve the BG3 versus backdrop effect target separately. |
 | Sleep confirmation / `sleep_confirmation` | Screen 9 uses row 9, palette 207/group 128. `sub_080A5BB8` explicitly sets `gMain.sleepStatus = SLEEP`. The TTS name “Save” in `sub_080A4DB8` does not describe this action correctly. | Use the installed normal/damaged/critical `menu_background_*.png` in added margins. Preserve the complete original 240 × 160 layout and all live map/UI content in the centered native canvas. No per-screen or per-region image. |
@@ -662,13 +663,18 @@ artwork. It uses retail offsets from `port/port_rom.c` and regional symbol
 segments/patches from `port/port_rom_stubs.c`, avoiding unrelocated passthrough
 data for staffroll tables.
 
-The revised public export target is the **32 shared image names** in section 5:
-title, file select, five menu families times three health decorations,
+The revised public export target is the **33 shared image names** in section 5:
+title, file select, fixed fast travel, five menu families times three health decorations,
 six prologue images, eight credits images, and ending. The
 additional `map_hint.png` is a **solid reference swatch**, bringing native
-exports to 33 PNGs. It is not an extra runtime image family. No boot logo image,
+exports to 34 PNGs. It is not an extra runtime image family. No boot logo image,
 per-map variant, per-fusion-layout duplicate, figurine
 UI screenshot, map-hint UI screenshot, or JSON is produced.
+
+`fast_travel_background.png` exports only the fixed blue BG3 decoration from
+groups 86/93/129 and palettes 181/185. Group 93 overwrites the same tilemap
+regardless of health preload; no `_normal`, `_damaged` or `_critical` copies
+are needed. Keep live map/frame/markers/cursor/confirmation content native.
 
 `menu_background_{normal,damaged,critical}.png` contains the clean plain-menu
 decoration. The `menu_titled_background_*` references add the verified blank
@@ -942,8 +948,8 @@ here but are not implemented by the export/documentation work.
 
 ## 13. Implemented five-family exports (2026-10-25)
 
-The catalog/exporter now agree on 32 artwork names / 15 menu combinations.
-`assets/override/32/` contains 33 ordinary RGB PNGs after an EU/English export
+At this step the catalog/exporter agreed on 32 artwork names / 15 menu
+combinations. `assets/override/32/` contained 33 ordinary RGB PNGs after an EU/English export
 with `--add-missing`, which preserves existing PNGs and refreshes the generated
 README and contact sheet. The nine new files are the titled, pieces and
 techniques stems listed in section 5, each with all three health suffixes.
@@ -960,3 +966,15 @@ independent; custom artwork can differ and must never be aliased across states.
 The family/installed-health lookup is implemented as a pure C catalog helper.
 Game-state publication, PNG loading and title-frame completion in added margins
 remain open. Native reference generation does not implement that compositor.
+
+
+## Fixed fast-travel artwork completion (2026-10-26)
+
+The earlier 32-name inventory and interim no-source decision are superseded by
+one appended fixed-image context, `PORT_BACKGROUND_FAST_TRAVEL`, mapped to
+`fast_travel_background.png`. The public contract is now 33 artwork names plus
+the reference-only map-hint swatch (34 native PNGs), with the same five menu
+families / 15 health combinations. Existing IDs and artist files stay intact.
+The [task review](menu-background-family-revision.md#fixed-fast-travel-artwork-task-review-2026-10-26)
+records all affected completed and pending tasks. Runtime publication, PNG
+loading/composition, effects, other regions and packaging remain their own gates.

@@ -188,17 +188,17 @@ static void check_menu_family_storage_and_budgets(void) {
     assert(maxCapBytes43 < fullCanvasBytes / 20);
 
     // 3. Image cache budgets and resident memory bounds:
-    // Catalog has 32 artwork names.
-    // Ensure all 32 names do not become 32 resident images in memory.
+    // Catalog has 33 artwork names, including the fixed fast-travel image.
+    // Ensure all 33 names do not become 33 resident images in memory.
     const size_t maxProfileWidth = 569;
     const size_t maxProfileHeight = 160;
     const size_t maxSingleImageBytes = maxProfileWidth * maxProfileHeight * 4;
     assert(maxSingleImageBytes == 364160);
 
-    // Naive 32 resident images would require 11.65 MiB unscaled, violating the 8 MiB steady budget.
-    const size_t naive32ResidentBytes = 32 * maxSingleImageBytes;
-    assert(naive32ResidentBytes == 11653120);
-    assert(naive32ResidentBytes > 8 * 1024 * 1024);
+    // Naive 33 resident images require 12,017,280 bytes, violating the 8 MiB steady budget.
+    const size_t naive33ResidentBytes = 33 * maxSingleImageBytes;
+    assert(naive33ResidentBytes == 12017280);
+    assert(naive33ResidentBytes > 8 * 1024 * 1024);
 
     // Budget contract: 2 resident image slots maximum (current + incoming during transition).
     const size_t maxResidentSlots = 2;

@@ -61,6 +61,9 @@ typedef enum {
     PORT_BACKGROUND_SWORD_TECHNIQUES_NORMAL,
     PORT_BACKGROUND_SWORD_TECHNIQUES_DAMAGED,
     PORT_BACKGROUND_SWORD_TECHNIQUES_CRITICAL,
+    /* Fixed blue map decoration, installed after the health preload is
+     * overwritten. One image for all destinations, unlock masks and health. */
+    PORT_BACKGROUND_FAST_TRAVEL,
     PORT_BACKGROUND_COUNT
 } PortBackgroundContext;
 

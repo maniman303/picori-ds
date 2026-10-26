@@ -6,24 +6,26 @@ or completed checks, not a claim that the renderer supports the new profiles.
 
 The [2026-10-25 menu-family revision](menu-background-family-revision.md)
 reviews every one of the 27 previously checked tasks. The active target is
-32 artwork names / 15 menu family-health combinations; catalog and exporter now implement 32 / 15. The three reopened catalog/agreement
-tasks are completed below;
+33 artwork names / 15 menu family-health combinations, including one fixed
+fast-travel image; catalog and exporter now implement 33 / 15. The three
+reopened catalog/agreement tasks are completed below;
 completed tasks retain their evidence; outstanding targeted extensions are
 tracked below.
-Historical verification sections retain their original 23-name/six-combination
+Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 ## 1. Catalog and baseline
 
 - [x] Research pieces/techniques/top-left-title separation and review all 27
   completed tasks for impact; record retained evidence and required follow-ups.
-- [x] **Updated (R01):** extend the C-compatible catalog from 23 to 32 artwork
+- [x] **Updated (R01):** extend the C-compatible catalog from 23 to 33 artwork
   names: plain, titled, pieces, techniques and fusion each have three health
-  variants. Append enum IDs and preserve existing names/artist files.
+  variants; fast travel has one independent fixed image. Append enum IDs and
+  preserve existing names/artist files.
 - [x] Distinguish live/unknown screens, image families, generated black,
   the logo field, and live palette-zero fields. Disable every source in parity.
 - [x] **Updated (R03):** update C/C++ filename/source contracts and exporter
-  comparison to all 32 names / 15 menu combinations. Test exact new-family
+  comparison to all 33 names / 15 menu combinations. Test exact new-family
   names, no aliases and procedural/parity exclusions. The map-hint swatch must
   never become a runtime image. The former 23-name check is historical evidence.
 - [x] Define version 1 of the five profile sizes/directory keys and native
@@ -50,6 +52,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   health on the available EU/English fixture; retain all 109 previous case IDs
   and native checkpoint pixels. Interaction/effect and regional/language gaps
   remain with the full context/state task above.
+- [x] Audit native fast-travel selection/cancel on EU/English: all eight
+  destinations and a single-unlock mask at three health preload states.
+  Verify group 93 replaces the health decoration with a fixed BG3 field;
+  replace its provisional plain-family alias with the single dedicated
+  `fast_travel_background.png` catalog/export contract. Confirmation/travel
+  effects remain open.
 - [ ] Resolve per-context effect targets from unfaded source coverage, including
   white logo BG versus backdrop, title local alpha, and masked palette fades.
 - [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
@@ -120,7 +128,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
   See the [presentation allocation audit](presentation-allocation-audit.md).
 - [x] Extend the allocation/path audit (R18) for bounded title-cap/descriptor
   storage and new-family switches; keep current/incoming cache budgets and
-  avoid resident buffers for all 32 images. Existing capacity totals remain valid.
+  avoid resident buffers for all 33 images; fast travel reuses the same two-slot bound. Existing capacity totals remain valid.
 - [x] Update `build.py`, RG builds and tools together. Preserve N64 native-only
   constraints and verify original native golden pixels before taller rendering.
 
@@ -166,6 +174,8 @@ or tile alignment. Native-content centering continues to use floor offsets.
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
 - [ ] Resolve functional live gameplay separately from pause/map/fusion states.
+  Include fixed fast-travel BG3 artwork behind its centered native map/frame/OBJ;
+  it has no health variant or top-left heading-cap requirement.
 - [ ] Implement semantic corner HUD anchors and bottom dialogue geometry shared
   by BG/OAM, portrait, choices, cursor, arrows and HD text; keep banners separate.
 
@@ -174,9 +184,14 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Add a game-state adapter selecting catalog contexts at scene boundaries;
   track the installed prologue/credits illustration across text commands/fades
   and the installed normal/damaged/critical menu or kinstone decoration.
+  Publish the fixed FAST_TRAVEL context after screen 13 installation; ignore
+  overwritten health preloads and retain the image across destination changes;
+  invalidate it on native gameplay restoration/scene replacement.
 - [ ] Track semantic menu family independently of installed health. Publish
   titled/plain/pieces/techniques changes after native layout installation and
   before incoming fade; do not infer family from BG3, current health or task ID.
+- [ ] Resolve fast-travel BG3 effect targets and source lifetime across selection,
+  confirmation/decline, cancel and travel transitions before compositor publication.
 - [ ] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
 - [ ] Include the verified title-frame completion mask/pose in foreground
@@ -195,6 +210,8 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Resolve all five menu families independently; key cache/publication by
   family/image ID plus installed health, ratio and renderer generation. Test
   missing new files with old plain-menu art present: black, never a family alias.
+  Include the fixed fast-travel image key without health or destination variants;
+  navigation must not decode again. Missing art must not select a plain-menu image.
 - [ ] Test accepting each selected profile's exact size and rejecting a file
   sized for another ratio, floor-rounded widths (284/373/568), and wrong heights.
 - [ ] Cache current/incoming image bytes within 8 MiB steady / 16 MiB peak;
@@ -205,17 +222,22 @@ or tile alignment. Native-content centering continues to use floor offsets.
 ## 7. Export synchronization
 
 - [x] **Updated (R27):** expand the ROM-free runtime-catalog/exporter agreement
-  gate and recipe fixtures to 32 artwork names / 15 menu combinations. Keep
+  gate and recipe fixtures to 33 artwork names / 15 menu combinations. Keep
   all existing procedural/reference exclusions and exact profile dimensions.
 - [x] Add nine clean native reference recipes for titled menus, pieces and
   techniques, with blank-heading/static-frame masks and no live/localized UI.
-  Update README/contact sheet; export 32 artwork references plus one swatch.
+  Update README/contact sheet; export 33 artwork references plus one swatch, including fixed fast travel.
   Preserve existing artist files and require explicit overwrite as before.
+- [x] Add the fixed blue fast-travel BG3 recipe, omit foreground map/frame/OBJ,
+  verify all three health preload paths agree, append its catalog ID, and rerun
+  the missing-only extractor to refresh the native folder/README/contact sheet.
 - [ ] Validate all native export recipes against available regional ROMs after
   context/effect auditing; preserve artist edits and existing export names.
 
 ## 8. Acceptance and budgets
 
+- [ ] Verify fixed fast-travel margins/native crop, screenshots, profile switches,
+  missing-image fallback and no-redecode navigation on both presenters.
 - [ ] Complete the design's regional, functional-screen, world, HUD/dialogue,
   renderer, intermediate-fade, PNG failure and profile-switch coverage.
 - [ ] Measure RG performance, memory/cache limits and 1/2/4-thread behavior;
@@ -689,3 +711,64 @@ The original release configuration is restored. Fusion interactions/effects,
 dungeon menus, standalone hints, travel, figurines, remaining functional/error
 paths and other regions/languages keep the full context/state task open. This
 slice does not implement the runtime adapter, artwork loader or compositor.
+
+
+## Fast-travel context correction and native cancel coverage (2026-10-26)
+
+The [native travel audit](background-context-state-audit.md#native-fast-travel-selectioncancel-audit-2026-10-26)
+adds 27 cases: eight destinations plus a single-unlock mask at three initial
+health states, with 54 neutral ready/held checkpoints and native B cancellation
+back to gameplay. Group 93 replaces the health-specific BG3 tilemap. The
+provisional plain-family mapping is withdrawn from the design/exporter;
+that audit initially left fast travel unclassified. The fixed-image completion
+below supersedes that interim source decision and adds the missing reference;
+its native capture evidence remains valid.
+
+All 27 cases, 84 native cursor changes and 27 cancellations/restorations pass.
+The 54 exposed bottom rows match an independent ROM-decoded fixed-BG3 reference
+(12,960 runtime pixel comparisons). The neutral contact sheet was inspected.
+The 26 checker tests, ten exporter tests, C/C++ catalog agreement, retained
+130-case trace compatibility, ARM64 audit/release builds and release EU startup
+under QEMU pass. The release configuration is restored. Confirmation/travel
+transitions, additional masks/languages/regions, remaining contexts and effect
+resolution keep their broader tasks open.
+
+
+## Fixed fast-travel image and extractor completion (2026-10-26)
+
+The interim no-source decision above left the verified blue field out of the
+exporter. It is superseded by `fast_travel_background.png`, a single fixed
+BG3-only reference for all destinations/unlock masks and health values. The
+catalog appends an ID without renumbering; there are now 33 artwork names and
+34 native PNGs including the map-hint swatch. No new health variants are added.
+
+The [completed-task review](menu-background-family-revision.md#fixed-fast-travel-artwork-task-review-2026-10-26)
+revisits all R01–R27 decisions: catalog/agreement/export and allocation counts
+are updated; state-adapter, cache, compositor/effect and packaging acceptance
+follow-ups are explicit. Existing native capture evidence and title/world/
+geometry gates are retained. The full context/state task stays open.
+
+
+Extractor verification for the fixed-image completion:
+
+```sh
+python3 tools/export_screen_backgrounds.py --rom /path/to/EU.gba --language 1 --add-missing
+```
+
+The local EU/English run exports 34 PNGs (33 artwork references plus the swatch)
+and adds only `assets/override/32/fast_travel_background.png` at 240 × 160.
+All 55 pre-existing artwork/reference PNGs across ratio folders retain their
+SHA-256 hashes; the generated README/contact sheet are refreshed. The new PNG
+was inspected and matches all three independently decoded full native BG3
+preload results, plus the exposed row in all 54 retained travel checkpoints
+(12,960 runtime pixels). Its BG1/BG2 map/frame and OBJ content are excluded.
+Local preservation/hashes are recorded in `.tmp/fast-travel-export/verification.json`.
+Native `32/` exports remain Git-ignored; rerunning the exporter creates the new
+reference in fresh workspaces without distributing ROM-derived artwork.
+
+The 33-name C11/C++17/UBSan agreement gate, 11 exporter tests, 26 audit-checker
+tests and ASan/UBSan presentation-budget checks at capacities 240/384/569 pass.
+The ARM64 release build and EU startup smoke under QEMU/dummy video/audio pass;
+release options stay unchanged with `repro_harness=n`. Native/artist files and
+committed goldens are not replaced; no packaging, device or extra-region
+acceptance is claimed. Runtime adapter/PNG loading/composition remain pending.

@@ -1,7 +1,7 @@
 # Background context/state audit
 
 The [menu-family revision](menu-background-family-revision.md) supersedes the
-original shared-menu classification below. The catalog/exporter now have 32 artwork names
+original shared-menu classification below. The catalog/exporter now have 33 artwork names (including one fixed fast-travel image)
 and five menu families, each with three health variants. This audit's native
 captures, installed-health observations and pixel matches remain evidence;
 they do not verify game-state publication, loading or title-frame completion.
@@ -82,6 +82,7 @@ corners to match native `0x475f` with neutral colors.
 | Credits text/waits/fades | `sub_080A3954` overwrites `gfxEntry` for each command, including text. Type 2 clears/redraws BG1 text and changes its alpha; it leaves the BG2 illustration installed. Types 0/3/4/5 also do not install another illustration. | Hold the last installed image across commands and fades. Never reinterpret a text index as an illustration ID or classify text commands as cleared credits. |
 | Cleared credits | Type 6 waits for the fade, then explicitly clears BG1 and BG2. | Generated black after the clear; retain the outgoing image until then. |
 | Post-credits save | State 2 resets the display, installs prompt graphics and explicitly sets palette zero black. | Generated black; save/decline/error interaction still needs capture coverage. |
+| Fast-travel selection/cancel | Native screen 13/group 93 overwrites the health-specific BG3 map; the 2026-10-26 route verifies all destinations and sparse unlocks across health preloads. | Fixed blue field; select the independent `fast_travel_background.png`, without health variants or plain-menu aliases. Runtime publication/composition remains pending. |
 | Local fusion map reveal | `sub_080A6B04` initially calls `sub_080A4D34`, then fills BG3 with `0x5001`. Its character 1 is uniformly index 15 in the local EU graphics. Palette bank 5 entry 15 (95) and palette zero are set to `0x475f`. | A separate procedural context using live palette zero. The earlier health decoration is no longer the field. Never load `menu_background_*.png` for this state. |
 
 The local fusion-hint border is RGB (248,208,136), `#F8D088`, in the neutral
@@ -378,3 +379,89 @@ menus, standalone hints, fast travel, figurines, interaction/error paths,
 additional languages/regions, compositor effects and device budgets still keep
 the full context/state task open. Runtime background loading/composition and
 title-frame completion remain their own implementation tasks.
+
+
+## Native fast-travel selection/cancel audit (2026-10-26)
+
+The separate `--scenario travel` route covers all eight selectable destinations
+with all windcrests unlocked, plus a sparse mask unlocking only destination 7,
+at each of the three initial health fixtures (24/24, 15/24, 8/24). There are
+27 cases and 54 neutral ready/held checkpoints. After native initialization,
+real right-key edges select the destination; no cursor assignment or layout
+patching is used. Live health changes after the ready checkpoint, then B follows
+the native cancellation path and restores gameplay before the next opening.
+The route does not confirm travel or modify a real save file.
+
+**Correction to the provisional plain-family mapping:**
+`Subtask_FastTravel_0` calls `sub_080A4D34`, loading health graphics group
+0x56/0x57/0x58 into BG3. Screen 13 then loads group 93, which writes another
+0x500-byte tilemap to the same GBA EWRAM address `0x02001a40`. This replaces the
+entire visible health-specific tilemap. The native field is the fixed blue map
+border, with palette 185; it is neither the plain menu's installed health
+variant nor a solid palette-zero field. Independently decoding BG3 after groups
+`health, 93, 129` and palettes `181, 185` yields byte-identical full native BG3
+references for all three preload paths.
+
+Fast travel retains menu `family=unknown` because it is not one of the five
+menu health families. The completed catalog/exporter now assigns its independent
+fixed `PORT_BACKGROUND_FAST_TRAVEL` / `fast_travel_background.png` context.
+There are 33 artwork names and the same 15 menu family/health combinations.
+The earlier interim no-source decision left this image missing; the dedicated
+fixed-image addition supersedes it. A future runtime adapter selects it after
+the observed field installation, without choosing plain-menu health art from
+the overwritten preload.
+The trace's `decoration` value here records that preload event, not an installed
+semantic health background after group 93.
+
+Native `fast_travel_screen`, `fast_travel_choice` and `fast_travel_cancel`
+events identify installation, input-driven selection and cancellation.
+Additive schema-v2 fields `travel_case`, `travel_field`, `travel_destination`,
+`travel_unlocks` and `display_control` provide neutral checkpoint evidence.
+`travel_field` becomes 1 only after the native fixed field is installed and
+returns to 0 on gameplay restoration. Reusing screen 13 must never publish a
+pause-menu family, and no heading is drawn. The checker requires the complete
+request/install/ready/mutate/held/cancel/restore sequence, native cursor events,
+correct unlock masks, BG3 enablement, no extra decoration loads and unchanged
+fixed-field pixels after health mutation.
+
+The EU/English run passes all 27 cases, 84 native cursor changes, 27 native
+cancellations and 27 gameplay restorations. It records 482 PNGs. The exposed
+bottom row (x=0–239, y=159) matches the independent fixed-BG3 ROM reference at
+all 54 checkpoints: 12,960 runtime pixel comparisons. Live map, marker, frame
+and cursor content outside that mask is excluded from the pixel claim. The
+27-case neutral contact sheet was inspected, including the eight destinations
+and sparse-mask cases at each starting health.
+
+Authoritative local artifacts are `.tmp/background-travel-audit/eu-en-fixed/`;
+`summary.json` records coverage, decoded pixel hashes and reference checks.
+`binary.sha256` beside it identifies the copied capture binary. The earlier
+`eu-en/` run is exploratory evidence with the superseded plain-family
+assumption; use the corrected run for classification. No artist file or
+committed golden was changed or approved.
+
+Verification passes: 26 ROM-free checker tests, ten exporter tests, C11/C++17
+catalog/exporter agreement, compatibility with the retained 130-case
+pause/fusion trace, ARM64 repro/release builds and release startup under
+QEMU/dummy video/audio reaching `Port layer initialized. Entering AgbMain...`.
+The original release configuration is restored with `repro_harness=n`. No
+staging or device deployment was performed.
+
+Remaining fast-travel coverage includes confirmation/decline, the actual travel
+transition, wraparound/other sparse masks, local effects and other languages or
+regional ROMs. The full context/state task also retains dungeon, figurine,
+standalone-hint and functional/error gaps. Margin composition/effect lifetime,
+GPU execution and physical RG budgets are separate open gates.
+
+
+## Fixed fast-travel reference export (2026-10-26)
+
+The independent catalog context and native recipe complete the previously
+missing artist reference. `fast_travel_background.png` contains only BG3, using
+groups 86/93/129 and palettes 181/185. No native map/frame/markers/cursor or
+localized text is baked into it. It is one image for all health preloads,
+destinations and unlock masks, with the existing five exact aspect sizes.
+The full decoded PNG is compared against all three independent native BG3
+reconstructions, and its exposed bottom row against the retained 54 native
+checkpoints. The extractor rerun and artist preservation evidence are recorded
+in the task list. Runtime source publication, effect masks and confirmation/
+travel-transition lifetime remain implementation/acceptance follow-ups.

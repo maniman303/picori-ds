@@ -808,6 +808,7 @@ target("tmc_pc")
         add_files("port/port_repro_itemget.c") -- item-get perf repro (TMC_REPRO_ITEMGET)
         add_files("port/port_repro_background.c") -- fixed-screen context audit
         add_files("port/port_repro_background_menus.c") -- installed decoration / map matrix
+        add_files("port/port_repro_background_travel.c") -- native fast-travel selection/cancel audit
     end
     -- Link the asset extractor implementation directly so tmc_pc can
     -- run extraction in-process at startup (no shell-out) and share

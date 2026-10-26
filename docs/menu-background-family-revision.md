@@ -6,6 +6,12 @@ It records implementation research and a review of all **27 previously checked
 tasks**. The catalog/exporter migration has since been implemented; the
 foreground title-frame fix remains open (see implementation status below).
 
+Current contract after the 2026-10-26 fast-travel completion: **33 artwork
+names / 34 native PNGs including the map-hint swatch**. Five menu families still
+have 15 health files; `fast_travel_background.png` is an independent fixed image.
+The original 32/33 counts below record the 2026-10-25 revision; the latest
+[task review](#fixed-fast-travel-artwork-task-review-2026-10-26) supersedes them.
+
 ## Revised artist contract
 
 Each row has separate `_normal.png`, `_damaged.png` and `_critical.png` files:
@@ -53,7 +59,7 @@ regions and languages have not been verified by this research.
 | Heading pose | `sub_080A5128` draws frame 0 of sprite `0x1fa` on EU (`0x1fb` otherwise). Ordinary screens use `(64, 16 - 2 * unk16)`; screens 7/8 use `(96,24)`; screens 9/10/11 return without drawing it. | Do not infer a titled screen from BG3 or `TASK_GAME`. Track the installed heading layout and its animated pose. Pieces/techniques are not top-left-title variants. |
 | Heading source | The EU frame has two 64 × 32 pieces, offsets `(-64,-16)` and `(0,-16)`, using tile/palette words `0x5040`/`0x5060` before command additions. Items/quest groups write OBJ VRAM at `0x6010800`; the BG2-only reconstruction omits the blue heading entirely. | The clipped/open edge is a foreground OBJ-frame problem, not proof that a different BG3 color or PNG alone can repair it. The full frame bounds start at native `(0,0)` in the stable pose. |
 | Save / sleep | Screens 9/10/11 have no heading from `sub_080A5128`. EU configuration rows retain the previous palette. | Switch to the plain family after native prompt installation, keeping the installed health and the real entry-route palette. |
-| Fast travel / hints | Fast travel runs a different subtask and does not call the pause heading helper. The two hint paths override or disable the decorative BG3. | Fast travel stays provisionally plain pending its native capture. Both verified hint fields remain procedural; do not infer a title/family from reuse of a map configuration row. |
+| Fast travel / hints | Fast travel runs a different subtask and does not call the pause heading helper. The two hint paths override or disable the decorative BG3. | The 2026-10-26 native travel audit supersedes its provisional plain mapping: group 93 replaces BG3 with a fixed blue field. The completed export/catalog uses the independent `fast_travel_background.png`, without health variants. Both verified hint fields remain procedural; do not infer a title/family from reuse of a map configuration row. |
 
 The independent BG2 reconstruction confirms the pieces/techniques frame
 differences. A BG3-only export contains their shared health decoration but
@@ -189,3 +195,40 @@ the 24-byte POD `PortMenuBackgroundDescriptor`, and bounds resident decoded artw
 to two slots (711 KiB at 32:9) within the 8 MiB steady / 16 MiB peak budget while
 explicitly rejecting naive 32-image resident caching (~11.1 MiB). See the
 [presentation allocation audit](presentation-allocation-audit.md#scene-composition-boundary-and-menu-family-extension-2026-10-25).
+
+
+## Fixed fast-travel artwork task review (2026-10-26)
+
+The missing file was an exporter/catalog omission: the earlier audit correctly
+rejected a plain-menu alias but stopped at unclassified instead of adding the
+verified fixed blue setting. The public target is 33 artwork names, with 34
+native reference PNGs including `map_hint.png`. No menu family or health variant
+is added. `PORT_BACKGROUND_FAST_TRAVEL` is appended after all existing IDs.
+All three health preloads yield the same full BG3 pixels after group 93; native
+map/frame/markers/cursor and confirmation text are foreground, not artwork.
+
+Every R01–R27 task from the earlier review was reconsidered:
+
+| IDs | Impact and action |
+| --- | --- |
+| R01 | **Update, implemented:** append the fixed IMAGE context and exact filename, preserving all old IDs. |
+| R02 | **Extend, implemented:** test fixed-image/parity behavior without changing live, procedural or unknown rules; a non-menu image need not be one of the five health families. |
+| R03 | **Update, implemented:** C11/C++17/UBSan catalog agreement now requires 33 exact names; reject health-suffixed travel aliases and plain-menu substitution. |
+| R04 | **Retain:** all five profile sizes, ratio keys, centering and capacity rejection remain unchanged. |
+| R05 | **Refresh verification:** rebuild/smoke the RG target and run relevant catalog/exporter checks; native extraction is not device or regional certification. |
+| R06 | **Extend acceptance:** retained 27-case travel capture evidence and 54 exposed-row comparisons validate the native reference; composed margins/native crop/both presenters remain pending. Preserve old goldens. |
+| R07 | **Update scope:** the observed installed `travel_field` maps to the independent fixed-image context in the future adapter. Menu `family=unknown` still correctly excludes all five health families. |
+| R08 | **Retain health evidence:** 15 menu family/health combinations are unchanged. Fast travel's 27 health preload cases demonstrate replacement, not three installed artwork states. |
+| R09–R15 | **Retain:** aspect enums, geometry publication, world capabilities, resize behavior, toggle removal, PPU height and PPU serialization do not depend on this new image. |
+| R16 | **Extend pending integration:** verify the added image through software/GPU presenters, native centering, screenshots, filters and persistence; foreground map/OBJ must stay native. |
+| R17 | **Retain:** no new raster rows or full-frame scratch. |
+| R18 | **Update, implemented audit:** 33 names stay on disk, with at most two resident slots. Naive residency becomes 12,017,280 bytes; the existing 728,320-byte two-image bound and 8/16 MiB budgets are unchanged. |
+| R19 | **Retain capacity; extend packaging acceptance:** preserve the new basename and existing custom files during staging. No build capacity change or actual packaging/deployment is part of this extraction. |
+| R20–R26 | **Retain:** hardware/HDMA timing, world camera/streaming/shake and signed OBJ/culling contracts are unchanged. Fast-travel BG3 does not need a heading cap or relaxed OBJ clipping. Existing title-cap follow-ups stay open. |
+| R27 | **Update, implemented:** BG3-only recipe, exact shared basename, foreground exclusions, 33-name agreement and a missing-only exporter rerun with README/contact refresh and preservation hashes. |
+
+Pending checklist sections 4–6/8 now explicitly include fixed-travel layout,
+installation/effect lifetime, a health/destination-independent cache key,
+no-alias missing-file behavior, presenter/profile acceptance and packaging.
+These updates do not claim that the runtime adapter, loader or compositor is
+implemented. Other region/language/effect and physical-device gates stay open.

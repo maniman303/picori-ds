@@ -182,7 +182,9 @@ int main(void) {
             assert(background->filename == NULL);
         }
     }
-    assert(images == 32);
+    assert(images == 33);
+    assert(PORT_BACKGROUND_SWORD_TECHNIQUES_CRITICAL == 40 && PORT_BACKGROUND_FAST_TRAVEL == 41);
+    assert(strcmp(Port_Background_Get(PORT_BACKGROUND_FAST_TRAVEL, false)->filename, "fast_travel_background.png") == 0);
     assert(strcmp(Port_Background_Get(PORT_BACKGROUND_TITLE, false)->filename, "title_screen.png") == 0);
     assert(strcmp(Port_Background_Get(PORT_BACKGROUND_FILE_SELECT, false)->filename, "file_select.png") == 0);
     static const struct { PortBackgroundContext context; const char* filename; } menus[] = {

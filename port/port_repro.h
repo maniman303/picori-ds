@@ -28,6 +28,8 @@ void Port_ReproBackground_Heading(int style, int x, int y, int transition);
 /* Menu driver returns bit 0 to capture, bit 1 when complete. Repro-only. */
 int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int screen, int mapGroup);
 int Port_ReproBackground_MenuCase(void);
+int Port_ReproBackground_TravelTick(unsigned int frame, int decoration);
+int Port_ReproBackground_TravelCase(void);
 void Port_ReproRando_Tick(unsigned int frame);
 void Port_ReproRando_LateTick(void);
 void Port_ReproPerfcap_Tick(unsigned int frame);

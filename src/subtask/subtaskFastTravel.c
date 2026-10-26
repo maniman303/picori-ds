@@ -14,6 +14,9 @@
 #include "asm.h"
 #include "pauseMenu.h"
 #include "fade.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#endif
 
 extern void (*const Subtask_FastTravel_Functions[])(void);
 void sub_080A6E70(void);
@@ -37,6 +40,9 @@ void Subtask_FastTravel_0(void) {
     sub_080A4DB8(0xd);
     sub_080A6290();
     gMenu.field_0x3 = sub_080A6D74(0);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("fast_travel_screen", gMenu.field_0x3);
+#endif
     SetMenuType(1);
     SetFade(FADE_INSTANT, 8);
 }
@@ -77,6 +83,9 @@ void Subtask_FastTravel_1(void) {
         uVar1 = sub_080A6D74(uVar2);
         if (uVar1 != gMenu.field_0x3) {
             gMenu.field_0x3 = uVar1;
+#ifdef PC_PORT
+            Port_ReproBackground_Event("fast_travel_choice", uVar1);
+#endif
             SoundReq(SFX_TEXTBOX_CHOICE);
         }
     }
@@ -145,6 +154,9 @@ void Subtask_FastTravel_3(void) {
         sub_080042D0(&gPlayerEntity.base, (u32)gPlayerEntity.base.animIndex, gPlayerEntity.base.spriteIndex);
         Subtask_Exit();
         gPauseMenuOptions.disabled = 0;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fast_travel_cancel", gMenu.field_0x3);
+#endif
         SoundReq(SFX_MENU_CANCEL);
     }
 }
