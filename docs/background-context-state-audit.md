@@ -1013,3 +1013,105 @@ The broad catalog remains open for fusion interactions, save/sleep/game-over,
 file/post-credits success/error paths and the remaining regional/live-world
 gaps. The separate effect-source, presenter/cache and physical-device acceptance
 tasks remain open.
+
+## Native sleep confirmation and wake-up (2026-10-26)
+
+`--scenario sleep` adds a separate 15-case EU/English matrix: five input paths
+at each of the three health preloads. It accepts with A, accepts after RIGHT /
+LEFT, declines with RIGHT / A, declines with B / B and declines with RIGHT / B.
+B at the initial Yes selection moves to No; a second B confirms that refusal.
+The native cursor/answer events and sampled input distinguish that behavior
+from immediate cancellation. No sleep status, menu result, fade timer, selected
+cursor or graphics is assigned by the driver.
+
+Each case starts a native pause opening at inventory, uses R to enter Quest
+Status, then follows real LEFT / UP / LEFT input to the Sleep button. Quest
+Status remembers its preceding cursor across openings: subsequent cases first
+navigate from 4 through 8 / 3 / 1 to 0 with LEFT / UP / UP / LEFT, then repeat
+the path to Sleep. The driver stages only health and the initial pause page;
+it neither installs a sleep prompt directly nor overwrites the remembered
+quest cursor. Native screen initializers preserve the real palette order:
+inventory, quest, sleep prompt, then quest again.
+
+The route waits for neutral prompt readiness, mutates live health, retains the
+installed decoration and confirms its selected answer with real key edges.
+Accepted cases execute `sub_080A5BB8`, arm native sleep and run `SetSleepMode`.
+That function writes raw DISPCNT `0x80`, waits for all keys to be released and
+then waits for a new press. The driver leaves the inputs released for 24 ticks
+before a sleeping checkpoint and another four ticks before injecting raw A.
+Read-only events observe entry and wake; additive schema-v2 fields record
+sleep status, game ticks, cursor, menu/pause phase, new keys and raw KEYINPUT /
+DISPCNT. Every boundary in each 29-frame entry-to-wake interval must be present,
+with an unchanged game-tick count. Raw KEYINPUT must be `0x3ff` before the wake
+request and `0x3fe` at wake. Game ticks must resume before the returned quest
+checkpoint. This exercises the current PC sleep implementation's any-key wake
+behavior; it does not test the prompt's printed SELECT/L/R chord or device/OS
+suspend behavior.
+
+The installed audit family remains plain while the native forced-blank bit
+suppresses its image. All six sleeping captures must be completely RGB
+`255/255/255`, matching the software PPU's explicit forced-blank fill. This
+checks both register state and completed native pixels; it does not implement
+future compositor effect resolution or certify intermediate fades. Declines
+must never arm or enter sleep. All 15 cases return through the native quest
+transition and START exit, preserving their case IDs and original game room,
+clearing sleep status and the audit family on game restoration. Restoration
+checks task/update/UI state; it does not assert normal player-control readiness.
+
+Four neutral source checkpoints per case (quest ready, prompt ready, held after
+health mutation and quest returned) compare exposed pixels against independently
+ROM-decoded health fields. The source mask uses x=0..7 and x=232..239 at y=159;
+all three health identities must differ at these actual sample points. The
+central bottom row is excluded because returning with Sleep selected draws the
+native "Go to Sleep Screen" tooltip there. Prompt checkpoints require the plain
+family without a heading; quest checkpoints require the titled family and
+original top-left heading. Only one decoration installation is allowed per
+opening, including the live-health mutation and sleep/wake interval.
+
+Complete successful command artifacts are in
+`.tmp/background-sleep-actions-audit/eu-en-verified/`. Both native process and
+capture command exit zero. `summary.json` retains the full checked event list
+and decoded RGBA hashes for all 1,188 captures. `verification.json` records
+trace/ROM/native-binary hashes, all six frozen intervals and final checker/pixel
+results. All 15 cases pass: six accepted sleep/wake cycles, nine declines, 60
+neutral source checkpoints / 960 field-pixel comparisons and six whole-frame
+white checks / 230,400 sleeping pixels. Ready/held/returned-quest contact sheets
+and the inspected `sleep-review.png` retain representative acceptance, B refusal
+and all three health preloads.
+
+Earlier diagnostic artifacts remain separate: `eu-en/` fails when the first
+driver assumes the remembered quest cursor resets; `eu-en-final/` completes
+natively but its then-loaded pixel checker rejects the foreground tooltip.
+Their `capture-outcome.json` files retain those failures. The complete latter
+trace also passes final offline verification without rewriting raw evidence;
+neither diagnostic is substituted for the successful `eu-en-verified/` command.
+
+With the new observation hooks, the retained pause/fusion matrix was rerun in
+`eu-en-menus/`. All 260 ready/held checkpoints across 130 cases remain
+byte-identical in decoded RGBA to
+`.tmp/background-fusion-audit/eu-en-scale1/menus/`; `baseline-comparison.json`
+records the comparison and its binary hash. Approved goldens are unchanged.
+
+Reproduce with a repro-enabled binary and a verified EU ROM:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario sleep --language 1 \
+  --output .tmp/background-sleep-new
+python3 tools/tests/background_sleep_audit.py
+```
+
+The capture runner restricts this interaction route to EU ROMs and uses the
+usual 1200-second budget. Runtime configuration and any startup save-header
+writes stay in its temporary directory; this route does not perform a game
+save. Fourteen new failure-oriented checker tests and 97 retained audit/exporter
+tests pass, together with catalog/exporter/profile geometry and C/C++ ABI
+checks. The final ARM64 `xmake build -y tmc_pc` and EU QEMU/dummy-SDL startup
+pass, reaching `Port layer initialized. Entering AgbMain...`; incoming build
+options remain intact. Native game changes are read-only repro observations.
+
+This completes the EU/English sleep-choice/wake slice. Other languages/regions,
+hardware sleep, save success/error handling, game-over choices, fusion
+interactions and remaining file/post-credits paths keep the full context/state
+catalog open. Runtime image publication, cache/presenter acceptance, resolved
+intermediate effects and physical-device measurements remain separate tasks.

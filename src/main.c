@@ -15,6 +15,7 @@
 #include "fade.h"
 #ifdef PC_PORT
 #include "port_hdma.h"
+#include "port_repro.h"
 #include "port_widescreen.h"
 #include <setjmp.h>
 #endif
@@ -316,6 +317,9 @@ void SetSleepMode(void) {
     Main* main;
 
     REG_DISPCNT = DISPCNT_FORCED_BLANK;
+#ifdef PC_PORT
+    Port_ReproBackground_Event("sleep_loop_enter", SLEEP);
+#endif
 
     do {
         VBlankIntrWait();
@@ -328,6 +332,9 @@ void SetSleepMode(void) {
     main = &gMain;
     *(vu8*)&main->sleepStatus;
     main->sleepStatus = DEFAULT;
+#ifdef PC_PORT
+    Port_ReproBackground_Event("sleep_loop_woke", DEFAULT);
+#endif
     return;
 }
 

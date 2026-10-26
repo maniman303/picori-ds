@@ -838,6 +838,9 @@ void sub_080A56A0(void) {
 
     if (uVar2 != 0xff) {
         gMenu.field_0x3 = uVar2;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("quest_choice", uVar2);
+#endif
         SoundReq(SFX_TEXTBOX_CHOICE);
     } else if (gInput.newKeys == A_BUTTON) {
         uVar2 = gMenu.field_0x3;
@@ -1099,6 +1102,9 @@ void PauseMenu_Screen_9() {
 void sub_080A5AF4(void) {
     gMenu.field_0x3 = 0;
     SetPopupState(2, 0);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("sleep_prompt", 0);
+#endif
     if (!REGION_IS_EU) {
         if (gSaveHeader->language == 0) {
             gScreen.bg1.yOffset = -4;
@@ -1139,9 +1145,15 @@ void sub_080A5B34(void) {
     if (gMenu.field_0x3 != uVar3) {
         gMenu.field_0x3 = uVar3;
         SetPopupState(2, uVar3);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("sleep_choice", uVar3);
+#endif
         SoundReq(SFX_TEXTBOX_CHOICE);
     }
     if (bVar1) {
+#ifdef PC_PORT
+        Port_ReproBackground_Event("sleep_answer", uVar3);
+#endif
         if (uVar3 == 0) {
             SetFade(FADE_IN_OUT | FADE_BLACK_WHITE | FADE_INSTANT, 0x20);
             gMenu.transitionTimer = 60;
@@ -1160,6 +1172,9 @@ void sub_080A5BB8(void) {
         m = &gMain;
         *(vu8*)&m->sleepStatus; // force a read
         m->sleepStatus = SLEEP;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("sleep_armed", SLEEP);
+#endif
         SetFade(FADE_BLACK_WHITE | FADE_INSTANT, 8);
         sub_080A4E84(2);
         gPauseMenuOptions.unk16 = 16;

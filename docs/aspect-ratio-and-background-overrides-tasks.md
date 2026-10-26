@@ -69,6 +69,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   Compare ROM-derived field/map samples and native crop movement/return;
   preserve all 260 retained pause/fusion checkpoint pixels. Other languages,
   world-map cursor entry and additional marker combinations remain open.
+- [x] Audit native sleep confirmation on EU/English at all three health
+  preloads: 15 cases covering A acceptance, RIGHT/LEFT acceptance, A refusal,
+  B/B refusal and RIGHT/B refusal. Verify real quest navigation, native cursor
+  retention, six released-key sleep/wake loops with frozen game ticks and white
+  forced-blank output, source retention and quest/game restoration. Other
+  languages/regions, hardware sleep and save/game-over paths remain open.
 - [x] Audit all six standalone map hints, first/repeated reveals, at three health
   preloads in all five EU languages. Verify native timer-30 reveal, A/B/START
   exits and the live palette-zero field before/after health mutation.
@@ -924,3 +930,24 @@ EU startup pass. See the
 [detail-map audit](background-context-state-audit.md#native-detail-map-scrolling-and-return-paths-2026-10-26)
 for process outcomes, artifacts, reproduction and remaining scope. The full
 context/state catalog and runtime adapter/compositor work remain open.
+
+## Native sleep confirmation and wake coverage (2026-10-26)
+
+Added a repro-only 15-case EU/English route covering acceptance, refusal and
+B selection/confirmation at three installed health decorations. Real input
+navigates the remembered quest cursor and opens Sleep; accepted cases execute
+the native released-key sleep loop and wake with raw A. The checker requires
+frozen game ticks at every sleeping boundary, raw forced blank and completely
+white captures, resumed ticks, source retention across health mutation and
+quest/game restoration.
+
+The successful capture command verifies six sleep/wake cycles, nine declines,
+60 neutral checkpoints / 960 ROM-derived field samples and six whole white
+frames. All 260 retained pause/fusion checkpoint pixels remain identical.
+Fourteen new and 97 retained audit/exporter tests, catalog/profile checks,
+ARM64 build and EU startup pass. The
+[sleep audit](background-context-state-audit.md#native-sleep-confirmation-and-wake-up-2026-10-26)
+records exact artifacts, earlier diagnostic failures, source masks and scope.
+Current PC any-key wake is covered; hardware sleep and the displayed SELECT/L/R
+chord are not. Save/error, game-over and fusion interactions remain with the
+open context/state task; no runtime adapter/compositor work is marked complete.
