@@ -14,6 +14,12 @@
 #include "sound.h"
 #include "subtask.h"
 #include "affine.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#define AUDIT(event, value) Port_ReproBackground_Event(event, value)
+#else
+#define AUDIT(event, value) ((void)0)
+#endif
 
 typedef void(GameOverState)(void);
 
@@ -53,6 +59,7 @@ void GameOver_Init(void) {
     SetFadeInverted(4);
     gFadeControl.mask = 0xFFFF0001;
     switch_state(GAMETASK_INIT);
+    AUDIT("gameover_install", 0);
 }
 void GameOver_FadeIn(void) {
     if (gFadeControl.active)
@@ -88,6 +95,7 @@ void GameOver_TextMove(void) {
             gMenu.field_0x3 = 0;
             SetMenuType(1);
             SetPopupState(0, 0);
+            AUDIT("gameover_save_prompt", 0);
             gFadeControl.mask = 0xffffffff;
             return;
         case 1:
@@ -101,6 +109,7 @@ void GameOver_TextMove(void) {
                         temp = 1;
                         break;
                     case A_BUTTON:
+                        AUDIT("gameover_save_answer", gMenu.field_0x3);
                         if (gMenu.field_0x3 != 0) {
                             temp2 = 4;
                         } else {
@@ -115,6 +124,7 @@ void GameOver_TextMove(void) {
                 if (gMenu.field_0x3 != temp) {
                     gMenu.field_0x3 = temp;
                     SetPopupState(0, temp);
+                    AUDIT("gameover_save_choice", temp);
                     SoundReq(SFX_TEXTBOX_CHOICE);
                 }
                 return;
@@ -126,9 +136,11 @@ void GameOver_TextMove(void) {
             gMenu.field_0x0 = temp3;
             switch (temp3) {
                 case 1:
+                    AUDIT("gameover_save_success", 1);
                     SetMenuType(4);
                     break;
                 case -1:
+                    AUDIT("gameover_save_error", 0);
                     gMenu.transitionTimer = 60;
                     CreateDialogBox(9, 0);
                     SetMenuType(3);
@@ -157,6 +169,7 @@ void GameOver_Update(void) {
             gMenu.field_0x3 = 0;
             SetMenuType(1);
             SetPopupState(1, 0);
+            AUDIT("gameover_continue_prompt", 0);
             return;
         case 1:
             gScreen.lcd.displayControl |= DISPCNT_BG1_ON;
@@ -173,6 +186,7 @@ void GameOver_Update(void) {
                         temp = 1;
                         break;
                     case A_BUTTON:
+                        AUDIT("gameover_continue_answer", temp);
                         SetMenuType(2);
                         SoundReq(SFX_TEXTBOX_SELECT);
                         if (temp == 0) {
@@ -185,6 +199,7 @@ void GameOver_Update(void) {
                 if (gMenu.field_0x3 != temp) {
                     gMenu.field_0x3 = temp;
                     SetPopupState(1, temp);
+                    AUDIT("gameover_continue_choice", temp);
                     SoundReq(SFX_TEXTBOX_CHOICE);
                 }
             }
@@ -193,8 +208,10 @@ void GameOver_Update(void) {
         default:
             if (gFadeControl.active == 0) {
                 if (gMenu.field_0x3 == 0) {
+                    AUDIT("gameover_continue", 0);
                     SetTask(TASK_GAME);
                 } else {
+                    AUDIT("gameover_quit", 1);
                     DoSoftReset();
                 }
             }

@@ -88,6 +88,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   error timing/dismissal, unchanged records on refusal/failure and inventory/game
   restoration. Retain the Quest Status evidence; host flush failures and other
   languages/regions remain open.
+- [x] Audit native Game Over save/refusal, EEPROM failure/retry, Continue and
+  Quit on EU/English: five cases entered through real death/room exit. Verify
+  checksum readback, unchanged prior records, native input/error timing, four
+  player-control returns and a title soft reset. Confirm the generated-black
+  field despite the shared decoration load. Additional combinations, fixtures,
+  languages/regions and intermediate effect pixels remain open.
 - [x] Audit all six standalone map hints, first/repeated reveals, at three health
   preloads in all five EU languages. Verify native timer-30 reveal, A/B/START
   exits and the live palette-zero field before/after health mutation.
@@ -1013,3 +1019,26 @@ this is trace compatibility, not a fresh native pixel replay. See the
 for artifacts and reproduction. Build options and existing goldens/artwork remain
 unchanged. The full context/state catalog, runtime adapter/compositor and broader
 regional/effect/device acceptance remain open.
+
+
+## Native Game Over interaction coverage (2026-10-26)
+
+Added a repro-only `gameover` route with five native-death cases covering Save,
+Don't Save, cursor navigation, EEPROM error/dismissal/successful retry, Continue
+and Quit. Both native process and capture command exit zero at frame 4,153,
+retaining 260 captures. All cases pass: three saved records, two refusals, four
+normal player-control returns and one title soft reset. Twelve neutral
+checkpoints verify 73,728 black field pixels with native foreground present.
+The shared critical-decoration loads do not select a pause-family image: BG3
+is disabled and the visible source remains generated black.
+
+Eleven new checker tests bring the audit suite to 137 passing tests, alongside
+11 exporter tests, catalog/profile agreement, engine/scroll and CPU PPU checks,
+the ARM64 build and EU QEMU/dummy-SDL startup. Retained inventory/quest Save and
+130-case menu/fusion traces remain compatible; no fresh native pixel replay of
+those routes is claimed. The initial saved-health-only fixture failure is
+retained separately from the successful corrected run. See the
+[Game Over audit](background-context-state-audit.md#native-game-over-save-retry-continue-and-quit-2026-10-26)
+for artifacts, reproduction and limits. Other combinations, quest-state/region/
+language coverage and intermediate effects keep the full context/state task
+open; runtime adapter/loading/composition and device budgets remain separate.

@@ -602,7 +602,7 @@ u16 EEPROMRead(u16 block, u16* dest) {
 u16 EEPROMWrite0_8k_Check(u16 block, const u16* src) {
 #ifdef TMC_REPRO_HARNESS
     /* Audit-only device write failure; exercise the native retry/error UI. */
-    if (Port_ReproBackground_SaveWriteFails())
+    if (Port_ReproBackground_SaveWriteFails() || Port_ReproBackground_GameOverWriteFails())
         return 0x8000;
 #endif
     if (!sEepromInited) {

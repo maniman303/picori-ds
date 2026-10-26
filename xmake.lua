@@ -813,6 +813,7 @@ target("tmc_pc")
         add_files("port/port_repro_background_figurines.c") -- native collection/detail audit
         add_files("port/port_repro_background_figurine_actions.c") -- prize/duplicate reveal and description scroll
         add_files("port/port_repro_background_hints.c") -- standalone hint reveal and exit audit
+        add_files("port/port_repro_background_gameover.c") -- native Game Over choices
         add_files("port/port_repro_background_save.c") -- native save choices and write failure
         add_files("port/port_repro_background_sleep.c") -- native sleep choices, key release and wake
         add_files("port/port_repro_background_detail_maps.c") -- native detail-map scroll and return audit

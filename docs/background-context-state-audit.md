@@ -1279,3 +1279,82 @@ The broad context/state catalog remains open for other languages/regions,
 host flush errors, game-over/fusion interactions and remaining file/post-credits
 paths. Runtime adapter, artwork loading/composition and intermediate effect
 resolution remain separate tasks.
+
+
+## Native Game Over save, retry, Continue and Quit (2026-10-26)
+
+The repro-only `gameover` route stages zero saved and entity health while the
+player has normal control in a real room, then lets native death animation,
+room exit and `GameOverTask` run. It never assigns a player action, task,
+menu result, cursor, timer, graphics or fade to enter Game Over. The existing
+synthetic save/start-room bootstrap remains the fixture boundary.
+
+Five cases cover A save/Continue, DOWN/UP/A save/Continue, DOWN/A refusal with
+DOWN/UP/A Continue navigation, EEPROM write failure followed by A dismissal
+and a successful native retry/Continue, and DOWN/A refusal followed by DOWN/A
+Quit. Native save success proceeds automatically to the Continue prompt. The
+error path waits 60 ticks, dismisses with A, reinstalls the Save prompt with
+its own 30-tick input wait, then retries successfully. Three checksum-valid
+readbacks verify saved health 24; refusals and the failed write compare the
+entire prior record. The first successful save provides a valid prior record
+for the later error case. The fault is repro-only and fails before EEPROM
+mutation; it does not simulate a host flush failure.
+
+Read-only hooks record Game Over installation, prompt, navigation, answer,
+save result and Continue/Quit dispatch. Additive schema-v2 fields record case,
+task/state/substate, fade state, cursor/menu/timer, real input, letter Y and
+the native death flag. The checker requires actual death/exit before native
+installation, real DPAD/A input, complete error timing and retry lifecycle,
+four returns to normal player control in the original room, and the final
+native soft reset back to the title task. Game Over resets health to 24,
+independently of pause decoration thresholds.
+
+The shared screen initializer still loads the critical decoration once per
+opening (five `menu_decoration=2` events, because entry health is zero). This
+does not classify the installed visible source: BG3 stays disabled (neutral
+DISPCNT `0x1740`) and palette zero is black. The audit family remains unknown
+with no heading, matching the catalog's generated-black policy. Neutral Save,
+Continue, error and retry captures check every outer
+8-pixel strip (6,144 pixels per frame), with central native foreground required
+to remain visible. These samples certify the neutral field, not intermediate
+masked-fade targets or a compositor implementation.
+
+Reproduce with a repro-enabled binary and verified EU ROM:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario gameover --language 1 \
+  --output .tmp/background-gameover-new
+python3 tools/tests/background_gameover_audit.py
+```
+
+The final evidence is in `.tmp/background-gameover-audit/eu-en-final/`.
+Both the native process and capture command exit zero; the process completes
+at frame 4,153 with 260 captures. `verification.json` records binary/trace
+hashes and final offline validation against the unchanged raw trace. All five
+cases pass, including four native player-control returns, one native title
+return and 12 neutral field checkpoints / 73,728 black-pixel checks. The native
+Save and write-error frames were inspected. Generic contact sheets retain the
+other captured animation/fade/return frames for review.
+
+The first `eu-en/` attempt is retained as a failure: saved health alone did not
+change entity health, so death never began and case 0 timed out. Its native
+process exits 2 and the capture command exits 1. `capture-outcome.json` records
+that fixture mistake; the corrected route sets both health values, with no
+native death or menu action bypass. Its `tmc_pc-repro` binary is separate from
+the successful `tmc_pc-final` / `tmc-qemu-final` artifacts.
+
+Eleven new failure-oriented checker tests bring the audit suite to 137 tests;
+all pass alongside 11 exporter tests, catalog/profile C/C++ agreement,
+engine/scroll regressions and CPU PPU ASan/UBSan checks (LeakSanitizer disabled
+for the sandbox). The final ARM64 `xmake build -y tmc_pc` passes and its isolated
+EU QEMU/dummy-SDL capture reaches `Port layer initialized. Entering AgbMain...`.
+Retained inventory-entry Save, Quest Status Save and 130-case menu/fusion traces
+still validate with the final tools. They were not recaptured, so this is trace
+compatibility rather than a fresh native framebuffer comparison. Incoming
+build options, approved goldens and artist files remain unchanged.
+
+Broader health/quest-state fixtures, save-and-Quit combinations, alternate
+error dismissals, ignored keys, other languages/regions and intermediate effect
+pixels remain open. The full context/state catalog, runtime adapter, PNG cache,
+composition and device measurements remain separate tasks.
