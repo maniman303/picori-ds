@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw
 
 from background_travel_actions_audit import (travel_action_cases, validate_travel_actions,
                                             travel_action_reference, validate_travel_action_pixels)
+from background_detail_map_audit import detail_map_cases, validate_detail_maps, validate_detail_map_pixels
 from background_dungeon_audit import dungeon_cases, validate_dungeons, validate_dungeon_pixels
 from background_hint_audit import hint_cases, validate_hints, validate_hint_pixels, hint_reference
 from background_figurine_actions_audit import (figurine_action_cases, figurine_action_start, validate_figurine_actions,
@@ -269,7 +270,7 @@ def menu_reference_rows(rom, language):
 
 
 def validate_trace(rows, scenario):
-    if scenario not in ('menus', 'dungeons') and any(row.get('family', 'unknown') != 'unknown' for row in rows):
+    if scenario not in ('menus', 'dungeons', 'detail_maps') and any(row.get('family', 'unknown') != 'unknown' for row in rows):
         raise ValueError('non-menu route claimed a pause/fusion artwork family')
     events = [row for row in rows if 'event' in row]
     install_event = 'credits_install' if scenario == 'credits' else 'prologue_install'
@@ -280,14 +281,14 @@ def validate_trace(rows, scenario):
         # screens through native input before claiming file-operation coverage.
         if not {0, 1, 3, 4, 5, 6}.issubset(states):
             raise ValueError(f'incomplete file-screen states: {sorted(states)}')
-    elif scenario not in ('local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions'):
+    elif scenario not in ('local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps'):
         expected = set(range({'credits': 9, 'prologue': 6, 'intro': 5}[scenario]))
         if installs != expected:
             raise ValueError(f'{scenario}: expected installations {sorted(expected)}, got {sorted(installs)}')
     terminal = {'credits': 'credits_save', 'prologue': 'prologue_clear',
                 'intro': 'prologue_world', 'files': 'files_complete',
                 'local_hint': 'local_hint_ready', 'menus': 'menus_complete', 'travel': 'travel_complete', 'figurines': 'figurines_complete', 'hints': 'hints_complete', 'dungeons': 'dungeons_complete',
-                'travel_actions': 'travel_actions_complete', 'figurine_actions': 'figurine_actions_complete'}[scenario]
+                'travel_actions': 'travel_actions_complete', 'figurine_actions': 'figurine_actions_complete', 'detail_maps': 'detail_maps_complete'}[scenario]
     if not any(row['event'] == terminal for row in events):
         raise ValueError(f'{scenario}: missing {terminal}')
     # This is the particular bug the audit must expose: text does not clear art.
@@ -309,6 +310,8 @@ def validate_trace(rows, scenario):
         validate_figurines(rows, events, frames)
     if scenario == 'hints':
         validate_hints(rows, events, frames)
+    if scenario == 'detail_maps':
+        validate_detail_maps(rows, events, frames)
     if scenario == 'dungeons':
         validate_dungeons(rows, events, frames)
     if scenario == 'travel_actions':
@@ -330,7 +333,9 @@ def write_native_matrix(directory, events, phase, cases, prefix):
             with Image.open(directory / f"{row['frame']:06d}.png") as image:
                 sheet.paste(image, (x, y))
             case = cases[offset + index]
-            if prefix == 'hints':
+            if prefix.startswith('detail-maps'):
+                label = f"health={case['decoration']} area={case['area']} group={case['map_group']}"
+            elif prefix == 'hints':
                 label = f"health={case['decoration']} repeat={case['repeat']} hint={case['variant']}"
             elif prefix.startswith('figurine-actions'):
                 label = f"health={case['decoration']} post={case['staffroll']} fig={case['index']} dup={bool(case['duplicate'])}"
@@ -359,7 +364,7 @@ def summarize(directory, scenario):
                frame['installed'], frame['fade_active'], frame.get('case', -1),
                frame.get('family'), frame.get('heading_style'), frame.get('heading_y'),
                frame.get('travel_case', -1), frame.get('travel_destination'),
-               frame.get('figurine_case', -1), frame.get('figurine_index'), frame.get('hint_case', -1), frame.get('dungeon_case', -1), frame.get('travel_action_case', -1), frame.get('figurine_action_case', -1))
+               frame.get('figurine_case', -1), frame.get('figurine_index'), frame.get('hint_case', -1), frame.get('dungeon_case', -1), frame.get('travel_action_case', -1), frame.get('figurine_action_case', -1), frame.get('detail_map_case', -1))
         representatives[key] = frame
     if scenario == 'local_hint':
         ready = [row for row in frames if row['ui'] == 10 and not row['fade_active']]
@@ -402,6 +407,10 @@ def summarize(directory, scenario):
                 sheet.paste(image, (x, y))
             draw.text((x + 2, y + 160), travel_cases()[index]['label'], fill='white')
         sheet.save(directory / 'travel-neutral.png')
+    if scenario == 'detail_maps':
+        result['detail_map_cases'] = detail_map_cases()
+        for phase in ('ready', 'top', 'bottom', 'top_returned'):
+            write_native_matrix(directory, events, f'detail_{phase}', detail_map_cases(), f'detail-maps-{phase}')
     if scenario == 'figurine_actions':
         cases = figurine_action_cases()[figurine_action_start(events):]
         result['figurine_action_cases'] = cases
@@ -467,14 +476,14 @@ def main():
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--rom', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions'], action='append')
+    parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps'], action='append')
     parser.add_argument('--language', type=int, choices=range(6), default=1,
                         help='preferred game language: 0 Japanese, 1 English, 2 French, 3 German, 4 Spanish, 5 Italian')
     parser.add_argument('--menu-baseline', type=Path, help='retained 106-case pause or 109-case family menus directory for pixel comparison')
     parser.add_argument('--figurine-start-case', type=int, choices=range(54), default=0,
                         help='start an independent figurine_actions suffix at this canonical case ID')
     parser.add_argument('--timeout', type=float,
-                        help='seconds per scenario (default: 2400 for figurine_actions, otherwise 1200)')
+                        help='seconds per scenario (default: 2400 for figurine_actions/detail_maps, otherwise 1200)')
     args = parser.parse_args()
     if args.timeout is not None and args.timeout <= 0:
         parser.error('--timeout must be positive')
@@ -493,7 +502,7 @@ def main():
     summary = dict(game_code=code, preferred_language=args.language,
                    rom_sha1=hashlib.sha1(rom.read_bytes()).hexdigest(),
                    executable_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(), scenarios={})
-    for scenario in dict.fromkeys(args.scenario or ['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'figurine_actions'] + (['travel_actions'] if code == 'BZMP' else [])):
+    for scenario in dict.fromkeys(args.scenario or ['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'figurine_actions', 'detail_maps'] + (['travel_actions'] if code == 'BZMP' else [])):
         directory = output / scenario
         directory.mkdir()
         with tempfile.TemporaryDirectory(prefix='tmc-background-audit-') as temporary:
@@ -512,7 +521,7 @@ def main():
             with (directory / 'run.log').open('wb') as log:
                 subprocess.run([str(binary), '--no-audio'], cwd=temporary, env=env, stdout=log,
                                stderr=subprocess.STDOUT,
-                               timeout=args.timeout if args.timeout is not None else (2400 if scenario == 'figurine_actions' else 1200),
+                               timeout=args.timeout if args.timeout is not None else (2400 if scenario in ('figurine_actions', 'detail_maps') else 1200),
                                check=True)
         summary['scenarios'][scenario] = summarize(directory, scenario)
         if scenario == 'menus':
@@ -530,6 +539,9 @@ def main():
         if scenario == 'travel_actions':
             summary['scenarios'][scenario]['native_field_pixels'] = validate_travel_action_pixels(
                 directory, summary['scenarios'][scenario]['events'], travel_action_reference(rom, args.language))
+        if scenario == 'detail_maps' and code in ('BZME', 'BZMP'):
+            summary['scenarios'][scenario]['native_map_pixels'] = validate_detail_map_pixels(
+                directory, summary['scenarios'][scenario]['events'], rom, args.language)
         if scenario == 'dungeons' and code in ('BZME', 'BZMP'):
             summary['scenarios'][scenario]['native_field_pixels'] = validate_dungeon_pixels(
                 directory, summary['scenarios'][scenario]['events'], menu_reference_rows(rom, args.language))

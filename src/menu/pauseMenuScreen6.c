@@ -39,6 +39,10 @@ void PauseMenu_Screen_6(void) {
     gScreen.bg1.yOffset = -ptr->unk5;
     gScreen.bg2.yOffset = gMenu.field_0xa - (s8)ptr->unk6;
     sub_080A66D0();
+#ifdef PC_PORT
+    if (gInput.heldKeys == DPAD_UP || gInput.heldKeys == DPAD_DOWN)
+        Port_ReproBackground_Event("detail_scroll", gInput.heldKeys);
+#endif
 }
 
 void sub_080A6650(void) {

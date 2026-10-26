@@ -63,6 +63,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   rooms before screen installation. Cover every floor at three health preloads
   with map/compass/big-key bits absent/present: 138 cases, native navigation and
   START restoration. Retain original pause/fusion case IDs and captures.
+- [x] Audit native detail-map scrolling on EU/English for all 22 recipes at
+  three installed health decorations: 66 cases, midpoint/top/bottom/top inputs,
+  both clamps, live-health mutation, B return to the world map and START exit.
+  Compare ROM-derived field/map samples and native crop movement/return;
+  preserve all 260 retained pause/fusion checkpoint pixels. Other languages,
+  world-map cursor entry and additional marker combinations remain open.
 - [x] Audit all six standalone map hints, first/repeated reveals, at three health
   preloads in all five EU languages. Verify native timer-30 reveal, A/B/START
   exits and the live palette-zero field before/after health mutation.
@@ -898,3 +904,23 @@ exporter tests, the ARM64 build and EU startup pass. See the
 for exact artifact ranges, recovery commands and limits, including game-task
 restoration without a claim of normal player-control readiness. The broad
 context/state catalog and effect-source audit remain open.
+
+## Native detail-map scrolling coverage (2026-10-26)
+
+Added a separate 66-case EU/English route for all 22 detail-map recipes at three
+installed health decorations. Native held UP/DOWN input exercises the initial
+midpoint, both bounds, exact 2-pixel cadence and zero-range clamps. B returns to
+the world-map page; START exits each health group to the original game room.
+Map item ownership and conditional house/fusion/interior fixtures are explicit.
+
+Final verification passes 330 neutral checkpoints, 5,280 ROM-derived decoration
+samples and 4,020 independently decoded scrolled-map samples. Native crops check
+health retention, movement and exact top return. The native process completes
+successfully; its complete raw trace was revalidated after correcting the
+checker's exit-UI assumption and excluding native area-name UI from the field
+mask. All 260 retained pause/fusion checkpoints remain pixel-identical. Twelve
+new checker tests and 85 retained tests, catalog/profile checks, ARM64 build and
+EU startup pass. See the
+[detail-map audit](background-context-state-audit.md#native-detail-map-scrolling-and-return-paths-2026-10-26)
+for process outcomes, artifacts, reproduction and remaining scope. The full
+context/state catalog and runtime adapter/compositor work remain open.

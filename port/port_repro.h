@@ -38,6 +38,8 @@ int Port_ReproBackground_HintsTick(unsigned int frame);
 int Port_ReproBackground_HintCase(void);
 int Port_ReproBackground_DungeonsTick(unsigned int frame);
 int Port_ReproBackground_DungeonCase(void);
+int Port_ReproBackground_DetailMapsTick(unsigned int frame);
+int Port_ReproBackground_DetailMapCase(void);
 int Port_ReproBackground_TravelActionsTick(unsigned int frame);
 int Port_ReproBackground_TravelActionCase(void);
 /* Read-only: selected index when a native two-choice enquiry is ready. */

@@ -924,3 +924,92 @@ image adapter/compositor or change approved goldens. Other regions, live-device
 lottery/shell flows, normal player-control readiness and resolved intermediate
 effect pixels remain open, alongside the full catalog's remaining interaction
 and error paths.
+
+## Native detail-map scrolling and return paths (2026-10-26)
+
+`--scenario detail_maps` exercises all 22 native detail-map recipes at three
+installed health decorations on the EU/English fixture: 66 cases across three
+pause-menu openings. Each opening installs its health field once. The route
+requests native detail-screen transitions, staging the same house/fusion flags
+and interior room snapshots as the retained static matrix; it does not navigate
+the world-map cursor or enter those 22 areas in the live world. All fades,
+initializers, map uploads, held-key scrolling and back/exit transitions run
+normally. The route never assigns the map scroll offset or patches its artwork.
+
+The trace observes case, area, scroll/limit, BG1/BG2 Y, held input, pause phase,
+room snapshot and conditional recipe flags. Native `detail_scroll` events are
+emitted after the map update applies offsets. The checker requires the exact
+2-pixel-per-held-tick sequence from the initial midpoint to the top, then bottom,
+then top again, including two extra held ticks at each bound. Twelve cases have
+zero scroll range and must still exercise both direction clamps. The independent
+ROM table confirms each area's limit and origin; BG1 stays at its native origin
+while BG2 follows `scroll - origin`.
+
+Five neutral checkpoints per case retain the same installed titled family,
+health decoration and top-left heading: initial, after live-health mutation,
+top, bottom and returned top. Native B returns from each detail screen to the
+world-map page; START exits after each 22-case group. The checker observes the
+actual B/START input boundary and requires return to the original game task and
+room with the audit family cleared. It does not claim normal player-control
+readiness or live-world navigation. World-map item ownership is an explicit
+in-memory prerequisite: without it, the native menu redirects B to Quest Status.
+The initial diagnostic run demonstrating that redirect is retained separately
+in `eu-en/`; it was interrupted and is not successful audit evidence.
+
+Source comparisons independently reconstruct native BG2 tiles and palettes
+from the verified ROM, using a fixed 16-point grid and excluding transparent
+samples. Each checkpoint must expose at least four opaque map samples. The
+background comparison uses x=0..7 and x=232..239 at y=159; those 16 pixels still
+distinguish all three ROM health fields. Some visited areas display a native
+area-name box over the central bottom row, so comparing the entire row would
+incorrectly include foreground UI. A separate x=24..215 / y=40..119 crop checks
+unchanged pixels after health mutation, movement between top/bottom on scrollable
+maps and exact returned-top pixels. All five crops must match for immovable
+maps. This is a native-layout audit; it does not cover HD text, alternate
+languages/regions, all world-event marker combinations or intermediate effects.
+
+The complete native run and final verification are in
+`.tmp/background-detail-map-actions-audit/eu-en-fixed/`: all 66 cases, 330 neutral
+checkpoints, 5,280 exposed decoration-pixel comparisons and 4,020 opaque scrolled
+map-pixel comparisons pass. Crops verify 66 health-retention pairs, 66 returned-
+top pairs, 54 moving maps and 12 immovable maps. `verification.json` retains the
+complete checked event sequence, decoded PNG hashes, source trace/ROM/binary
+hashes and exact source masks. Ready/top/bottom/returned-top contact matrices and
+`detail-scroll-review.png` retain visual evidence; the latter was inspected for
+scrolling, zero-range, area-name and conditional-recipe examples.
+
+The native process recorded its completion marker and exited successfully at
+frame 17786. Its capture command had loaded an earlier checker that incorrectly
+expected the pause UI subtask to remain 1 after exit; native code clears it to
+0. That command's validation failure is retained in `capture-outcome.json`.
+The final checker requires UI subtask 0 and validates the complete unchanged
+trace and every capture, including the refined exposed-field mask. No partial
+or interrupted cases are used for this final 66-case evidence.
+
+The same binary reran all 130 pause/fusion cases in `eu-en-menus/`. All 260
+ready/held checkpoint images remain byte-identical in decoded RGBA to
+`.tmp/background-fusion-audit/eu-en-scale1/menus/`; `baseline-comparison.json`
+records the comparison. Approved goldens are unchanged.
+
+Reproduce using a repro-enabled binary and verified EU ROM:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario detail_maps --language 1 \
+  --output .tmp/background-detail-maps-new
+python3 tools/tests/background_detail_map_audit.py
+```
+
+The scenario defaults to a 2400-second capture budget. Twelve new checker tests
+and 85 retained audit/exporter tests pass; catalog/exporter/profile geometry
+and C/C++ ABI regression checks pass. The ARM64 `xmake build -y tmc_pc` and EU
+QEMU/dummy-SDL startup pass, reaching
+`Port layer initialized. Entering AgbMain...`. Existing build settings are
+preserved. Native changes are read-only repro observations; runtime image
+publication, compositor/effect resolution, approved art and renderer pixel
+loops are unchanged by this slice.
+
+The broad catalog remains open for fusion interactions, save/sleep/game-over,
+file/post-credits success/error paths and the remaining regional/live-world
+gaps. The separate effect-source, presenter/cache and physical-device acceptance
+tasks remain open.
