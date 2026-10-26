@@ -1448,3 +1448,128 @@ tools; they were not recaptured for a fresh native pixel comparison. Incoming
 build options and profile availability stay unchanged. C2–C7 in the closure
 checklist remain; intermediate effect pixels and runtime artwork publication/
 loading/composition stay with their own parent tasks.
+
+
+## File commit and post-credits Save interactions (2026-10-26)
+
+The `file_writes` and `ending_actions` routes address C2 and C3 in the
+[closure checklist](background-context-closure-checklist.md). All writes use
+fresh temporary runtime directories. Original saves, artist files and goldens
+are not fixtures and are not modified.
+
+### File commits
+
+Seven independent EU/English fixtures cover the following native operations:
+
+| Case | Operation | Stored result | Returned file-list result |
+| --- | --- | --- | --- |
+| 0 | Create/name slot 1 | Checksum-valid named record | Slot 1 valid |
+| 1 | Copy slot 0 to slot 1 | Byte-identical source record | Slot 1 valid |
+| 2 | Refuse erase of slot 0 | Prior record unchanged | Slot 0 valid |
+| 3 | Accept erase of slot 0 | Valid empty/deleted record | Slot 0 empty |
+| 4 | Create with EEPROM write failure | Prior empty record unchanged | Native error wait/dismissal, slot 1 empty |
+| 5 | Copy with EEPROM write failure | Prior empty record unchanged | Native error wait/dismissal, slot 1 empty |
+| 6 | Erase with EEPROM write failure | Prior valid record unchanged | Slot 0 shown empty, without an error dialog |
+
+Fixtures seed one durable source named S with 123 rupees and two valid empty
+records through native save helpers. The native text renderer redraws the
+staged names. Entry waits for completion of the shared bootstrap; fixture setup
+must not race that bootstrap. Real row navigation opens the empty slot or the
+source's View screen. Create presses A for the first character and START twice
+for END/commit. Copy navigates RIGHT/A, then UP/UP from Cancel to destination 1
+and A. Erase navigates RIGHT/RIGHT/A, then confirms the default No or selects
+RIGHT/A for Yes. No native menu result, cursor or transition timer is assigned.
+
+Read-only events record actual name characters and terminal create/copy/erase
+save results. The checker verifies key edges, screen order, error timers 30..0,
+dismissal, list return, visible slot statuses and checksum readback. The driver
+compares entire prior records on refusal/failure and every unrelated slot;
+successful copy compares the entire destination against the source. A valid
+empty/deleted record reads as 0; -1 denotes invalid/unreadable data.
+
+Case 6 exposes existing native behavior: `HandleSave(1)` ignores the return
+values from the void `SetFileStatusDeleted` helper and reports success. The
+erase handler resets the in-memory slot even though injected EEPROM failures
+leave both stored copies unchanged. This audit explicitly requires the stored
+record to remain valid while the returned list shows empty. It does not certify
+correct erase-error reporting or change native behavior. Production failure
+propagation/refresh stays visible under existing group C5, rather than adding
+another catalog coverage group.
+
+The neutral field check independently decodes file BG3 and all eight legal
+ROM palette offsets for its 11..14 palette-bank cycle. Each checkpoint must
+match one complete palette frame at 16 exposed bottom-corner pixels; colors
+cannot be mixed independently between candidate frames. The top heading OBJ
+is foreground and is excluded. This validates source identity across root,
+keyboard, copy/erase and error screens, not exact palette-animation phase or
+intermediate alpha effects.
+
+### Post-credits Save
+
+Four EU/English fixtures cover A acceptance, DOWN/A refusal, write failure /
+B dismissal / A retry, and write failure / START dismissal / DOWN/A refusal.
+The fixture invokes native staffroll State0 to set GAMECLEAR/staffroll flags,
+then stages State2/overlay0, the same post-credits initializer reached by the
+retained full-credits route. It does not replay or accelerate credits artwork,
+commands or outgoing illustration fades. Once initialized, all prompt waits,
+choices, saves, 60-tick error waits, retry/refusal and title soft reset are native.
+
+Successful records read back checksum-valid with health 24 or 8 and the
+staffroll flag. Refusals and both failed writes preserve the entire prior
+record. The first successful save provides valid prior data for the error
+cases. After errors, native B/START input returns to the Save prompt; real A
+retries or DOWN/A refuses. All four outcomes return through the native staffroll
+exit and soft reset to title. Prompt/error/retry frames have no installed
+illustration, no pause family/heading, palette zero black and BG3 disabled.
+Eight neutral checkpoints check 49,152 black outer-strip pixels and require
+visible central native foreground.
+
+Reproduce with final tools and a repro-enabled binary:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --language 1 \
+  --scenario ending_actions --scenario file_writes \
+  --output .tmp/background-write-actions-new
+python3 tools/tests/background_write_actions_audit.py
+```
+
+
+Final evidence is under `.tmp/background-write-actions-audit/eu-en-verified/`.
+The combined capture command exits zero, as do both native processes. Ending
+completes at frame 2,179 with 156 captures; files complete at frame 2,827 with
+162 captures. Its `summary.json` and `verification.json` retain binary/trace
+hashes, all lifecycle/readback checks and the final source-pixel results.
+All 36 neutral source checkpoints pass: eight ending checkpoints / 49,152
+black pixels and 28 file checkpoints / 448 ROM-derived samples. Native ending,
+keyboard error and source-file views were inspected; generic contact sheets
+preserve animation, operation and return frames for review.
+
+Earlier diagnostic evidence remains separate:
+
+- `eu-en/` passes ending interaction coverage but fails the first native file
+  case: fixture setup raced the shared bootstrap, which overwrote its slot/
+  active-save state. Native file exit 2 and command exit 1 are retained.
+- `eu-en-final/` completes both native routes with exit zero, but its command
+  exits 1 because the initial file pixel mask included the top heading OBJ.
+  The final checker uses exposed lower corners and independently decoded legal
+  animated palette frames. The final separate verified run uses that checker
+  and the final binary, including native redraw of staged fixture names.
+- Each diagnostic directory has a `capture-outcome.json`. The copied
+  `tmc_pc-repro`, `tmc_pc-final` and `tmc_pc-verified` binaries and wrappers
+  remain distinct; failed command outcomes are not relabeled successful.
+
+Thirteen new failure-oriented tests cover both routes, key edges, missing
+native events, timer/capture failures, record/readback results, source lifetime,
+title/list restoration, coherent palette-frame matching and the known failed-
+erase cache/storage distinction. All 161 audit-checker tests and 11 exporter
+tests pass, together with catalog/profile C/C++ agreement, engine/scroll and
+CPU PPU ASan/UBSan checks (LeakSanitizer disabled for the sandbox). The final
+ARM64 `xmake build -y tmc_pc` passes; each isolated EU QEMU/dummy-SDL capture
+reaches `Port layer initialized. Entering AgbMain...`. Retained fusion, Game
+Over, inventory/quest Save and 130-case menu/fusion traces still validate;
+this is trace compatibility, not a new native framebuffer replay of those
+routes. Incoming build options, artist files and approved goldens remain intact.
+C2/C3 are complete as coverage groups; C4–C7 remain. Production erase/flush
+failure handling, broader localization/regions and resolved effects stay with
+their explicit existing groups and parent tasks.

@@ -23,7 +23,7 @@ There are **29 unchecked implementation-list items** as of this revision:
 | Acceptance/budgets | 4 |
 | **Total** | **29** |
 
-The first item contains these seven coverage groups: **one completed, six
+The first item contains these seven coverage groups: **three completed, four
 remaining** (C7 currently lacks ROM fixtures). They are a breakdown of
 one parent item, not seven additional implementation-list items or an estimate
 of seven turns. Each group closes with checked native lifecycle/source evidence
@@ -36,19 +36,23 @@ cannot expand silently after every completed route.
   The seven native partner-name layouts already have retained installation
   evidence; interaction cases need not multiply every layout by every input.
   Completed by the [18-case native interaction audit](background-context-state-audit.md#native-fusion-cancellation-mismatch-and-success-handoffs-2026-10-26).
-- [ ] **C2 — File operations that commit changes.** Name/create, copy and erase
+- [x] **C2 — File operations that commit changes.** Name/create, copy and erase
   success; refusal/cancel retention; write failure and return to file selection.
-  Existing view/options/language/cancellation captures remain valid.
-- [ ] **C3 — Post-credits Save.** Acceptance, refusal and device-write failure /
+  Existing view/options/language/cancellation captures remain valid. Completed
+  by the [native file-commit audit](background-context-state-audit.md#file-commit-and-post-credits-save-interactions-2026-10-26).
+  The observed failed-erase UI/storage discrepancy is tracked under C5.
+- [x] **C3 — Post-credits Save.** Acceptance, refusal and device-write failure /
   retry or refusal, with native title return and generated-black lifetime.
   Existing full credits/page/clear/prompt installation evidence remains valid.
+  Completed by the [four-case ending audit](background-context-state-audit.md#file-commit-and-post-credits-save-interactions-2026-10-26).
 - [ ] **C4 — Map/navigation source boundaries.** Native world-map cursor entry
   into detail maps and return; marker/conditional map paths and local fusion-hint
   variants that install distinct content. Use the existing 22-recipe/scroll,
   six-hint and travel matrices to avoid duplicating proven source identities.
 - [ ] **C5 — Remaining functional error/return paths.** Save-and-Quit and alternate
   error-dismissal branches not exercised by the initial Game Over matrix;
-  production host-save flush failure propagation to the native UI. Existing
+  production host-save flush failure propagation to the native UI, including
+  the failed-erase success-reporting/cache discrepancy observed by C2. Existing
   EEPROM failure and storage persistence tests are separate evidence.
 - [ ] **C6 — Remaining EU localization coverage.** Extend pause/fusion, dungeon,
   detail-map, travel, sleep, save, Game Over and ending/file interaction routes

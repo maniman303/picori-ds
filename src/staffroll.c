@@ -331,6 +331,9 @@ void StaffrollTask_State2(void) {
                             choice = 1;
                             break;
                         case A_BUTTON:
+#ifdef PC_PORT
+                            Port_ReproBackground_Event("ending_answer", choice);
+#endif
                             if (choice != 0) {
                                 tmp = 4;
                             } else {
@@ -345,6 +348,9 @@ void StaffrollTask_State2(void) {
                     if (gStaffrollMenu.base.field_0x3 != choice) {
                         gStaffrollMenu.base.field_0x3 = choice;
                         SetPopupState(0, choice);
+#ifdef PC_PORT
+                        Port_ReproBackground_Event("ending_choice", choice);
+#endif
                         SoundReq(SFX_TEXTBOX_CHOICE);
                     }
                 }
@@ -355,9 +361,15 @@ void StaffrollTask_State2(void) {
             gStaffrollMenu.base.field_0x0 = saveResult;
             switch (saveResult) {
                 case SAVE_OK:
+#ifdef PC_PORT
+                    Port_ReproBackground_Event("ending_success", 1);
+#endif
                     gStaffrollMenu.base.overlayType = 4;
                     break;
                 case SAVE_ERROR:
+#ifdef PC_PORT
+                    Port_ReproBackground_Event("ending_error", 0);
+#endif
                     gStaffrollMenu.base.transitionTimer = 60;
                     CreateDialogBox(9, 0);
                     gStaffrollMenu.base.overlayType = 3;
@@ -375,6 +387,9 @@ void StaffrollTask_State2(void) {
             break;
         case 4:
         default:
+#ifdef PC_PORT
+            Port_ReproBackground_Event("ending_departure", 0);
+#endif
             gScreen.lcd.displayControl &= 0xfdff;
             sub_08050384();
             SetFade(FADE_IN_OUT | FADE_BLACK_WHITE | FADE_INSTANT, 8);

@@ -11,7 +11,11 @@ from capture_background_audit import validate_trace
 from background_gameover_audit import validate_gameover_pixels
 
 
-def trace():
+def trace(extended=False):
+    count = 6 if extended else 5
+    quit_case = count - 1
+    errors = (3, 4) if extended else (3,)
+    saved = (0, 1, 4, 5) if extended else (0, 1, 3)
     rows = []
     clock = 0
     sample = dict(schema=2, family='unknown', heading_style=0, task=2, state=2,
@@ -35,7 +39,7 @@ def trace():
         sample.update(frame=clock, **changes)
         rows.append(dict(sample, capture=False))
 
-    for case in range(5):
+    for case in range(count):
         sample.update(gameover_case=case, task=2, state=2, health=0, death_flag=0,
                       gameover_cursor=0, gameover_menu=1, gameover_timer=0, gameover_keys=0)
         event('gameover_death_request', case)
@@ -46,16 +50,16 @@ def trace():
         sample.update(state=2)
         event('gameover_save_prompt')
         event('gameover_save_ready', case, True)
-        if case in (1, 2, 4):
+        if case in (1, 2) or (not extended and case == quit_case):
             sample.update(gameover_cursor=1, gameover_keys=128)
             event('gameover_save_choice', 1)
             if case == 1:
                 sample.update(gameover_cursor=0, gameover_keys=64)
                 event('gameover_save_choice', 0)
         sample['gameover_keys'] = 1
-        event('gameover_save_answer', int(case in (2, 4)))
+        event('gameover_save_answer', int(case == 2 or (not extended and case == quit_case)))
         sample['gameover_keys'] = 0
-        if case == 3:
+        if case in errors:
             event('gameover_write_fault', 1)
             event('gameover_save_error')
             sample['gameover_menu'] = 3
@@ -64,31 +68,34 @@ def trace():
             event('gameover_error_ready', case, True)
             event('gameover_error_unchanged', 1)
             event('gameover_dismiss_request', case)
-            frame(gameover_keys=1)
+            frame(gameover_keys=2 if extended and case == 3 else 8 if extended else 1)
             sample.update(gameover_menu=1, gameover_keys=0)
             event('gameover_save_prompt')
             event('gameover_retry_ready', case, True)
+            if extended and case == 3:
+                sample.update(gameover_cursor=1, gameover_keys=128)
+                event('gameover_save_choice', 1)
             sample['gameover_keys'] = 1
-            event('gameover_save_answer')
+            event('gameover_save_answer', int(extended and case == 3))
             sample['gameover_keys'] = 0
-        if case in (0, 1, 3):
+        if case in saved:
             event('gameover_save_success', 1)
         sample.update(state=3, gameover_cursor=0)
         event('gameover_continue_prompt')
-        event('gameover_readback', 24 if case in (0, 1, 3) else 0)
+        event('gameover_readback', 24 if case in saved else 0)
         event('gameover_continue_ready', case, True)
-        if case in (2, 4):
+        if case in (2, quit_case):
             sample.update(gameover_cursor=1, gameover_keys=128)
             event('gameover_continue_choice', 1)
             if case == 2:
                 sample.update(gameover_cursor=0, gameover_keys=64)
                 event('gameover_continue_choice', 0)
         sample['gameover_keys'] = 1
-        event('gameover_continue_answer', int(case == 4))
-        event('gameover_quit' if case == 4 else 'gameover_continue', int(case == 4))
-        sample.update(task=0 if case == 4 else 2, state=2, gameover_keys=0, death_flag=0)
-        event('gameover_title_returned' if case == 4 else 'gameover_game_returned', case, True)
-    event('gameover_complete', 5)
+        event('gameover_continue_answer', int(case == quit_case))
+        event('gameover_quit' if case == quit_case else 'gameover_continue', int(case == quit_case))
+        sample.update(task=0 if case == quit_case else 2, state=2, gameover_keys=0, death_flag=0)
+        event('gameover_title_returned' if case == quit_case else 'gameover_game_returned', case, True)
+    event('gameover_complete', count)
     for row in rows:
         for key in ("task", "state", "substate", "fade_active"):
             row["gameover_" + key] = row[key]
@@ -197,6 +204,29 @@ class GameOverAuditTests(unittest.TestCase):
                 validate_gameover_pixels(directory, events)
             with self.assertRaisesRegex(ValueError, 'incomplete'):
                 validate_gameover_pixels(directory, [])
+
+
+class GameOverReturnTests(unittest.TestCase):
+    def test_extended_complete(self):
+        events, frames = validate_trace(trace(True), 'gameover_returns')
+        self.assertEqual(sum(r['event'] == 'gameover_save_success' for r in events), 4)
+        self.assertEqual(sum(r['event'] == 'gameover_save_error' for r in events), 2)
+        self.assertEqual(len(frames), 22)
+
+    def test_retry_refusal_and_quit_required(self):
+        rows = trace(True)
+        next(r for r in rows if r.get('event') == 'gameover_save_answer' and r['gameover_case'] == 3 and r['value'] == 1)['value'] = 0
+        with self.assertRaises(ValueError): validate_trace(rows, 'gameover_returns')
+        rows = trace(True)
+        rows.remove(next(r for r in rows if r.get('event') == 'gameover_save_success' and r['gameover_case'] == 5))
+        with self.assertRaises(ValueError): validate_trace(rows, 'gameover_returns')
+
+    def test_b_and_start_error_dismissal(self):
+        for case in (3, 4):
+            rows = trace(True)
+            tick = next(r['frame'] for r in rows if r.get('event') == 'gameover_dismiss_request' and r['gameover_case'] == case) + 1
+            next(r for r in rows if 'event' not in r and r['frame'] == tick)['gameover_keys'] = 1
+            with self.assertRaises(ValueError): validate_trace(rows, 'gameover_returns')
 
 
 if __name__ == '__main__':

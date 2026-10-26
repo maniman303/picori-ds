@@ -114,6 +114,15 @@ additional automatically reopened tasks.
   real input, installed-family retention, native flash cadence, piece consumption,
   fused bit/count and original-room restoration. Close group C1 in the explicit
   context-audit checklist; remaining groups and effect resolution stay separate.
+- [x] Audit committing file operations on EU/English: create/name and copy
+  success, erase acceptance/refusal, and EEPROM failures in all three operations.
+  Verify checksum/whole-record readback, untouched unrelated slots, native error
+  waits, input, file-list restoration and ROM-derived background samples. Record
+  failed-erase UI/storage disagreement under C5; close coverage group C2.
+- [x] Audit post-credits Save on EU/English: acceptance, refusal, failure/retry
+  and failure/refusal from the native post-credits initializer. Verify prior
+  record retention, checksum readback, error waits, B/START dismissal, generated
+  black and native title return. Retain full credits evidence; close group C3.
 - [x] Audit native fast-travel selection/cancel on EU/English: all eight
   destinations and a single-unlock mask at three health preload states.
   Verify group 93 replaces the health decoration with a fixed BG3 field;
@@ -1080,3 +1089,31 @@ parent task has seven named coverage groups, with C1 complete and six remaining.
 The implementation list has 29 unchecked parent items; these new checked audit
 slices subdivide one parent and do not reduce that total. Additional ROMs and
 physical-device acceptance are explicitly distinguished from available EU work.
+
+
+## File commits and post-credits Save coverage (2026-10-26)
+
+Completed closure groups C2 and C3 with seven file-operation cases and four
+post-credits Save cases on EU/English. The final combined capture command and
+both native processes exit zero: ending completes at frame 2,179 (156 captures),
+files at frame 2,827 (162 captures). All 36 source checkpoints pass: 49,152
+black-field pixels for the ending and 448 ROM-derived file-field samples with
+coherent legal animated palette frames. Native input, error waits, record
+preservation, successful checksums and screen/title restoration pass.
+
+The failed-erase fixture exposes native behavior rather than a new error
+screen: deletion write results are discarded, the UI slot becomes empty and
+the prior valid stored record survives. This is explicitly verified and remains
+under existing C5 failure-propagation work. Earlier bootstrap/checker failures
+are preserved separately from the successful final command. Exact fixtures,
+limitations and reproduction are in the
+[write interaction audit](background-context-state-audit.md#file-commit-and-post-credits-save-interactions-2026-10-26).
+
+Thirteen new checker tests bring the audit suite to 161 passing tests; 11
+exporter tests, catalog/profile agreement, engine/scroll and CPU PPU checks,
+ARM64 incremental build and isolated EU QEMU/dummy-SDL startup pass. Retained
+fusion, Game Over, inventory/quest Save and menu traces remain compatible.
+Build options, artwork and goldens remain unchanged. The
+[closure checklist](background-context-closure-checklist.md) has three completed
+and four remaining catalog groups; the implementation list still has 29
+unchecked parent items because the broad context/state parent remains open.

@@ -1,5 +1,5 @@
 /* Native fixed-screen audit. Only compiled with repro_harness=y.
- * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions|figurine_actions|detail_maps|sleep|save|inventory_save|gameover|fusion_actions;
+ * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions|figurine_actions|detail_maps|sleep|save|inventory_save|gameover|fusion_actions|ending_actions|file_writes|map_navigation|file_errors|gameover_returns;
  * TMC_BACKGROUND_AUDIT_OUT=<directory>.
  * The driver stages a synthetic save in memory, then runs native task/subtask
  * code at normal simulation speed. No timer, graphics or fade is skipped.
@@ -60,6 +60,24 @@ static void WriteDescriptor(void) {
     fprintf(sTrace, ",\"schema\":2,\"family\":\"%s\",\"heading_style\":%d,\"heading_x\":%d,"
                     "\"heading_y\":%d,\"heading_transition\":%d", sFamily, sHeading,
                     sHeadingX, sHeadingY, sHeadingTransition);
+    fprintf(sTrace, ",\"nav_case\":%d,\"nav_target\":%d,\"nav_hints\":%d,\"nav_cursor\":%u,\"nav_markers\":%u,"
+                    "\"nav_keys\":%u,\"nav_task\":%u,\"nav_substate\":%u,\"nav_ui\":%u,\"nav_next\":%u,\"nav_fade\":%u,"
+                    "\"nav_id\":%u,\"nav_icon\":%u,\"nav_timer\":%u,\"writes_delete_checked\":1",
+            Port_ReproBackground_MapNavigationCase(), Port_ReproBackground_MapNavigationTarget(), Port_ReproBackground_MapNavigationHints(),
+            gMenu.field_0x3, gGenericMenu.unk2d, gInput.newKeys, gMain.task, gMain.substate, gUI.lastState, gUI.nextToLoad,
+            gFadeControl.active, gFuseInfo.kinstoneId, gFuseInfo.kinstoneId <= 117 ? gKinstoneWorldEvents_eu[gFuseInfo.kinstoneId].mapMarkerIcon : 0,
+            gMenu.transitionTimer);
+    fprintf(sTrace, ",\"ending_case\":%d,\"file_write_case\":%d,\"writes_task\":%u,\"writes_state\":%u,"
+                    "\"writes_ui\":%u,\"writes_menu\":%u,\"writes_overlay\":%u,\"writes_timer\":%u,"
+                    "\"writes_keys\":%u,\"writes_fade\":%u,\"writes_column\":%u,\"writes_row\":%u,\"writes_dest\":%u,"
+                    "\"writes_slot0\":%d,\"writes_slot1\":%d,\"writes_slot2\":%d,\"writes_name\":%u,\"writes_name_len\":%u,"
+                    "\"writes_clear\":%u,\"writes_staffroll\":%u,\"writes_root_state\":%u",
+            Port_ReproBackground_EndingCase(), Port_ReproBackground_FileWriteCase(), gMain.task, gMain.state,
+            gUI.lastState, gMenu.menuType, gMenu.overlayType, gMenu.transitionTimer, gInput.newKeys, gFadeControl.active,
+            gMenu.column_idx, gFileSelectState.unk6, gFileSelectState.unk7,
+            gFileSelectState.saveStatus[0], gFileSelectState.saveStatus[1], gFileSelectState.saveStatus[2],
+            gSave.name[0], gGenericMenu.unk10.a[3], (unsigned)CheckGlobalFlag(GAMECLEAR), gSave.saw_staffroll,
+            gChooseFileState.state);
     fprintf(sTrace, ",\"fusion_action_case\":%d,\"fusion_task\":%u,\"fusion_substate\":%u,\"fusion_ui\":%u,\"fusion_next\":%u,"
                     "\"fusion_menu\":%u,\"fusion_overlay\":%u,\"fusion_column\":%u,\"fusion_cursor\":%u,\"fusion_selected\":%u,"
                     "\"fusion_timer\":%u,\"fusion_keys\":%u,\"fusion_fade\":%u,\"fusion_brightness\":%u,"
@@ -199,7 +217,7 @@ void Port_ReproBackground_Event(const char* event, unsigned int value) {
     fputs("}\n", sTrace);
     sEvent++;
     sLastEventFrame = sFrame;
-    if (strcmp(event, "credits_save") == 0 || strcmp(event, "prologue_clear") == 0 ||
+    if ((strcmp(event, "credits_save") == 0 && Port_ReproBackground_EndingCase() < 0) || strcmp(event, "prologue_clear") == 0 ||
         strcmp(event, "prologue_world") == 0)
         sFinished = 1;
 }
@@ -214,7 +232,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
             return;
         mode = strcmp(value, "credits") == 0 ? 1 : strcmp(value, "prologue") == 0 ? 2 :
                strcmp(value, "files") == 0 ? 3 : strcmp(value, "intro") == 0 ? 4 :
-               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : strcmp(value, "figurine_actions") == 0 ? 12 : strcmp(value, "detail_maps") == 0 ? 13 : strcmp(value, "sleep") == 0 ? 14 : strcmp(value, "save") == 0 ? 15 : strcmp(value, "inventory_save") == 0 ? 16 : strcmp(value, "gameover") == 0 ? 17 : strcmp(value, "fusion_actions") == 0 ? 18 : 0;
+               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : strcmp(value, "figurine_actions") == 0 ? 12 : strcmp(value, "detail_maps") == 0 ? 13 : strcmp(value, "sleep") == 0 ? 14 : strcmp(value, "save") == 0 ? 15 : strcmp(value, "inventory_save") == 0 ? 16 : strcmp(value, "gameover") == 0 ? 17 : strcmp(value, "fusion_actions") == 0 ? 18 : strcmp(value, "ending_actions") == 0 ? 19 : strcmp(value, "file_writes") == 0 ? 20 : strcmp(value, "map_navigation") == 0 ? 21 : strcmp(value, "file_errors") == 0 ? 22 : strcmp(value, "gameover_returns") == 0 ? 23 : 0;
         sDirectory = getenv("TMC_BACKGROUND_AUDIT_OUT");
         char path[4096];
         if (!mode || !sDirectory || snprintf(path, sizeof(path), "%s/trace.jsonl", sDirectory) >= (int)sizeof(path)) {
@@ -241,8 +259,10 @@ void Port_ReproBackground_Tick(unsigned int frame) {
         sFigurineInstalled = 0;
     if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK || gUI.lastState != SUBTASK_MAPHINT)
         sHintInstalled = 0;
+    const int navigationResult = mode == 21 ? Port_ReproBackground_MapNavigationTick(frame) : 0;
+    const int writesResult = mode == 19 ? Port_ReproBackground_EndingTick(frame) : ((mode == 20 || mode == 22) && stage) ? Port_ReproBackground_FileWritesTick(frame) : 0;
     const int fusionActionResult = mode == 18 ? Port_ReproBackground_FusionActionsTick(frame) : 0;
-    const int gameOverResult = mode == 17 ? Port_ReproBackground_GameOverTick(frame) : 0;
+    const int gameOverResult = (mode == 17 || mode == 23) ? Port_ReproBackground_GameOverTick(frame) : 0;
     const int saveResult = (mode == 15 || mode == 16) ? Port_ReproBackground_SaveTick(frame) : 0;
     const int sleepResult = mode == 14 ? Port_ReproBackground_SleepTick(frame) : 0;
     const int detailMapResult = mode == 13 ? Port_ReproBackground_DetailMapsTick(frame) : 0;
@@ -253,7 +273,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     const int figurineResult = mode == 8 ? Port_ReproBackground_FigurinesTick(frame) : 0;
     const int menuResult = mode == 6 ? Port_ReproBackground_MenusTick(frame, sDecoration, sPauseScreen, sMapGroup) : 0;
     const int travelResult = mode == 7 ? Port_ReproBackground_TravelTick(frame, sDecoration) : 0;
-    if ((fusionActionResult | gameOverResult | menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult | saveResult) & 2)
+    if ((navigationResult | writesResult | fusionActionResult | gameOverResult | menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult | saveResult) & 2)
         sFinished = 1;
     if (frame > ((mode == 11 || mode == 12 || mode == 13) ? 60000u : 30000u)) {
         fprintf(stderr, "[background-audit] timed out\n");
@@ -266,7 +286,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     const int prizeBlink = mode == 12 && gMain.substate == GAMEMAIN_SUBTASK &&
         gUI.lastState == SUBTASK_FIGURINEMENU && gMenu.menuType == 2 &&
         gFigurineMenu.unk20 > 0 && gFigurineMenu.unk20 < 128 && frame % 4 == 0;
-    const int capture = prizeBlink || sHeadingGeneration != lastHeadingGeneration || ((fusionActionResult | gameOverResult | menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult | saveResult) & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
+    const int capture = prizeBlink || sHeadingGeneration != lastHeadingGeneration || ((navigationResult | writesResult | fusionActionResult | gameOverResult | menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult | saveResult) & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
         (sEvent != lastCapturedEvent && frame >= sLastEventFrame + 2);
     fprintf(sTrace, "{\"frame\":%u,\"task\":%u,\"state\":%u,\"substate\":%u,"
             "\"ui\":%u,\"menu\":%u,\"overlay\":%u,\"installed\":%d,"
@@ -321,7 +341,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
         gFileSelectState.saveStatus[0] = 1;
         SetActiveSave(0);
         SetGlobalFlag(START);
-        if (mode == 3) {
+        if (mode == 3 || mode == 20 || mode == 22) {
             gFileSelectState.unk6 = 0;
             fileStart = frame;
         } else {

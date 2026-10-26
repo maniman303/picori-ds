@@ -106,8 +106,22 @@ SaveResult HandleSaveInProgress(u32 action) {
                 temp = WriteSaveFile(gSaveHeader->saveFileId, &gSave);
                 break;
             case 1:
+#ifdef PC_PORT
+                {
+                    extern int Port_Save_BeginDeleteTransaction(void);
+                    extern int Port_Save_EndDeleteTransaction(int);
+                    const SaveFileEEPROMAddresses* addresses = GetSaveFileEEPROMAddresses(gSaveHeader->saveFileId);
+                    temp = 0;
+                    if (Port_Save_BeginDeleteTransaction()) {
+                        u32 first = WriteSaveFileStatus(addresses->checksum2, &sSaveDescDeleted);
+                        u32 second = WriteSaveFileStatus(addresses->checksum1, &sSaveDescDeleted);
+                        temp = Port_Save_EndDeleteTransaction(first && second);
+                    }
+                }
+#else
                 SetFileStatusDeleted(gSaveHeader->saveFileId);
                 temp = 1;
+#endif
                 break;
             case 2:
                 temp = WriteSaveHeader(gSaveHeader);

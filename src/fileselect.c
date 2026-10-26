@@ -2081,7 +2081,11 @@ void sub_080513A8(void) {
 }
 
 void sub_080513C0(void) {
-    switch (HandleSave(0)) {
+    SaveResult result = HandleSave(0);
+#ifdef PC_PORT
+    if (result != SAVE_BUSY) Port_ReproBackground_Event("file_new_result", result);
+#endif
+    switch (result) {
         case 1:
             gFileSelectState.saveStatus[gFileSelectState.unk6] = 1;
 #ifdef PC_PORT
@@ -2149,6 +2153,9 @@ void sub_08051480(u32 c) {
 
     gGenericMenu.unk10.a[3] = idx + 1;
     gSave.name[idx] = c;
+#ifdef PC_PORT
+    Port_ReproBackground_Event("file_name_char", c);
+#endif
     sub_08051574(SFX_6B);
 }
 
@@ -2226,6 +2233,7 @@ void sub_08051574(u32 sfx) {
     sub_0805070C();
 }
 
+void sub_080518E4(void);
 void sub_080515C8(void);
 void sub_080515D4(void);
 void sub_080516E0(void);
@@ -2233,6 +2241,9 @@ void (*const gUnk_080FC9BC[])(void) = {
     sub_080515C8,
     sub_080515D4,
     sub_080516E0,
+#ifdef PC_PORT
+    sub_080518E4, /* same 30-tick error dismissal as file copy */
+#endif
 };
 
 void HandleFileDelete(void) {
@@ -2282,7 +2293,19 @@ void sub_080515D4(void) {
 }
 
 void sub_080516E0(void) {
-    if (HandleSave(1)) {
+    SaveResult result = HandleSave(1);
+#ifdef PC_PORT
+    if (result != SAVE_BUSY) Port_ReproBackground_Event("file_erase_result", result);
+#endif
+#ifdef PC_PORT
+    if (result == SAVE_ERROR) {
+        CreateDialogBox(9, 0);
+        gMenu.transitionTimer = 30;
+        SetMenuType(3);
+        return;
+    }
+#endif
+    if (result) {
         ResetSaveFile(gFileSelectState.unk6);
         sub_08050AFC(gFileSelectState.unk6);
         gMenu.transitionTimer = 2;
@@ -2395,6 +2418,9 @@ void sub_08051874(void) {
     s32 temp;
     gSaveHeader->saveFileId = gFileSelectState.unk7;
     temp = HandleSave(0);
+#ifdef PC_PORT
+    if (temp != SAVE_BUSY) Port_ReproBackground_Event("file_copy_result", temp);
+#endif
     gFileSelectState.saveStatus[gFileSelectState.unk7] = temp;
     switch (temp) {
         case 1:

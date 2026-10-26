@@ -1609,6 +1609,9 @@ void sub_080A62E0(void) {
             if (IS_BIT_SET(gSave.windcrests, gMenu.field_0x3)) {
                 SoundReq(SFX_TEXTBOX_SELECT);
                 sub_080A4E84(6);
+#ifdef PC_PORT
+                Port_ReproBackground_Event("world_detail_enter", gMenu.field_0x3);
+#endif
                 windcrest = -1;
             }
             break;
@@ -1628,6 +1631,9 @@ void sub_080A62E0(void) {
 
     if (-1 < windcrest) {
         gMenu.field_0x3 = windcrest;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("world_cursor", windcrest);
+#endif
         SoundReq(SFX_TEXTBOX_CHOICE);
     }
     ShowAreaName(gMenu.field_0x3, 0);

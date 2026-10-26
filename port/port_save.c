@@ -575,6 +575,36 @@ int Port_Save_EndTransaction(void) {
     return !sEepromWriteBlocked && !sEepromDirty;
 }
 
+/* Reversible transaction for deletion: never leave a failed erase pending in
+ * RAM to be silently flushed later. Normal save transactions keep their
+ * established dirty-retry semantics. Only one deletion may be active. */
+static u8 sDeleteBefore[EEPROM_SIZE];
+static int sDeleteActive, sDeleteDirtyBefore;
+int Port_Save_BeginDeleteTransaction(void) {
+    if (!sEepromInited) { LoadEepromFile(); sEepromInited = 1; }
+    if (sSaveTxnDepth || sDeleteActive || sEepromWriteBlocked) return 0;
+    /* First make any older pending save durable; do not discard it on abort. */
+    FlushEepromFile();
+    if (sEepromDirty) return 0;
+    memcpy(sDeleteBefore, sEeprom, sizeof(sDeleteBefore));
+    sDeleteDirtyBefore = sEepromDirty;
+    sDeleteActive = 1;
+    Port_Save_BeginTransaction();
+    return 1;
+}
+int Port_Save_EndDeleteTransaction(int writesSucceeded) {
+    if (!sDeleteActive) return 0;
+    if (sSaveTxnDepth > 0) --sSaveTxnDepth;
+    if (writesSucceeded) FlushEepromFile();
+    const int success = writesSucceeded && !sEepromDirty && !sEepromWriteBlocked;
+    if (!success) {
+        memcpy(sEeprom, sDeleteBefore, sizeof(sDeleteBefore));
+        sEepromDirty = sDeleteDirtyBefore;
+    }
+    sDeleteActive = 0;
+    return success;
+}
+
 /* ---- EEPROM BIOS API ---------------------------------------------------- */
 
 u16 EEPROMConfigure(u16 type) {
@@ -602,7 +632,7 @@ u16 EEPROMRead(u16 block, u16* dest) {
 u16 EEPROMWrite0_8k_Check(u16 block, const u16* src) {
 #ifdef TMC_REPRO_HARNESS
     /* Audit-only device write failure; exercise the native retry/error UI. */
-    if (Port_ReproBackground_SaveWriteFails() || Port_ReproBackground_GameOverWriteFails())
+    if (Port_ReproBackground_SaveWriteFails() || Port_ReproBackground_GameOverWriteFails() || Port_ReproBackground_WritesFail())
         return 0x8000;
 #endif
     if (!sEepromInited) {
