@@ -34,7 +34,8 @@ For an ARM64 binary on a desktop, `--binary` can name an executable wrapper
 that runs `qemu-aarch64 -L /usr/aarch64-linux-gnu /absolute/path/to/tmc_pc "$@"`.
 The reported executable hash then identifies the wrapper; retain the actual
 binary separately when comparing runs. `--scenario credits`, `prologue`,
-`intro`, `files`, `local_hint` or `menus` restricts the run; repeat the flag to select
+`intro`, `files`, `local_hint`, `menus`, `travel`, `figurines`, `hints` or
+`dungeons` restricts the run; repeat the flag to select
 several. `--menu-baseline /path/to/old/menus` compares all 212 ready/held
 checkpoints from the original 106-case matrix without modifying that baseline.
 `--language` uses the public language preference (1 is English), not
@@ -83,6 +84,9 @@ corners to match native `0x475f` with neutral colors.
 | Cleared credits | Type 6 waits for the fade, then explicitly clears BG1 and BG2. | Generated black after the clear; retain the outgoing image until then. |
 | Post-credits save | State 2 resets the display, installs prompt graphics and explicitly sets palette zero black. | Generated black; save/decline/error interaction still needs capture coverage. |
 | Fast-travel selection/cancel | Native screen 13/group 93 overwrites the health-specific BG3 map; the 2026-10-26 route verifies all destinations and sparse unlocks across health preloads. | Fixed blue field; select the independent `fast_travel_background.png`, without health variants or plain-menu aliases. Runtime publication/composition remains pending. |
+| Dungeon maps | The new native room/floor route enters all six map-bearing dungeons and installs screen 5 through the pause transition. | Titled menu family; retain the installed health decoration across floor changes and item overlays. |
+| Standalone map hints | Native hint initialization installs screen 4, disables BG3 and copies palette 81 into zero; the new route covers all six timer-driven reveals and A/B/START exits. | Procedural live palette-zero field, separate from the local fusion hint and all menu images. |
+| Figurine collection | Native screen 3 copies palette entry 251 into zero, retaining its field across owned/missing entries and native navigation. | Procedural live palette-zero field; collection/reveal foreground remains native. |
 | Local fusion map reveal | `sub_080A6B04` initially calls `sub_080A4D34`, then fills BG3 with `0x5001`. Its character 1 is uniformly index 15 in the local EU graphics. Palette bank 5 entry 15 (95) and palette zero are set to `0x475f`. | A separate procedural context using live palette zero. The earlier health decoration is no longer the field. Never load `menu_background_*.png` for this state. |
 
 The local fusion-hint border is RGB (248,208,136), `#F8D088`, in the neutral
@@ -536,3 +540,143 @@ remaining functional/error paths and other available languages still need
 coverage. USA/JP ROM fixtures and physical RG budgets remain unavailable.
 Runtime state publication, compositor effect targets and margin pixels remain
 separate implementation/acceptance tasks.
+
+## Standalone hint reveal and exit audit (2026-10-26)
+
+`--scenario hints` runs 36 cases: six native `gUnk_08128F4C` variants, first
+and repeated reveals, at normal/damaged/critical health preloads. The fixture
+stages all visited-area bits and either clears saved hints or preinstalls all
+hint bits. Native `SUBTASK_MAPHINT` initialization and the 60-tick reveal timer
+are unchanged. Each case records a neutral checkpoint before the reveal, after
+it and after changing live health. Real A/B/START edges exit the hint, followed
+by native gameplay restoration. These are synthetic access/save fixtures, not
+quest-prerequisite verification.
+
+Native `hint_screen`, `hint_reveal` and `hint_cancel` events distinguish field
+installation, the timer-30 reveal and input-driven exit. Additive schema-v2
+fields record installed field lifetime, case/variant, remaining timer, visible
+and pending masks, saved hints and live palette entry 81. The checker requires
+all 108 ordered neutral checkpoints, all 36 native reveal/exit/restore paths,
+exact exit keys, first/repeat save fixtures and no unexpected decoration load.
+The pre-reveal visible mask is zero; after the timer-30 event it is the installed
+pending mask. Requesting or leaving the subtask alone never publishes/clears a
+field ahead of its native installation/gameplay restoration.
+
+Screen 4/group 94 replaces the health preload, and initialization disables
+BG3 and copies palette entry 81 to zero. This confirms the existing standalone
+hint procedural context, with no menu-health image or runtime PNG. Independent
+ROM decoding verifies the six masks (1,30,32,64,128,256), source palette and clear
+BG2 border at the two sampled bottom corners. The EU fixture source is `0x4b99`,
+RGB (200,224,144); runtime composition must consume the live value. Each native
+checkpoint's corners match that source, including after live health changes.
+This validates source identity and neutral pixels, not resolved fade targets.
+
+The initial EU/English run passes 36 cases, 108 checkpoints and 216 pixel
+comparisons, with 603 captures. Artifacts are
+`.tmp/background-hint-context-audit/eu-en/`; `summary.json` records coverage and
+capture hashes and adjacent `binary.sha256` identifies the copied ARM64 binary.
+The neutral matrix was inspected. Additional language coverage is recorded with
+the dungeon/functional extension below. Original captures, committed goldens,
+artist images and exporter names are retained.
+
+## Native dungeon room and floor audit (2026-10-26)
+
+`--scenario dungeons` enters real room 0 of Deepwood Shrine, Cave of Flames,
+Fortress of Winds, Temple of Droplets, Palace of Winds and Dark Hyrule Castle
+using `DoExitTransition`. Native room loading establishes `gArea.dungeon_idx`;
+the driver does not assign a dungeon ID, floor metadata or layout table to an
+overworld room. Each entry waits for gameplay and verifies the actual room and
+dungeon before opening inventory and requesting the native screen-5 transition.
+Spawn coordinates use the room's center. Access and item availability are staged
+in memory, independently of the normal quest prerequisites.
+
+Each dungeon has six openings: three health preloads, with map/compass/big-key
+bits either all absent or all present (0/7). Real UP/DOWN edges first reach
+floor zero, then visit every native floor. The six dungeons have 3/4/3/3/5/5
+floors: 138 cases and 276 neutral ready/held checkpoints. Live health changes
+after each ready checkpoint. START follows the native pause exit and restores
+gameplay before the next opening; no direct `Subtask_Exit` shortcut is used.
+Mixed item-bit combinations, alternate visited-room/quest flags and normal
+entrance prerequisites are not covered by this matrix.
+
+Native `dungeon_screen` and `dungeon_floor` events distinguish layout
+installation from floor redraws. Additive schema-v2 fields record case, native
+dungeon index, saved room area, selected floor and installed item bits. The
+checker requires six native room entries, 36 ordered openings/restorations,
+the exact floor-input sequence at each opening, titled-family/heading identity
+at all neutral checkpoints, and no extra health-decoration installation.
+The family appears at the native screen installation and clears on gameplay
+restoration. Foreground map, labels, item icons and rotating palette entries
+remain outside the artwork identity.
+
+The bottom row (x=0..239, y=159) exposes the installed health BG3 field. It is
+compared with independently ROM-decoded native health references at all 276
+checkpoints (66,240 pixel comparisons), including after live health changes.
+This validates installed native decoration, not custom PNG identity, margin
+composition, fade targets or expanded rendering. No dungeon artwork filename
+is added: the existing titled-menu family supplies its three health identities.
+
+The completed EU/English dungeon run validates all 138 cases, 276 checkpoints,
+36 native exits/restorations and 66,240 independent ROM pixel comparisons.
+It records 1,492 captures; the four neutral matrix sheets were inspected.
+Authoritative local artifacts are
+`.tmp/background-dungeon-context-audit/eu-en-v2/`; the adjacent
+`binary-v2.sha256` identifies the copied capture binary. `summary.json` records
+capture hashes and coverage. This complete native run was revalidated after
+correcting the checker's initial confusion between `numFloors` and
+`highestFloor`, and its assumption that a pending request already had a saved
+room snapshot. Native ready/held checkpoints require the actual saved room;
+a request precedes `Subtask_FadeIn`'s snapshot and its `dungeon_area` observation
+can still be zero. The earlier `eu-en/` run was interrupted after exposing the
+driver's retained-tab setup error and is not complete evidence.
+
+## EU hint and figurine language extension (2026-10-26)
+
+The same final ARM64 binary ran `--scenario hints --scenario figurines` with
+public language preferences 2/3/4/5 (French/German/Spanish/Italian). Each language
+passes 36 hint cases / 108 checkpoints and 27 collection cases / 54 checkpoints,
+including the independent ROM palette checks and native exits/restorations.
+There are 603 hint captures and 388 figurine captures per language. Local
+artifacts are `.tmp/background-dungeon-context-audit/eu-language-{2,3,4,5}/`,
+with per-run summaries, hashes and neutral matrices. Representative localized
+collection names/descriptions were inspected alongside the neutral English
+hint and dungeon matrices. English retains its original verified hint and
+figurine runs; none of those native references was overwritten.
+
+Together with retained English evidence, these two routes cover all five EU
+languages: 180 hint cases / 540 checkpoints / 1,080 pixel comparisons and
+135 figurine cases / 270 checkpoints / 540 pixel comparisons. These narrow
+source masks do not claim full localized text/description-layout correctness.
+Dungeon floor coverage in this extension remains English-only; other screen
+families also retain their previous language limits.
+
+Reproduce the new routes using a repro-enabled binary (or QEMU wrapper):
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario hints --scenario dungeons \
+  --output .tmp/background-functional-new
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --language 2 --scenario hints --scenario figurines \
+  --output .tmp/background-functional-fr-new
+python3 tools/tests/background_functional_audit.py
+```
+
+Verification: 13 new failure-oriented functional-checker tests, retained 26
+capture-checker and seven figurine-checker tests, 11 exporter tests, C11/C++/UBSan
+catalog agreement, engine/scroll/CPU PPU regressions, ARM64 build and EU startup
+under QEMU/dummy SDL pass. The existing 130-case menu/fusion, 27-case travel,
+English figurine and standalone-hint traces still validate. The final binary
+also preserves all five existing profile gates; no renderer pixel loop,
+artwork file, committed golden or runtime packaging changes. Incoming xmake
+options, including `repro_harness=y`, are preserved. No device deployment or
+physical performance measurement was performed.
+
+The full context/state task remains open for fusion interactions, travel
+confirmation/decline/actual travel, figurine prize reveal/duplicate effects and
+description scrolling, detail-map scrolling, save/sleep/game-over choices,
+file copy/erase success/error and post-credits save/decline/error. Alternate
+quest/room/item combinations and broader language/regional captures also
+remain. USA/JP ROM fixtures were unavailable. Compositor effect resolution,
+runtime source publication, PNG loading and margin rendering are separate
+implementation gates; this audit does not enable them.

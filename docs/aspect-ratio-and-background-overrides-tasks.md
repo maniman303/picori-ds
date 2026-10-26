@@ -52,7 +52,16 @@ results; those results do not certify the revised catalog or title-frame fix.
   credits at three health preloads: owned/missing entries, native navigation,
   B/START cancellation and gameplay restoration. Verify the live palette-zero
   field survives health changes without selecting a menu-family image. Prize
-  reveal, description scrolling and other languages/regions remain open.
+  reveal, description scrolling and other regions remain open.
+- [x] Audit all six native map-bearing dungeons on EU/English, entering real
+  rooms before screen installation. Cover every floor at three health preloads
+  with map/compass/big-key bits absent/present: 138 cases, native navigation and
+  START restoration. Retain original pause/fusion case IDs and captures.
+- [x] Audit all six standalone map hints, first/repeated reveals, at three health
+  preloads in all five EU languages. Verify native timer-30 reveal, A/B/START
+  exits and the live palette-zero field before/after health mutation.
+- [x] Extend the 27-case figurine collection route to French/German/Spanish/
+  Italian, retaining English evidence and the same source/lifetime checks.
 - [x] Extend the native fusion audit to all seven layouts at each installed
   health on the available EU/English fixture; retain all 109 previous case IDs
   and native checkpoint pixels. Interaction/effect and regional/language gaps
@@ -801,3 +810,31 @@ Dungeon menus, standalone hints, figurine prize effects/description scrolling,
 travel confirmation/effects, other interaction/error paths and regional/language
 coverage keep the full task open. Runtime adapter/loading/composition and device
 measurements remain their explicit later tasks.
+
+
+## Native dungeon, standalone hint and EU language coverage (2026-10-26)
+
+The full context/state task gains two completed routes. The
+[dungeon room/floor audit](background-context-state-audit.md#native-dungeon-room-and-floor-audit-2026-10-26)
+enters real rooms in all six map-bearing dungeons and exercises every native
+floor with three health preloads and map/compass/big-key bits absent/present.
+All 138 cases / 276 neutral checkpoints, 36 native START exits/restorations and
+66,240 independently decoded BG3 pixel comparisons pass on EU/English.
+
+The [standalone-hint audit](background-context-state-audit.md#standalone-hint-reveal-and-exit-audit-2026-10-26)
+adds six first/repeated native hints at three health preloads, checking the
+native timer-30 reveal, A/B/START exits, installed source retention and health
+mutation. The hint and prior figurine routes now pass in all five EU languages:
+180 hint cases / 540 checkpoints and 135 collection cases / 270 checkpoints.
+Source checks compare 1,080 hint and 540 figurine pixels with live palette zero
+and independently decoded ROM palettes. Existing English evidence is retained.
+
+The 13 new functional-checker tests, retained 33 capture/figurine-checker tests,
+11 exporter tests, C/C++ catalog agreement, engine/scroll/CPU PPU regressions,
+ARM64 build and EU startup under QEMU pass. Original pause/fusion/travel traces
+still validate. Local artifacts and exact verification/coverage limits are in
+the audit. Build options, profiles, artist files and committed goldens remain
+unchanged; no runtime PNG, compositor, packaging or device work is claimed.
+
+The full task stays open for the interaction/error paths enumerated in the
+audit, other dungeon languages and broader regional/quest-state evidence.

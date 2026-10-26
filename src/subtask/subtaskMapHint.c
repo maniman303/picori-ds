@@ -12,6 +12,9 @@
 #include "save.h"
 #include "affine.h"
 #include "fade.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#endif
 
 void sub_080A6438();
 
@@ -47,6 +50,9 @@ void Subtask_MapHint_0(void) {
     gMenu.transitionTimer = 60;
     SetMenuType(1);
     SetFade(FADE_INSTANT, 8);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("hint_screen", gUI.field_0x3);
+#endif
 }
 
 void Subtask_MapHint_1(void) {
@@ -56,6 +62,9 @@ void Subtask_MapHint_1(void) {
             case 0x1e:
                 gGenericMenu.unk10.h[0] = gGenericMenu.unk10.h[1];
                 gGenericMenu.unk2c = 0x20;
+#ifdef PC_PORT
+                Port_ReproBackground_Event("hint_reveal", gGenericMenu.unk10.h[0]);
+#endif
                 SoundReq(SFX_103);
             default:
                 gMenu.transitionTimer--;
@@ -65,6 +74,9 @@ void Subtask_MapHint_1(void) {
                     case A_BUTTON:
                     case B_BUTTON:
                     case START_BUTTON:
+#ifdef PC_PORT
+                        Port_ReproBackground_Event("hint_cancel", gInput.newKeys);
+#endif
                         Subtask_Exit();
                         break;
                 }

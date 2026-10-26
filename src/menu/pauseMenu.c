@@ -1194,6 +1194,9 @@ void sub_080A5C44(u32 param_1, u32 param_2, u32 param_3) {
     ptr = &gUnk_08128D43[(u32)gArea.dungeon_idx * 2];
     gScreen.bg1.xOffset += ptr[0];
     gScreen.bg1.yOffset += ptr[0];
+#ifdef PC_PORT
+    Port_ReproBackground_Event("dungeon_screen", gArea.dungeon_idx);
+#endif
 }
 
 void sub_080A5C9C(void) {
@@ -1218,6 +1221,9 @@ void sub_080A5C9C(void) {
         if (gMenu.field_0x3 != newChoice) {
             gMenu.field_0x3 = newChoice;
             sub_080A5CFC(newChoice, &gMenu, newChoice);
+#ifdef PC_PORT
+            Port_ReproBackground_Event("dungeon_floor", newChoice);
+#endif
             SoundReq(SFX_TEXTBOX_CHOICE);
         }
     }
