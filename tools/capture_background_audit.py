@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw
 
 from background_travel_actions_audit import (travel_action_cases, validate_travel_actions,
                                             travel_action_reference, validate_travel_action_pixels)
+from background_save_audit import save_cases, validate_save, validate_save_pixels
 from background_sleep_audit import sleep_cases, validate_sleep, validate_sleep_pixels
 from background_detail_map_audit import detail_map_cases, validate_detail_maps, validate_detail_map_pixels
 from background_dungeon_audit import dungeon_cases, validate_dungeons, validate_dungeon_pixels
@@ -244,8 +245,8 @@ def compare_menu_baseline(directory, events, baseline):
         new = [row for row in events if row.get('event') == phase]
         if len(new) < len(old):
             raise ValueError('missing new checkpoints for native baseline comparison')
-        if len(old) not in (106, 109) or [row['value'] for row in old] != list(range(len(old))):
-            raise ValueError('baseline must contain all 106 pause or 109 family native menu cases')
+        if len(old) not in (106, 109, 130) or [row['value'] for row in old] != list(range(len(old))):
+            raise ValueError('baseline must contain all 106 pause, 109 family or 130 fusion native menu cases')
         for before, after in zip(old, new):
             if before['value'] != after['value']:
                 raise ValueError('baseline checkpoint order differs')
@@ -271,7 +272,7 @@ def menu_reference_rows(rom, language):
 
 
 def validate_trace(rows, scenario):
-    if scenario not in ('menus', 'dungeons', 'detail_maps', 'sleep') and any(row.get('family', 'unknown') != 'unknown' for row in rows):
+    if scenario not in ('menus', 'dungeons', 'detail_maps', 'sleep', 'save') and any(row.get('family', 'unknown') != 'unknown' for row in rows):
         raise ValueError('non-menu route claimed a pause/fusion artwork family')
     events = [row for row in rows if 'event' in row]
     install_event = 'credits_install' if scenario == 'credits' else 'prologue_install'
@@ -282,14 +283,14 @@ def validate_trace(rows, scenario):
         # screens through native input before claiming file-operation coverage.
         if not {0, 1, 3, 4, 5, 6}.issubset(states):
             raise ValueError(f'incomplete file-screen states: {sorted(states)}')
-    elif scenario not in ('local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps', 'sleep'):
+    elif scenario not in ('local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps', 'sleep', 'save'):
         expected = set(range({'credits': 9, 'prologue': 6, 'intro': 5}[scenario]))
         if installs != expected:
             raise ValueError(f'{scenario}: expected installations {sorted(expected)}, got {sorted(installs)}')
     terminal = {'credits': 'credits_save', 'prologue': 'prologue_clear',
                 'intro': 'prologue_world', 'files': 'files_complete',
                 'local_hint': 'local_hint_ready', 'menus': 'menus_complete', 'travel': 'travel_complete', 'figurines': 'figurines_complete', 'hints': 'hints_complete', 'dungeons': 'dungeons_complete',
-                'travel_actions': 'travel_actions_complete', 'figurine_actions': 'figurine_actions_complete', 'detail_maps': 'detail_maps_complete', 'sleep': 'sleep_complete'}[scenario]
+                'travel_actions': 'travel_actions_complete', 'figurine_actions': 'figurine_actions_complete', 'detail_maps': 'detail_maps_complete', 'sleep': 'sleep_complete', 'save': 'save_complete'}[scenario]
     if not any(row['event'] == terminal for row in events):
         raise ValueError(f'{scenario}: missing {terminal}')
     # This is the particular bug the audit must expose: text does not clear art.
@@ -311,6 +312,8 @@ def validate_trace(rows, scenario):
         validate_figurines(rows, events, frames)
     if scenario == 'hints':
         validate_hints(rows, events, frames)
+    if scenario == 'save':
+        validate_save(rows, events, frames)
     if scenario == 'sleep':
         validate_sleep(rows, events, frames)
     if scenario == 'detail_maps':
@@ -336,7 +339,7 @@ def write_native_matrix(directory, events, phase, cases, prefix):
             with Image.open(directory / f"{row['frame']:06d}.png") as image:
                 sheet.paste(image, (x, y))
             case = cases[offset + index]
-            if prefix.startswith('sleep'):
+            if prefix.startswith(('sleep', 'save')):
                 label = f"health={case['decoration']} {case['label']}"
             elif prefix.startswith('detail-maps'):
                 label = f"health={case['decoration']} area={case['area']} group={case['map_group']}"
@@ -412,6 +415,10 @@ def summarize(directory, scenario):
                 sheet.paste(image, (x, y))
             draw.text((x + 2, y + 160), travel_cases()[index]['label'], fill='white')
         sheet.save(directory / 'travel-neutral.png')
+    if scenario == 'save':
+        result['save_cases'] = save_cases()
+        for phase in ('ready', 'held', 'quest_returned'):
+            write_native_matrix(directory, events, f'save_{phase}', save_cases(), f'save-{phase}')
     if scenario == 'sleep':
         result['sleep_cases'] = sleep_cases()
         for phase in ('ready', 'held', 'quest_returned'):
@@ -485,10 +492,10 @@ def main():
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--rom', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps', 'sleep'], action='append')
+    parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps', 'sleep', 'save'], action='append')
     parser.add_argument('--language', type=int, choices=range(6), default=1,
                         help='preferred game language: 0 Japanese, 1 English, 2 French, 3 German, 4 Spanish, 5 Italian')
-    parser.add_argument('--menu-baseline', type=Path, help='retained 106-case pause or 109-case family menus directory for pixel comparison')
+    parser.add_argument('--menu-baseline', type=Path, help='retained 106/109/130-case menus directory for pixel comparison')
     parser.add_argument('--figurine-start-case', type=int, choices=range(54), default=0,
                         help='start an independent figurine_actions suffix at this canonical case ID')
     parser.add_argument('--timeout', type=float,
@@ -504,14 +511,14 @@ def main():
         code = file.read(4).decode('ascii')
     if code not in ('BZME', 'BZMP', 'BZMJ'):
         parser.error('unsupported ROM game code')
-    if args.scenario and any(s in args.scenario for s in ('travel_actions', 'sleep')) and code != 'BZMP':
-        parser.error('travel_actions and sleep currently cover EU native interaction behavior')
+    if args.scenario and any(s in args.scenario for s in ('travel_actions', 'sleep', 'save')) and code != 'BZMP':
+        parser.error('travel_actions, sleep and save currently cover EU native interaction behavior')
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     summary = dict(game_code=code, preferred_language=args.language,
                    rom_sha1=hashlib.sha1(rom.read_bytes()).hexdigest(),
                    executable_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(), scenarios={})
-    for scenario in dict.fromkeys(args.scenario or ['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'figurine_actions', 'detail_maps'] + (['travel_actions', 'sleep'] if code == 'BZMP' else [])):
+    for scenario in dict.fromkeys(args.scenario or ['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'figurine_actions', 'detail_maps'] + (['travel_actions', 'sleep', 'save'] if code == 'BZMP' else [])):
         directory = output / scenario
         directory.mkdir()
         with tempfile.TemporaryDirectory(prefix='tmc-background-audit-') as temporary:
@@ -548,6 +555,9 @@ def main():
         if scenario == 'travel_actions':
             summary['scenarios'][scenario]['native_field_pixels'] = validate_travel_action_pixels(
                 directory, summary['scenarios'][scenario]['events'], travel_action_reference(rom, args.language))
+        if scenario == 'save':
+            summary['scenarios'][scenario]['native_field_pixels'] = validate_save_pixels(
+                directory, summary['scenarios'][scenario]['events'], menu_reference_rows(rom, args.language))
         if scenario == 'sleep' and code in ('BZME', 'BZMP'):
             summary['scenarios'][scenario]['native_field_pixels'] = validate_sleep_pixels(
                 directory, summary['scenarios'][scenario]['events'], menu_reference_rows(rom, args.language))

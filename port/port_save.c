@@ -40,6 +40,7 @@
 
 #include "port_types.h"
 #include "region.h"
+#include "port_repro.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -599,6 +600,11 @@ u16 EEPROMRead(u16 block, u16* dest) {
 }
 
 u16 EEPROMWrite0_8k_Check(u16 block, const u16* src) {
+#ifdef TMC_REPRO_HARNESS
+    /* Audit-only device write failure; exercise the native retry/error UI. */
+    if (Port_ReproBackground_SaveWriteFails())
+        return 0x8000;
+#endif
     if (!sEepromInited) {
         LoadEepromFile();
         sEepromInited = 1;

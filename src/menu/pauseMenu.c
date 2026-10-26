@@ -1008,6 +1008,9 @@ void PauseMenu_Screen_10(void) {
 void sub_080A59AC(void) {
     gMenu.field_0x3 = 0;
     SetPopupState(0, 0);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("save_prompt", 0);
+#endif
     SetMenuType(1);
 }
 
@@ -1041,6 +1044,9 @@ void sub_080A59C8(void) {
     }
 
     if (select_option) {
+#ifdef PC_PORT
+        Port_ReproBackground_Event("save_answer", cursor_position);
+#endif
         gMenu.transitionTimer = 255;
         if (cursor_position == 0) {
             CreateDialogBox(8, 0);
@@ -1053,6 +1059,9 @@ void sub_080A59C8(void) {
     } else if (gMenu.field_0x3 != cursor_position) {
         gMenu.field_0x3 = cursor_position;
         SetPopupState(0, cursor_position);
+#ifdef PC_PORT
+        Port_ReproBackground_Event("save_choice", cursor_position);
+#endif
         SoundReq(SFX_TEXTBOX_CHOICE);
     }
 }
@@ -1060,10 +1069,17 @@ void sub_080A59C8(void) {
 void sub_080A5A54(void) {
     switch (HandleSave(0)) {
         case SAVE_ERROR:
+#ifdef PC_PORT
+            Port_ReproBackground_Event("save_error", 0);
+#endif
             CreateDialogBox(9, 0);
             gMenu.transitionTimer = 60;
-            // fallthrough
+            SetMenuType(3);
+            break;
         case SAVE_OK:
+#ifdef PC_PORT
+            Port_ReproBackground_Event("save_success", 1);
+#endif
             SetMenuType(3);
             break;
         case SAVE_BUSY:

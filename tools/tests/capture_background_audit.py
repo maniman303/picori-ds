@@ -205,6 +205,21 @@ class AuditCoverage(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'missing new checkpoints'):
                 compare_menu_baseline(directory, events[:106], directory)
 
+    def test_retained_130_case_fusion_baseline(self):
+        events = [dict(event=phase, value=index, frame=1)
+                  for phase in ('menu_case_ready', 'menu_case_held') for index in range(130)]
+        with tempfile.TemporaryDirectory() as temporary:
+            baseline, current = Path(temporary) / 'old', Path(temporary) / 'new'
+            baseline.mkdir()
+            current.mkdir()
+            (baseline / 'trace.jsonl').write_text('\n'.join(json.dumps(row) for row in events))
+            for directory in (baseline, current):
+                Image.new('RGB', (240, 160)).save(directory / '000001.png')
+            self.assertEqual(compare_menu_baseline(current, events, baseline)['checkpoints'], 260)
+            Image.new('RGB', (240, 160), 'white').save(current / '000001.png')
+            with self.assertRaisesRegex(ValueError, 'native pixels differ'):
+                compare_menu_baseline(current, events, baseline)
+
     def test_all_seven_fusion_layouts_at_each_health(self):
         cases = menu_cases()
         self.assertEqual(len(cases), 130)

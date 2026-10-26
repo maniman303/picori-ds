@@ -1,5 +1,5 @@
 /* Native fixed-screen audit. Only compiled with repro_harness=y.
- * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions|figurine_actions|detail_maps|sleep;
+ * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions|figurine_actions|detail_maps|sleep|save;
  * TMC_BACKGROUND_AUDIT_OUT=<directory>.
  * The driver stages a synthetic save in memory, then runs native task/subtask
  * code at normal simulation speed. No timer, graphics or fade is skipped.
@@ -92,6 +92,10 @@ static void WriteDescriptor(void) {
             detail->unk2, (s16)gScreen.bg1.yOffset, (s16)gScreen.bg2.yOffset,
             gInput.heldKeys, gPauseMenuOptions.unk11, gUI.roomControls.area, gUI.roomControls.room,
             (unsigned)CheckGlobalFlag(TATEKAKE_HOUSE), (unsigned)CheckKinstoneFused(KINSTONE_E), (unsigned)GetInventoryValue(ITEM_MAP));
+    fprintf(sTrace, ",\"save_case\":%d,\"save_timer\":%u,\"save_stage\":%u",
+            Port_ReproBackground_SaveCase(), gMenu.transitionTimer, gMenu.storyPanelIndex);
+    fprintf(sTrace, ",\"save_cursor\":%u,\"save_menu\":%u,\"save_pause_phase\":%u,\"save_new_keys\":%u",
+            gMenu.field_0x3, gMenu.menuType, gPauseMenuOptions.unk11, gInput.newKeys);
     fprintf(sTrace, ",\"sleep_case\":%d,\"sleep_status\":%u,\"sleep_ticks\":%u,"
                     "\"sleep_cursor\":%u,\"sleep_menu\":%u,\"sleep_pause_phase\":%u,"
                     "\"sleep_new_keys\":%u,\"sleep_raw_keys\":%u,\"sleep_raw_display\":%u",
@@ -189,7 +193,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
             return;
         mode = strcmp(value, "credits") == 0 ? 1 : strcmp(value, "prologue") == 0 ? 2 :
                strcmp(value, "files") == 0 ? 3 : strcmp(value, "intro") == 0 ? 4 :
-               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : strcmp(value, "figurine_actions") == 0 ? 12 : strcmp(value, "detail_maps") == 0 ? 13 : strcmp(value, "sleep") == 0 ? 14 : 0;
+               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : strcmp(value, "figurine_actions") == 0 ? 12 : strcmp(value, "detail_maps") == 0 ? 13 : strcmp(value, "sleep") == 0 ? 14 : strcmp(value, "save") == 0 ? 15 : 0;
         sDirectory = getenv("TMC_BACKGROUND_AUDIT_OUT");
         char path[4096];
         if (!mode || !sDirectory || snprintf(path, sizeof(path), "%s/trace.jsonl", sDirectory) >= (int)sizeof(path)) {
@@ -216,6 +220,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
         sFigurineInstalled = 0;
     if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK || gUI.lastState != SUBTASK_MAPHINT)
         sHintInstalled = 0;
+    const int saveResult = mode == 15 ? Port_ReproBackground_SaveTick(frame) : 0;
     const int sleepResult = mode == 14 ? Port_ReproBackground_SleepTick(frame) : 0;
     const int detailMapResult = mode == 13 ? Port_ReproBackground_DetailMapsTick(frame) : 0;
     const int figurineActionResult = mode == 12 ? Port_ReproBackground_FigurineActionsTick(frame) : 0;
@@ -225,7 +230,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     const int figurineResult = mode == 8 ? Port_ReproBackground_FigurinesTick(frame) : 0;
     const int menuResult = mode == 6 ? Port_ReproBackground_MenusTick(frame, sDecoration, sPauseScreen, sMapGroup) : 0;
     const int travelResult = mode == 7 ? Port_ReproBackground_TravelTick(frame, sDecoration) : 0;
-    if ((menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult) & 2)
+    if ((menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult | saveResult) & 2)
         sFinished = 1;
     if (frame > ((mode == 11 || mode == 12 || mode == 13) ? 60000u : 30000u)) {
         fprintf(stderr, "[background-audit] timed out\n");
@@ -238,7 +243,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
     const int prizeBlink = mode == 12 && gMain.substate == GAMEMAIN_SUBTASK &&
         gUI.lastState == SUBTASK_FIGURINEMENU && gMenu.menuType == 2 &&
         gFigurineMenu.unk20 > 0 && gFigurineMenu.unk20 < 128 && frame % 4 == 0;
-    const int capture = prizeBlink || sHeadingGeneration != lastHeadingGeneration || ((menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult) & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
+    const int capture = prizeBlink || sHeadingGeneration != lastHeadingGeneration || ((menuResult | travelResult | figurineResult | hintResult | dungeonResult | travelActionResult | figurineActionResult | detailMapResult | sleepResult | saveResult) & 1) || frame % 60 == 0 || (gFadeControl.active && frame % 8 == 0) ||
         (sEvent != lastCapturedEvent && frame >= sLastEventFrame + 2);
     fprintf(sTrace, "{\"frame\":%u,\"task\":%u,\"state\":%u,\"substate\":%u,"
             "\"ui\":%u,\"menu\":%u,\"overlay\":%u,\"installed\":%d,"

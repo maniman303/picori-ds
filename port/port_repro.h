@@ -42,6 +42,9 @@ int Port_ReproBackground_DetailMapsTick(unsigned int frame);
 int Port_ReproBackground_DetailMapCase(void);
 int Port_ReproBackground_SleepTick(unsigned int frame);
 int Port_ReproBackground_SleepCase(void);
+int Port_ReproBackground_SaveTick(unsigned int frame);
+int Port_ReproBackground_SaveCase(void);
+int Port_ReproBackground_SaveWriteFails(void);
 int Port_ReproBackground_TravelActionsTick(unsigned int frame);
 int Port_ReproBackground_TravelActionCase(void);
 /* Read-only: selected index when a native two-choice enquiry is ready. */

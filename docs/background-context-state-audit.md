@@ -1115,3 +1115,96 @@ hardware sleep, save success/error handling, game-over choices, fusion
 interactions and remaining file/post-credits paths keep the full context/state
 catalog open. Runtime image publication, cache/presenter acceptance, resolved
 intermediate effects and physical-device measurements remain separate tasks.
+
+
+## Native Quest Status save choices and write failure (2026-10-26)
+
+The next context/state slice covers native pause Save interactions on the
+available EU/English fixture. `port_repro_background_save.c` adds 18 cases:
+three installed health decorations times six input sequences. The driver
+opens inventory, presses R to reach Quest Status, then LEFT / UP / A to open
+Save through quest cursor 5. Later cases navigate the remembered cursor back
+through 4 / 8 / 3 / 1 / 0 with real key edges before repeating that path.
+Only health and the initial pause page are staged; graphics, cursor, timers,
+save results and return transitions remain native.
+
+The six sequences are A acceptance, DOWN / UP / A acceptance, DOWN / A refusal,
+B / B refusal, DOWN / B refusal and A acceptance with EEPROM write failure.
+B first selects Don't Save, and confirms only when it is already selected.
+Read-only events in the native pause handlers record prompt, choice, answer,
+success and error. Additive schema-v2 fields record save case, cursor, menu,
+pause phase, input, transition timer and save-handler stage.
+
+The fault is compiled only with `TMC_REPRO_HARNESS` and is inactive outside
+this route's three error cases. It returns the EEPROM write error before
+changing emulated storage. Both copies and native retries fail through the
+normal `HandleSave` path; the driver never injects `SAVE_ERROR` or sets a menu
+result. These are emulated-device write failures, not host ENOSPC/EIO or atomic
+flush failures. Save persistence regressions separately exercise the production
+storage layer; this route does not certify every host filesystem failure mode.
+
+Six successful saves return automatically to Quest Status without a dismissal
+key. Three errors display "Save was not performed correctly.", retain the
+plain family and wait the native 60 ticks before allowing A dismissal. Because
+trace boundaries precede native work, samples immediately following the error
+event must show timer values 60 through 0 on 61 consecutive boundaries. The
+driver waits another 24 ticks for a neutral result checkpoint. Nine refusals
+return without saving. Native `ReadSaveFile` validates the successful record's
+checksum and mutated health; refusals/errors compare the entire prior record
+and status. Error fixtures follow successful saves, so preservation is checked
+against a real valid prior record.
+
+All cases verify quest/prompt source installation, heading identity, real input,
+live-health mutation without decoration reload and START restoration to the
+original game room. Four neutral source checkpoints per case cover quest ready,
+prompt ready, prompt held and quest return; accepted cases add a result check.
+Successful result/quest-return events share the same framebuffer. Thus 81 source
+checks use 75 distinct neutral field frames, comparing 1,296 pixels at x=0..7
+and 232..239, y=159 with independently ROM-decoded health fields. Error result
+and prompt/held contact sheets were inspected. Restoration checks task/update/UI
+and room identity; it does not assert normal player-control readiness.
+
+Local evidence is under `.tmp/background-save-actions-audit/`:
+
+- `tmc_pc-repro`, `tmc-qemu` and the build log preserve the ARM64 binary/wrapper.
+- `eu-en/` retains the first driver failure: it incorrectly waited for a
+  successful-save result screen instead of the native automatic quest return.
+- `eu-en-corrected/` retains the remembered-cursor diagnostic failure at cursor 4.
+- `eu-en-verified/save/` retains the final binary's complete raw trace and 1,442
+  captures. The native process exits zero at frame 7,219. Its enclosing capture
+  command reports failure because it loaded the older checker before the
+  trace-boundary timing correction. `offline-summary.json` and `verification.json`
+  record successful final validation of these unchanged raw artifacts; the
+  command failure remains in `capture-verified.log`.
+- `eu-en-menus/menus/` retains a successful native 130-case replay, completing at
+  frame 10,033. Its capture command rejects the 130-case baseline with the old
+  106/109-case-only helper. The helper now accepts 130 cases and has a new
+  failure-oriented regression. Final `offline-summary.json` and
+  `baseline-comparison.json` record all 260 ready/held RGBA comparisons passing
+  against `.tmp/background-fusion-audit/eu-en-scale1/menus/`. Original traces,
+  artist files and approved goldens remain unchanged.
+
+Reproduce fresh captures with the final tools and a repro-enabled binary:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario save --language 1 \
+  --output .tmp/background-save-new
+python3 tools/tests/background_save_audit.py
+```
+
+The runner restricts this route to EU and isolates all real saves/configuration
+in a temporary runtime directory. Twelve new save-checker tests plus the new
+130-case baseline test and 111 retained audit/exporter tests pass. Catalog/
+profile C/C++ agreement, camera/scroll checks and CPU PPU ASan/UBSan checks pass;
+LeakSanitizer is disabled because the execution sandbox cannot run its tracer.
+The persistence suite passes with the cached SDL headers supplied through `CC`.
+The ARM64 `xmake build -y tmc_pc` and native EU startup under QEMU/dummy SDL pass,
+reaching `Port layer initialized. Entering AgbMain...`. Incoming build options,
+including `repro_harness=y`, are not changed.
+
+This completes the EU/English Quest Status save slice. Inventory-entry save
+interactions, host flush errors, other languages/regions, game-over choices,
+fusion interactions and remaining file/post-credits paths keep the full
+context/state task open. Runtime image publication, cache/composition, resolved
+intermediate effects and physical-device measurements remain separate work.

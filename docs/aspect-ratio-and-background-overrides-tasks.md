@@ -75,6 +75,13 @@ results; those results do not certify the revised catalog or title-frame fix.
   retention, six released-key sleep/wake loops with frozen game ticks and white
   forced-blank output, source retention and quest/game restoration. Other
   languages/regions, hardware sleep and save/game-over paths remain open.
+- [x] Audit native Quest Status save confirmation on EU/English at three
+  installed health decorations: 18 cases covering acceptance, DOWN/UP
+  acceptance, DOWN/A refusal, B/B refusal, DOWN/B refusal and injected EEPROM
+  write failure. Verify checksum readback, unchanged prior records on refusal/
+  failure, the native error wait/dismissal, installed-family retention and
+  quest/game restoration. Inventory-entry saves, host flush failures and other
+  languages/regions remain open.
 - [x] Audit all six standalone map hints, first/repeated reveals, at three health
   preloads in all five EU languages. Verify native timer-30 reveal, A/B/START
   exits and the live palette-zero field before/after health mutation.
@@ -951,3 +958,29 @@ records exact artifacts, earlier diagnostic failures, source masks and scope.
 Current PC any-key wake is covered; hardware sleep and the displayed SELECT/L/R
 chord are not. Save/error, game-over and fusion interactions remain with the
 open context/state task; no runtime adapter/compositor work is marked complete.
+
+## Native Quest Status save interaction coverage (2026-10-26)
+
+Added a repro-only 18-case EU/English route using native inventory-to-quest
+navigation and the Save button. Six successful saves return automatically;
+nine refusals preserve the prior record; three injected EEPROM write failures
+execute the native retry/error path, wait the full 60 ticks and require real A
+dismissal. Native checksum reads verify saved health or unchanged prior records.
+The audit never assigns a menu result, save result, cursor or timer.
+
+The native process completes all 18 cases. Final offline validation passes the
+full lifecycle/input/source checks, 81 source checkpoints / 1,296 ROM-derived
+field comparisons and original-room restoration. Success result/quest-return
+checks share six framebuffer captures. All 260 retained pause/fusion checkpoint
+pixels remain identical. The baseline helper now accepts the established
+130-case fusion matrix alongside historical 106/109-case evidence.
+
+Twelve new save-checker tests, one new 130-case baseline test and 111 retained
+audit/exporter tests pass, together with catalog/profile agreement, engine,
+scroll, CPU PPU and save/quicksave persistence checks. The ARM64 build and EU
+QEMU/dummy-SDL startup pass; incoming build configuration stays unchanged.
+The [save audit](background-context-state-audit.md#native-quest-status-save-choices-and-write-failure-2026-10-26)
+records raw artifacts, native success versus capture-command checker failures,
+final offline verification and remaining scope. This completes the Quest Status
+save slice; the broad context/state task and runtime adapter/compositor remain
+open.
