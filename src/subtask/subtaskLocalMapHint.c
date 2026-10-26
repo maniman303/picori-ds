@@ -14,6 +14,9 @@
 #include "affine.h"
 #include "vram.h"
 #include "fade.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#endif
 
 void Subtask_LocalMapHint() {
     extern void (*const gUnk_08128F1C[])(void);
@@ -87,6 +90,9 @@ void sub_080A6B04(void) {
     gMenu.transitionTimer = 30;
     SetMenuType(1);
     SetFade(FADE_INSTANT, 8);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("fusion_local_hint_install", gMenu.field_0x3);
+#endif
 }
 
 void sub_080A6C1C(void) {

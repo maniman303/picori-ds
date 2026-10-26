@@ -208,6 +208,9 @@ void KinstoneMenu_Type1(void) {
         SoundReq(SFX_TEXTBOX_CHOICE);
     }
     if ((gInput.newKeys & (L_BUTTON | START_BUTTON | B_BUTTON)) != 0) {
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fusion_cancel", gInput.newKeys);
+#endif
         SetMenuType(2);
         SoundReq(SFX_MENU_CANCEL);
         return;
@@ -226,6 +229,9 @@ void KinstoneMenu_Type1(void) {
             if (gMenu.column_idx == 2) {
                 tmp3 = gGenericMenu.unk10.i / 0x10000;
                 gGenericMenu.unk2a = gSave.kinstones.types[tmp3];
+#ifdef PC_PORT
+                Port_ReproBackground_Event("fusion_attempt", gGenericMenu.unk2a);
+#endif
                 SetMenuType(3);
             }
             break;
@@ -242,6 +248,9 @@ void KinstoneMenu_Type1(void) {
     }
     if (menu->unk28 != tmp3) {
         menu->unk28 = tmp3;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fusion_choice", tmp3);
+#endif
     }
 }
 
@@ -259,6 +268,9 @@ void KinstoneMenu_Type2(void) {
                 gKinstoneWorldEvents_sel = gKinstoneWorldEvents_jp;
             ptr = &gKinstoneWorldEvents_sel[gFuseInfo.kinstoneId];
         }
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fusion_success_exit", ptr->subtask);
+#endif
         if (ptr->subtask != 0) {
             MenuFadeIn(ptr->subtask, ptr->worldEventId);
         } else {
@@ -266,6 +278,9 @@ void KinstoneMenu_Type2(void) {
         }
     } else {
         gFuseInfo.fusionState = FUSION_STATE_5;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fusion_cancel_exit", FUSION_STATE_5);
+#endif
         Subtask_Exit();
     }
 }
@@ -302,9 +317,15 @@ void KinstoneMenu_Type3_Overlay1(void) {
         gKinstoneWorldEvents_sel = gKinstoneWorldEvents_jp;
     u32 temp = gKinstoneWorldEvents_sel[gKinstoneMenu.unk2a].shape;
     if (temp != gKinstoneWorldEvents_sel[gFuseInfo.kinstoneId].shape) {
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fusion_mismatch", gKinstoneMenu.unk2a);
+#endif
         SoundReq(SFX_ITEM_SHIELD_BOUNCE);
         SetMenuType(4);
     } else {
+#ifdef PC_PORT
+        Port_ReproBackground_Event("fusion_match", gKinstoneMenu.unk2a);
+#endif
         gMenu.overlayType = 2;
         gMenu.transitionTimer = 20;
         gScreen.lcd.displayControl |= 0x2000;
@@ -359,6 +380,9 @@ void KinstoneMenu_Type5_Overlay0(void) {
         gSave.kinstones.didAllFusions = 1;
     }
     KinstoneMenu_080A4468();
+#ifdef PC_PORT
+    Port_ReproBackground_Event("fusion_award", gFuseInfo.kinstoneId);
+#endif
     SoundReq(SFX_TASK_COMPLETE);
     MessageAtHeight(TEXT_INDEX(TEXT_WINDCRESTS, 0x2), 0xe);
     gMenu.overlayType = 1;

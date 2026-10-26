@@ -14,6 +14,11 @@ tracked below.
 Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
+The current remaining-work count and finite context-audit closure groups are in
+[the closure checklist](background-context-closure-checklist.md): 29 unchecked
+parent items across this list. Historical verification notes below are not
+additional automatically reopened tasks.
+
 ## 1. Catalog and baseline
 
 - [x] Research pieces/techniques/top-left-title separation and review all 27
@@ -103,6 +108,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   health on the available EU/English fixture; retain all 109 previous case IDs
   and native checkpoint pixels. Interaction/effect and regional/language gaps
   remain with the full context/state task above.
+- [x] Audit native fusion interactions on EU/English at three installed health
+  decorations: B/START/L cancellation, mismatch/recovery/cancel, successful direct
+  return and successful world-event/local-hint handoff, 18 cases total. Verify
+  real input, installed-family retention, native flash cadence, piece consumption,
+  fused bit/count and original-room restoration. Close group C1 in the explicit
+  context-audit checklist; remaining groups and effect resolution stay separate.
 - [x] Audit native fast-travel selection/cancel on EU/English: all eight
   destinations and a single-unlock mask at three health preload states.
   Verify group 93 replaces the health decoration with a fixed BG3 field;
@@ -1042,3 +1053,30 @@ retained separately from the successful corrected run. See the
 for artifacts, reproduction and limits. Other combinations, quest-state/region/
 language coverage and intermediate effects keep the full context/state task
 open; runtime adapter/loading/composition and device budgets remain separate.
+
+
+## Native fusion interactions and explicit remaining scope (2026-10-26)
+
+Added an 18-case EU/English native fusion route: six interaction paths at three
+installed health decorations. All cases validate, including 12 cancellations,
+three mismatch recoveries, six awards and three world-event/local-map-hint
+handoffs. Native ownership/count/piece consumption, input, brightness cadence,
+source clearing and original-room restoration pass. Independently ROM-decoded
+bottom rows match 39 checkpoints / 9,360 pixel comparisons. The native process
+exits zero at frame 7,835. The initial capture-command checker rejected a
+corner-only mask hidden by the fixed frame; final offline validation passes the
+unchanged complete trace/captures using the independent full-row reference.
+The failed command outcome is retained rather than relabeled successful.
+
+Eleven new checker tests bring the audit suite to 148 passing tests, alongside
+11 exporter tests, catalog/profile agreement, engine/scroll and CPU PPU checks,
+the ARM64 build and isolated EU QEMU/dummy-SDL startup. Retained Game Over,
+inventory/quest Save and menu/fusion traces still validate. Details and artifacts
+are in the [fusion interaction audit](background-context-state-audit.md#native-fusion-cancellation-mismatch-and-success-handoffs-2026-10-26).
+
+The [closure checklist](background-context-closure-checklist.md) now replaces
+open-ended historical remaining-coverage paragraphs: the first context/state
+parent task has seven named coverage groups, with C1 complete and six remaining.
+The implementation list has 29 unchecked parent items; these new checked audit
+slices subdivide one parent and do not reduce that total. Additional ROMs and
+physical-device acceptance are explicitly distinguished from available EU work.

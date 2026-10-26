@@ -18,6 +18,9 @@
 #include "subtask.h"
 #include "affine.h"
 #include "fade.h"
+#ifdef PC_PORT
+#include "port_repro.h"
+#endif
 
 void Subtask_WorldEvent_Update(void);
 
@@ -40,6 +43,9 @@ void Subtask_WorldEvent_Init(void) {
     sub_0806F364();
     ClearRoomFlag(0xff);
     Subtask_WorldEvent_Update();
+#ifdef PC_PORT
+    Port_ReproBackground_Event("fusion_world_event_install", gUI.field_0x3);
+#endif
 }
 
 extern void (*const gWorldEventFunctions[])(void);

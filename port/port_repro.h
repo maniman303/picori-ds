@@ -42,6 +42,8 @@ int Port_ReproBackground_DetailMapsTick(unsigned int frame);
 int Port_ReproBackground_DetailMapCase(void);
 int Port_ReproBackground_SleepTick(unsigned int frame);
 int Port_ReproBackground_SleepCase(void);
+int Port_ReproBackground_FusionActionsTick(unsigned int frame);
+int Port_ReproBackground_FusionActionCase(void);
 int Port_ReproBackground_GameOverTick(unsigned int frame);
 int Port_ReproBackground_GameOverCase(void);
 int Port_ReproBackground_GameOverWriteFails(void);

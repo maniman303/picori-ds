@@ -16,6 +16,10 @@ The full visual catalog remains open: the routes below cover the previously
 missing file-operation, prologue and retained-credits states, rather than every
 functional menu, health variant, error path and region.
 
+Current remaining scope is tracked in the
+[closure checklist](background-context-closure-checklist.md). It supersedes the
+historical remaining-coverage summaries below.
+
 ## Reproduce
 
 Build the current configuration with `repro_harness=y`. For the RG cross-build,
@@ -1358,3 +1362,89 @@ Broader health/quest-state fixtures, save-and-Quit combinations, alternate
 error dismissals, ignored keys, other languages/regions and intermediate effect
 pixels remain open. The full context/state catalog, runtime adapter, PNG cache,
 composition and device measurements remain separate tasks.
+
+
+## Native fusion cancellation, mismatch and success handoffs (2026-10-26)
+
+The separate `fusion_actions` route covers six paths at each of three installed
+health decorations (18 cases): B, START and L cancellation; attempting an
+incompatible piece, waiting for native recovery and cancelling with B; matching
+with a direct return; and matching with a world-event/local-hint handoff.
+This closes C1 in the [closure checklist](background-context-closure-checklist.md).
+
+Each independent fixture resets its kinstone save block, gives two each of
+pieces 109/110 through the native bag helpers, stages health 24/15/8 of 24 and
+initializes a stable Tingle partner as in the retained layout matrix. Native
+`MenuFadeIn(SUBTASK_KINSTONEMENU)` installs the screen and sorts the bag. This
+stages the fusion subtask, not the initiating NPC conversation. No menu cursor,
+result, animation timer, graphics or fade is assigned by the driver. Matching
+SOURCE_FLOW uses piece 109 (shape 9); the other cases target KINSTONE_A (shape
+11), so piece 109 mismatches and real DOWN navigation selects matching piece
+110. Both shape decisions are made by the native regional event table reader.
+
+Live health changes after readiness without replacing the installed decoration.
+Ready/held and mismatch-return checkpoints retain the fusion family and heading
+at (64,16). Native B/START/L input exits with fusion state 5 and unchanged bag/
+count/ownership. A mismatch executes the native bounce/return before B exit.
+Matches execute the local brightness progression 0..14 then 0, award one fused
+bit/count and consume exactly one matching piece. The success message, 120-tick
+animation and spark sequence run natively. The driver advances the native
+message with released A key edges; it does not clear message state directly.
+
+SOURCE_FLOW has no outgoing effect subtask and returns directly. KINSTONE_A
+natively dispatches world event 20, then installs its local map hint. The
+fusion-family observation clears at world-event installation and stays unknown
+through the procedural hint and original-room restoration. The hint's native
+shared loader installs an overwritten decoration at the mutated health; that
+load must not reactivate a fusion-family image. Reward/global flags outside the
+per-case kinstone block are not reset between cases; repeated native event
+execution and restoration are covered, not every reward/quest-state fixture.
+Restoration checks game task/update state and original room, not normal player
+control or completion of an initiating NPC dialogue.
+
+Read-only events observe choices, attempts, matches/mismatches, award,
+cancellation and outgoing native subtask. Additional schema-v2 fields record
+case, task/subtask, selection, native menu/overlay/column/timer, input, brightness,
+target/result, fused count/bit and both bag amounts. The checker requires the
+full event order, key edges, installed-health lifetime, flash progression,
+consumption invariants and all 18 restorations. Existing seven-layout/health
+installation captures remain separate evidence rather than repeating every
+interaction against all seven names.
+
+The pixel check independently decodes the three exported native fusion recipes
+without opening artist artwork. It compares the complete static bottom row at
+39 ready/held/mismatch-return checkpoints (9,360 pixels). The stone frame masks
+both lower corners, so those corners alone cannot distinguish installed health.
+The complete ROM-decoded rows differ across all three decorations and match all
+retained native samples, including after live-health mutation.
+
+Evidence is in `.tmp/background-fusion-actions-audit/eu-en/`. The native process
+completes successfully at frame 7,835, with 434 captures, 12 cancellations,
+three mismatches, six awards and three world-event/local-hint handoffs. The
+capture command exits 1 because its then-loaded checker rejects the original
+corner-only mask. `offline-summary.json` and `verification.json` record final
+successful trace/pixel validation against the unchanged raw artifacts, binary/
+trace hashes and the original failure status. No native failure or incomplete
+run is substituted for success. Ready/held contact sheets and representative
+native views were inspected; original traces, goldens and artist files remain
+unchanged.
+
+Reproduce fresh captures with the final checker:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario fusion_actions --language 1 \
+  --output .tmp/background-fusion-actions-new
+python3 tools/tests/background_fusion_actions_audit.py
+```
+
+Eleven new failure-oriented tests bring the audit suite to 148 passing tests;
+11 exporter tests, catalog/profile C/C++ checks, engine/scroll regressions and
+CPU PPU ASan/UBSan checks pass (LeakSanitizer disabled for the sandbox). The
+ARM64 `xmake build -y tmc_pc` and isolated EU QEMU/dummy-SDL capture reach
+`Port layer initialized. Entering AgbMain...`. Retained Game Over, inventory/
+quest Save and 130-case menu/fusion raw traces still validate with the final
+tools; they were not recaptured for a fresh native pixel comparison. Incoming
+build options and profile availability stay unchanged. C2–C7 in the closure
+checklist remain; intermediate effect pixels and runtime artwork publication/
+loading/composition stay with their own parent tasks.
