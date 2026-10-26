@@ -304,3 +304,77 @@ is restored to `repro_harness=n`.
 
 The foreground title cap, enhanced margin seam/crop checks, GPU execution,
 USA/JP/language coverage and device budgets remain separate open gates.
+
+
+## Seven-layout fusion audit extension (2026-10-26)
+
+The repro-only menu route now appends 21 cases: all seven native fusion layout
+indices at each installed health decoration. Original case IDs 0–108 stay in
+their original order, including the three representative Tingle cases. The
+complete route contains 130 cases, each with ready and held checkpoints; live
+health changes after installation still must leave the decoration installed.
+
+Partner fixtures come from the active ROM's bounded NPC fuser table. The native
+text renderer measures partner names into a private 768-byte scratch buffer
+using the fusion menu's font/color/width settings. Discovery neither writes
+VRAM nor borrows the global text pool, and does not advance simulation. Each
+selected real NPC identity survives the entity-pool clear. The native fusion
+initializer independently measures that name and chooses graphics group
+`0x76 + layout`; the harness never forces that index or supplies replacement
+layout graphics. A language whose partner names do not cover all seven choices
+fails early with its observed layout mask rather than claiming full coverage.
+
+The additive schema-v2 `fusion_layout` observation follows the existing native
+`fusion_screen` installation event and is `-1` outside the fusion family. The
+checker requires the full installation sequence and agreement at both event
+and PNG checkpoints, all 21 layout/health settings, installed-decoration
+retention and the existing family/heading contracts. Retained pixel-baseline
+comparison accepts either the original 106 pause cases or all 109 family cases.
+The dummy window is now native size to reduce QEMU presentation overhead;
+captures remain native 240 × 160 pixels.
+
+EU/English discovery selects these native partner identities (decimal
+`NPC id / type / type2`); indices are zero-based, matching the installation event:
+
+| Layout | NPC identity | Rendered name width | Graphics group |
+| --- | --- | --- | --- |
+| 0 | 34 / 0 / 0 | 26 | `0x76` |
+| 1 | 48 / 2 / 0 | 53 | `0x77` |
+| 2 | 56 / 2 / 18 | 58 | `0x78` |
+| 3 | 6 / 15 / 0 | 68 | `0x79` |
+| 4 | 45 / 0 / 7 | 79 | `0x7a` |
+| 5 | 78 / 1 / 0 | 87 | `0x7b` |
+| 6 | 83 / 0 / 0 | 90 | `0x7c` |
+
+Verification: all 130 EU/English cases pass under QEMU/dummy video/audio,
+producing 2,348 PNGs. All 218 ready/held checkpoints from the retained 109-case
+family audit are byte-identical. All 15 family/health settings, all 21 fusion
+layout/health settings, the 15 required same-health family switches and all nine
+ordinary heading poses pass. Inventory retains 6,240 independently decoded ROM
+pixel comparisons; pieces/techniques retain 276,480 lower-panel comparisons.
+The final fusion contact sheet was inspected, including each partner portrait
+and differently sized name plate. There are 34 native decoration installations
+(ten pause and 24 fusion), not PNG decodes or cache publications.
+
+The complete artifacts are under `.tmp/background-fusion-audit/eu-en-scale1/`;
+`summary.json` records comparisons and decoded-pixel hashes, and `binary.sha256`
+identifies the copied capture binary. The earlier `eu-en/` and `eu-en-final/`
+runs were interrupted while reducing dummy-window overhead and are incomplete
+evidence. A separate `final-startup/` check verifies all seven name fixtures
+with the final explicit scratch-alignment/missing-ROM guards; it is not a full
+matrix capture. Original references, artwork files and committed goldens remain
+unchanged. No new goldens were approved.
+
+The 19 ROM-free checker tests, nine exporter tests, C11/C++17 catalog/exporter
+agreement, engine/scroll regressions, ARM64 repro and restored release builds
+pass. Release EU startup under QEMU reaches
+`Port layer initialized. Entering AgbMain...`. The original release options are
+restored, including `repro_harness=n`; no device deployment or package staging
+was performed.
+
+This extension covers neutral native fusion layouts and installed health, not
+fusion confirmation/mismatch/cancel effects or quest prerequisites. Dungeon
+menus, standalone hints, fast travel, figurines, interaction/error paths,
+additional languages/regions, compositor effects and device budgets still keep
+the full context/state task open. Runtime background loading/composition and
+title-frame completion remain their own implementation tasks.

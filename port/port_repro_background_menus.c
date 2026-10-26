@@ -16,6 +16,9 @@
 #include "save.h"
 #include "subtask.h"
 #include "port_repro.h"
+#include "port_rom.h"
+
+extern u32 sub_0805F76C(uintptr_t, WStruct*);
 
 extern void InitPauseMenu(void);
 
@@ -24,10 +27,11 @@ extern void InitPauseMenu(void);
  * Dungeon maps need a real dungeon fixture and are deliberately separate. */
 static const u8 sScreens[] = { 1, 11, 1, 2, 10, 2, 9, 2, 4, 7, 8 };
 enum { THRESHOLDS = 7, MAPS = 22, VIEWS = ARRAY_COUNT(sScreens) + MAPS,
-       PAUSE_CASES = THRESHOLDS + 3 * VIEWS, CASES = PAUSE_CASES + 3 };
+       PAUSE_CASES = THRESHOLDS + 3 * VIEWS, FAMILY_CASES = PAUSE_CASES + 3,
+       CASES = FAMILY_CASES + 3 * 7 };
 
 typedef struct {
-    int health, maxHealth, decoration, screen, map, mapGroup;
+    int health, maxHealth, decoration, screen, map, mapGroup, fusionLayout;
 } MenuCase;
 
 static int sCase = -1;
@@ -37,11 +41,13 @@ int Port_ReproBackground_MenuCase(void) { return sCase; }
 static MenuCase GetCase(int index) {
     static const u8 health[] = { 24, 16, 15, 9, 8, 1, 8 };
     static const u8 decoration[] = { 0, 0, 1, 1, 2, 2, 2 };
-    MenuCase result = { 24, 24, 0, 1, -1, -1 };
+    MenuCase result = { 24, 24, 0, 1, -1, -1, -1 };
     if (index >= PAUSE_CASES) {
-        result.decoration = index - PAUSE_CASES;
+        result.decoration = index < FAMILY_CASES ? index - PAUSE_CASES : (index - FAMILY_CASES) / 7;
+        if (index >= FAMILY_CASES)
+            result.fusionLayout = (index - FAMILY_CASES) % 7;
         result.health = result.decoration == 0 ? 24 : result.decoration == 1 ? 15 : 8;
-        result.screen = -1; /* Native fusion initializer, representative layout. */
+        result.screen = -1; /* Native fusion initializer. */
     } else if (index < THRESHOLDS) {
         result.health = health[index];
         result.maxHealth = index == 6 ? 8 : 24;
@@ -62,6 +68,56 @@ static MenuCase GetCase(int index) {
     return result;
 }
 
+/* Discover real partner names using the native text renderer and active ROM.
+ * The initializer will independently measure the selected name and load its BG
+ * group. Never force a layout index or replace its graphics with a test image.
+ * Measurement uses private scratch; gameplay VRAM and the text pool stay intact.
+ */
+static Entity* FusionPartner(int layout) {
+    static Entity partners[7], representative;
+    static int discovered;
+    if (layout < 0) {
+        representative.kind = NPC;
+        representative.id = TINGLE_SIBLINGS;
+        return &representative;
+    }
+    if (!discovered) {
+        unsigned found = 0;
+        Entity candidate = {0};
+        candidate.kind = NPC;
+        const u32 table = gRomOffsets ? gRomOffsets->fuserNpcData : 0;
+        for (unsigned i = 1; i < 128 && table && gRomData && table <= gRomSize && (i + 1) * 6 <= gRomSize - table; ++i) {
+            const u8* entry = gRomData + table + i * 6;
+            if (!entry[0])
+                break;
+            candidate.id = entry[0];
+            candidate.type = entry[1] == 0xff ? 0 : entry[1];
+            candidate.type2 = entry[2] == 0xff ? 0 : entry[2];
+            u32 pixels[0x300 / sizeof(u32)] = {0};
+            WStruct text = {0};
+            text.unk00 = 1;
+            text.bgColor = 5;
+            text.unk4 = 0x60;
+            text.unk8 = pixels;
+            const u32 textId = Port_GetEntityFuserData(NPC, candidate.id, candidate.type, candidate.type2) >> 32;
+            const unsigned width = sub_0805F76C(textId, &text);
+            const int variant = min(max((int)((width + 7) / 8) - 6, 0), 6);
+            if (!(found & (1u << variant))) {
+                partners[variant] = candidate;
+                found |= 1u << variant;
+                fprintf(stderr, "[background-audit] fusion layout %d: NPC %u/%u/%u name width %u\n",
+                        variant, candidate.id, candidate.type, candidate.type2, width);
+            }
+        }
+        if (found != 0x7f) {
+            fprintf(stderr, "[background-audit] native partner names cover layout mask 0x%x, expected 0x7f\n", found);
+            exit(2);
+        }
+        discovered = 1;
+    }
+    return &partners[layout];
+}
+
 int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int screen, int mapGroup) {
     static int phase, requestedScreen, originalArea, originalRoom, savedRoom;
     static unsigned ready, since, deadline;
@@ -77,8 +133,10 @@ int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int scree
         if (gMain.task != TASK_GAME || gMain.state != GAMETASK_MAIN ||
             gMain.substate != GAMEMAIN_UPDATE || gFadeControl.active)
             return 0;
-        if (sCase < 0)
+        if (sCase < 0) {
+            FusionPartner(0); /* Fail early if this language cannot cover every layout. */
             sCase = 0;
+        }
         if (sCase == CASES) {
             Port_ReproBackground_Event("menus_complete", CASES);
             phase = 5;
@@ -92,10 +150,8 @@ int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int scree
         if (spec.screen < 0) {
             /* A stable fuser identity survives Subtask_Init's entity-pool clear.
              * Native code creates its own portrait NPC; no fusion is confirmed. */
-            static Entity fuser;
-            fuser.kind = NPC;
-            fuser.id = TINGLE_SIBLINGS;
-            InitializeFuseInfo(&fuser, 0, 0, 0);
+            Entity* fuser = FusionPartner(spec.fusionLayout);
+            InitializeFuseInfo(fuser, 0, 0, 0);
             gFuseInfo.kinstoneId = KINSTONE_A;
             MenuFadeIn(SUBTASK_KINSTONEMENU, 0);
         } else {

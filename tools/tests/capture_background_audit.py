@@ -27,13 +27,18 @@ def menu_trace():
                                        (24, 24, 0), (15, 24, 1), (8, 24, 2)):
         rows.append(dict(event='menu_decoration', value=decoration, health=health, max_health=maximum,
                          schema=2, family='unknown'))
+    for decoration, health in enumerate((24, 15, 8)):
+        rows.extend(dict(event='menu_decoration', value=decoration, health=health, max_health=24,
+                         schema=2, family='unknown') for _ in range(7))
     for index, case in enumerate(menu_cases()):
         rows.append(dict(event='fusion_screen' if case['screen'] == -1 else 'pause_screen',
-                         value=case['screen'], family=case['family'], schema=2))
+                         value=case.get('fusion_layout', 0) if case['screen'] == -1 else case['screen'],
+                         family=case['family'], schema=2))
         for phase in ('menu_case_ready', 'menu_case_held'):
             number = len(rows)
             sample = dict(frame(number, 1), case=index, decoration=case['decoration'],
                           pause_screen=case['screen'], map_group=case['map_group'],
+                          fusion_layout=case.get('fusion_layout', 0) if case['screen'] == -1 else -1,
                           health=case.get('health', 24), max_health=case.get('max_health', 24))
             if phase.endswith('held'):
                 sample['health'] = 24 if case['decoration'] == 2 else 8
@@ -44,7 +49,7 @@ def menu_trace():
             event = dict(sample, event=phase, value=index)
             del event['capture']
             rows += [event, sample]
-    rows.append(dict(event='menus_complete', value=109, family='unknown', schema=2))
+    rows.append(dict(event='menus_complete', value=len(menu_cases()), family='unknown', schema=2))
     index = next(i for i, row in enumerate(rows) if row.get('event') == 'menu_case_ready')
     for transition in (0, 8, 16):
         rows.insert(index, dict(frame(-transition - 1), family='titled', schema=2, heading_style=1,
@@ -70,6 +75,37 @@ class AuditCoverage(unittest.TestCase):
                 compare_menu_baseline(current, events, baseline)
             self.assertEqual((baseline / 'trace.jsonl').read_text(), trace)
 
+
+    def test_retained_family_baseline_includes_three_original_fusion_cases(self):
+        events = [dict(event=phase, value=index, frame=1) for phase in ('menu_case_ready', 'menu_case_held')
+                  for index in range(109)]
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'trace.jsonl').write_text('\n'.join(json.dumps(row) for row in events))
+            Image.new('RGB', (240, 160)).save(directory / '000001.png')
+            self.assertEqual(compare_menu_baseline(directory, events, directory)['checkpoints'], 218)
+            with self.assertRaisesRegex(ValueError, 'missing new checkpoints'):
+                compare_menu_baseline(directory, events[:106], directory)
+
+    def test_all_seven_fusion_layouts_at_each_health(self):
+        cases = menu_cases()
+        self.assertEqual(len(cases), 130)
+        self.assertEqual([(case['decoration'], case['fusion_layout']) for case in cases[109:]],
+                         [(health, layout) for health in range(3) for layout in range(7)])
+        validate_trace(menu_trace(), 'menus')
+
+    def test_fusion_layout_requires_native_install_and_checkpoint_agreement(self):
+        rows = menu_trace()
+        installs = [row for row in rows if row.get('event') == 'fusion_screen']
+        installs[-1]['value'] = 5
+        with self.assertRaisesRegex(ValueError, 'layout installation sequence'):
+            validate_trace(rows, 'menus')
+        for event in ('menu_case_ready', 'menu_case_held', None):
+            rows = menu_trace()
+            sample = next(row for row in rows if row.get('event') == event and row.get('case') == 129)
+            sample['fusion_layout'] = 5
+            with self.assertRaisesRegex(ValueError, 'wrong installed fusion layout'):
+                validate_trace(rows, 'menus')
 
     def test_family_and_heading_failures(self):
         for field, value, message in (('family', 'plain', 'semantic family'),

@@ -34,6 +34,7 @@ static int sDecoration = -1, sPauseScreen = -1, sMapGroup = -1;
  * pose is sampled at the actual DrawDirect call, including transition frames.
  * This instrumentation is deliberately independent of the future adapter. */
 static const char* sFamily = "unknown";
+static int sFusionLayout = -1;
 static int sHeading, sHeadingX, sHeadingY, sHeadingTransition;
 static unsigned sHeadingGeneration;
 
@@ -50,6 +51,7 @@ static void WriteDescriptor(void) {
     fprintf(sTrace, ",\"schema\":2,\"family\":\"%s\",\"heading_style\":%d,\"heading_x\":%d,"
                     "\"heading_y\":%d,\"heading_transition\":%d", sFamily, sHeading,
                     sHeadingX, sHeadingY, sHeadingTransition);
+    fprintf(sTrace, ",\"fusion_layout\":%d", strcmp(sFamily, "fusion") == 0 ? sFusionLayout : -1);
 }
 
 void Port_ReproBackground_Event(const char* event, unsigned int value) {
@@ -70,6 +72,7 @@ void Port_ReproBackground_Event(const char* event, unsigned int value) {
     if (strcmp(event, "fusion_screen") == 0) {
         sPauseScreen = -1;
         sFamily = "fusion";
+        sFusionLayout = value;
     }
     if (strcmp(event, "map_detail") == 0)
         sMapGroup = value;

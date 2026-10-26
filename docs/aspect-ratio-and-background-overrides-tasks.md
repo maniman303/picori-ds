@@ -46,6 +46,10 @@ results; those results do not certify the revised catalog or title-frame fix.
 - [ ] Finish the full context/state catalog across available regions, including
   dungeon/fusion/fast-travel/figurine screens and interaction/error paths;
   retain the completed file-operation, prologue, credits and pause-menu evidence.
+- [x] Extend the native fusion audit to all seven layouts at each installed
+  health on the available EU/English fixture; retain all 109 previous case IDs
+  and native checkpoint pixels. Interaction/effect and regional/language gaps
+  remain with the full context/state task above.
 - [ ] Resolve per-context effect targets from unfaded source coverage, including
   white logo BG versus backdrop, title local alpha, and masked palette fades.
 - [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
@@ -667,3 +671,21 @@ at capacities 240, 384, and 569, checking descriptor POD layout, title-cap margi
 bounds, 2-slot resident memory vs. 32-image naive rejection, and family switch state
 machine; `tools/screen_background_regression_test.py` across C11 and C++17; and
 existing engine/scroll/PPU regression suites.
+
+
+## Seven-layout fusion context coverage (2026-10-26)
+
+The first open context/state task now has a completed EU/English fusion-layout
+slice. The [state audit](background-context-state-audit.md#seven-layout-fusion-audit-extension-2026-10-26)
+records 21 appended native layout/installed-health cases, discovered from real
+ROM partner names without forcing layout graphics. All 130 menu cases pass;
+all 218 retained 109-case checkpoints are byte-identical. The checker requires
+native installation and ready/held layout agreement and keeps the previous
+family, heading and independently decoded ROM pixel checks.
+
+The 19 checker tests, nine exporter tests, C/C++ catalog agreement, engine/scroll
+regressions, ARM64 audit/release builds and release EU startup under QEMU pass.
+The original release configuration is restored. Fusion interactions/effects,
+dungeon menus, standalone hints, travel, figurines, remaining functional/error
+paths and other regions/languages keep the full context/state task open. This
+slice does not implement the runtime adapter, artwork loader or compositor.

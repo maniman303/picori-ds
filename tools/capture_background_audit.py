@@ -40,6 +40,12 @@ def menu_cases():
     for decoration, health in enumerate(('normal', 'damaged', 'critical')):
         cases.append(dict(label=f'{health}_fusion', decoration=decoration, screen=-1, map_group=None,
                           health=(24, 15, 8)[decoration], max_health=24))
+    # Keep the original 109 case IDs stable for retained capture comparisons.
+    for decoration, health in enumerate(('normal', 'damaged', 'critical')):
+        for layout in range(7):
+            cases.append(dict(label=f'{health}_fusion_layout_{layout}', decoration=decoration,
+                              screen=-1, map_group=None, fusion_layout=layout,
+                              health=(24, 15, 8)[decoration], max_health=24))
     for case in cases:
         screen = case['screen']
         case['family'] = ('fusion' if screen == -1 else 'pieces' if screen == 7 else
@@ -55,15 +61,19 @@ def validate_menus(events, frames):
     if [row['value'] for row in events if row['event'] == 'pause_screen'] != [
             case['screen'] for case in cases if case['screen'] >= 0]:
         raise ValueError('incorrect native screen installation sequence')
-    if len([row for row in events if row['event'] == 'fusion_screen']) != 3:
+    fusion = [row for row in events if row['event'] == 'fusion_screen']
+    if len(fusion) != 24:
         raise ValueError('incomplete native fusion installations')
+    if [row['value'] for row in fusion[3:]] != list(range(7)) * 3:
+        raise ValueError('incorrect native fusion layout installation sequence')
     openings = [row for row in events if row['event'] == 'menu_decoration']
     # Ordinary screen changes must not reinstall the decoration, even when
     # current health would select another variant on a fresh opening.
-    if [row['value'] for row in openings] != [0, 0, 1, 1, 2, 2, 2, 0, 1, 2, 0, 1, 2]:
+    if [row['value'] for row in openings] != [0, 0, 1, 1, 2, 2, 2, 0, 1, 2, 0, 1, 2] + [i for i in range(3) for _ in range(7)]:
         raise ValueError('incorrect decoration selection or unexpected reinstallation')
     initial = [(24, 24), (16, 24), (15, 24), (9, 24), (8, 24), (1, 24), (8, 8),
                (24, 24), (15, 24), (8, 24), (24, 24), (15, 24), (8, 24)]
+    initial += [(health, 24) for health in (24, 15, 8) for _ in range(7)]
     if [(row['health'], row['max_health']) for row in openings] != initial:
         raise ValueError('menu openings did not exercise the required health thresholds')
     for phase in ('menu_case_ready', 'menu_case_held'):
@@ -80,6 +90,8 @@ def validate_menus(events, frames):
                 if evidence.get('schema') != 2 or evidence.get('family') != case['family']:
                     raise ValueError(f'{case["label"]}: wrong semantic family/schema')
                 validate_heading(evidence, neutral=True)
+                if 'fusion_layout' in case and evidence.get('fusion_layout') != case['fusion_layout']:
+                    raise ValueError(f'{case["label"]}: wrong installed fusion layout')
                 if case['map_group'] is not None and evidence['map_group'] != case['map_group']:
                     raise ValueError(f'{case["label"]}: wrong native detail-map recipe')
             if phase == 'menu_case_ready' and 'health' in case and (
@@ -111,6 +123,7 @@ def validate_family_timeline(rows):
                      ('normal_inventory', 'damaged_inventory', 'critical_inventory')}
     pairs, switches, animated = set(), set(), set()
     previous = None
+    fusion_layouts = set()
     for row in rows:
         event = row.get('event')
         if event == 'menus_complete' or (event == 'menu_case_request' and row['value'] in opening_cases):
@@ -133,6 +146,8 @@ def validate_family_timeline(rows):
         if event == 'menu_case_ready':
             current = (row['family'], row['decoration'])
             pairs.add(current)
+            if row['value'] >= 109:
+                fusion_layouts.add((row['decoration'], row['fusion_layout']))
             if previous and previous[1] == current[1] and previous[0] != current[0]:
                 switches.add((previous[0], current[0], current[1]))
             previous = current
@@ -146,7 +161,10 @@ def validate_family_timeline(rows):
                 raise ValueError('missing same-health family transition')
     if not {0, 16}.issubset(animated) or not any(0 < value < 16 for value in animated):
         raise ValueError('missing animated heading poses')
+    if fusion_layouts != {(health, layout) for health in range(3) for layout in range(7)}:
+        raise ValueError('incomplete 21 fusion layout/health combinations')
     return dict(family_health_combinations=len(pairs),
+                fusion_layout_health_combinations=len(fusion_layouts),
                 same_health_switches=[list(value) for value in sorted(switches)],
                 titled_transition_poses=sorted(animated))
 
@@ -213,10 +231,10 @@ def compare_menu_baseline(directory, events, baseline):
     for phase in ('menu_case_ready', 'menu_case_held'):
         old = [row for row in old_rows if row.get('event') == phase]
         new = [row for row in events if row.get('event') == phase]
-        if len(new) < 106:
+        if len(new) < len(old):
             raise ValueError('missing new checkpoints for native baseline comparison')
-        if len(old) != 106 or [row['value'] for row in old] != list(range(106)):
-            raise ValueError('baseline must contain all 106 original native menu cases')
+        if len(old) not in (106, 109) or [row['value'] for row in old] != list(range(len(old))):
+            raise ValueError('baseline must contain all 106 pause or 109 family native menu cases')
         for before, after in zip(old, new):
             if before['value'] != after['value']:
                 raise ValueError('baseline checkpoint order differs')
@@ -354,7 +372,7 @@ def main():
     parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus'], action='append')
     parser.add_argument('--language', type=int, choices=range(6), default=1,
                         help='preferred game language: 0 Japanese, 1 English, 2 French, 3 German, 4 Spanish, 5 Italian')
-    parser.add_argument('--menu-baseline', type=Path, help='retained original 106-case menus directory for pixel comparison')
+    parser.add_argument('--menu-baseline', type=Path, help='retained 106-case pause or 109-case family menus directory for pixel comparison')
     parser.add_argument('--timeout', type=float, default=1200)
     args = parser.parse_args()
     if args.timeout <= 0:
@@ -374,7 +392,7 @@ def main():
         directory = output / scenario
         directory.mkdir()
         with tempfile.TemporaryDirectory(prefix='tmc-background-audit-') as temporary:
-            config = dict(aspect_mode='native', internal_scale=1, upscale_method='nearest',
+            config = dict(aspect_mode='native', window_scale=1, internal_scale=1, upscale_method='nearest',
                           render_backend='software', color_correction=False, lcd_persistence=False,
                           hd_dialogue=False, menu_art_background=False, vsync=False, frame_time_ns=0,
                           decouple_render=False, ra_enabled=False, discord_rpc=False, autosave_enabled=False,
