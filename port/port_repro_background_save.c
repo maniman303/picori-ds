@@ -1,4 +1,4 @@
-/* Repro-only save confirmation, native persistence, refusal and EEPROM write failure. */
+/* Repro-only inventory/quest save choices, persistence and EEPROM write failure. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +30,10 @@ int Port_ReproBackground_SaveCase(void) { return sCase; }
 int Port_ReproBackground_SaveTick(unsigned frame) {
     static int phase, navigation, answer;
     static unsigned ready, since, deadline;
+    const char* route = getenv("TMC_BACKGROUND_AUDIT");
+    const int inventory = route && strcmp(route, "inventory_save") == 0;
+    const int page = inventory ? 1 : 2;
+    const int prompt = inventory ? 11 : 10;
     const int gameplay = gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN &&
                          gMain.substate == GAMEMAIN_UPDATE && !gFadeControl.active;
     const int pause = gMain.task == TASK_GAME && gMain.substate == GAMEMAIN_SUBTASK &&
@@ -73,21 +77,30 @@ int Port_ReproBackground_SaveTick(unsigned frame) {
             ready = frame;
         if (frame < ready + 24)
             return 0;
-        *(vu16*)(gIoMem + 0x130) &= ~R_BUTTON;
+        if (!inventory)
+            *(vu16*)(gIoMem + 0x130) &= ~R_BUTTON;
         ready = 0;
         navigation = 0;
         since = frame;
         phase = 2;
     }
-    if (phase == 2 && pause && gPauseMenuOptions.screen == 2) {
-        /* Native pause remembers the preceding quest cursor. Return to zero
+    if (phase == 2 && pause && gPauseMenuOptions.screen == page) {
+        /* Native pause remembers the preceding page cursor. Return to zero
          * with real navigation before repeating the path to the save button. */
         if (gMenu.field_0x3 != 0) {
             ready = 0;
             if (frame < since + 6)
                 return 0;
             u16 key;
-            switch (gMenu.field_0x3) {
+            if (inventory) {
+                switch (gMenu.field_0x3) {
+                    case 16: key = DPAD_RIGHT; break;
+                    case 12: case 8: case 4: key = DPAD_UP; break;
+                    default:
+                        fprintf(stderr, "[background-audit] unexpected inventory cursor %u\n", gMenu.field_0x3);
+                        exit(2);
+                }
+            } else switch (gMenu.field_0x3) {
                 case 5: case 4: case 1: key = DPAD_LEFT; break;
                 case 8: case 3: key = DPAD_UP; break;
                 default:
@@ -102,16 +115,16 @@ int Port_ReproBackground_SaveTick(unsigned frame) {
             ready = frame;
         if (frame < ready + 24)
             return 0;
-        Port_ReproBackground_Event("save_quest_ready", sCase);
+        Port_ReproBackground_Event(inventory ? "save_inventory_ready" : "save_quest_ready", sCase);
         since = frame;
         phase = 3;
         return 1;
     }
     if (phase == 3 && pause && frame >= since + 6) {
-        static const u16 keys[] = {DPAD_LEFT, DPAD_UP, A_BUTTON};
-        static const u8 cursors[] = {0, 11, 5};
+        const u16 keys[] = {inventory ? DPAD_UP : DPAD_LEFT, inventory ? DPAD_LEFT : DPAD_UP, A_BUTTON};
+        const u8 cursors[] = {0, inventory ? 12 : 11, inventory ? 16 : 5};
         if (navigation >= 3 || gMenu.field_0x3 != cursors[navigation]) {
-            fprintf(stderr, "[background-audit] unexpected native quest cursor %u\n", gMenu.field_0x3);
+            fprintf(stderr, "[background-audit] unexpected native save-entry cursor %u\n", gMenu.field_0x3);
             exit(2);
         }
         if (navigation == 2)
@@ -123,7 +136,7 @@ int Port_ReproBackground_SaveTick(unsigned frame) {
             phase = 4;
         }
     }
-    if (phase == 4 && pause && gPauseMenuOptions.screen == 10) {
+    if (phase == 4 && pause && gPauseMenuOptions.screen == prompt) {
         if (!ready)
             ready = frame;
         if (frame < ready + 24)
@@ -161,7 +174,7 @@ int Port_ReproBackground_SaveTick(unsigned frame) {
             phase = mode == 5 ? 8 : 11;
         }
     }
-    if (phase == 8 && gPauseMenuOptions.screen == 10 && gMenu.menuType == 3 &&
+    if (phase == 8 && gPauseMenuOptions.screen == prompt && gMenu.menuType == 3 &&
         gMenu.transitionTimer == 0 && !gFadeControl.active) {
         if (!ready)
             ready = frame;
@@ -187,7 +200,7 @@ int Port_ReproBackground_SaveTick(unsigned frame) {
         ready = 0;
         phase = 11;
     }
-    if (phase == 11 && pause && gPauseMenuOptions.screen == 2 && gMain.sleepStatus == DEFAULT) {
+    if (phase == 11 && pause && gPauseMenuOptions.screen == page && gMain.sleepStatus == DEFAULT) {
         if (!ready)
             ready = frame;
         if (frame < ready + 24)
@@ -210,7 +223,7 @@ int Port_ReproBackground_SaveTick(unsigned frame) {
             }
             Port_ReproBackground_Event("save_decline_unchanged", sCase);
         }
-        Port_ReproBackground_Event("save_quest_returned", sCase);
+        Port_ReproBackground_Event(inventory ? "save_inventory_returned" : "save_quest_returned", sCase);
         since = frame;
         phase = 12;
         return 1;

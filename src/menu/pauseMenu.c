@@ -486,6 +486,9 @@ void PauseMenu_ItemMenu_Update(void) {
         }
         if (gMenu.field_0x3 != menuSlot) {
             gMenu.field_0x3 = menuSlot;
+#ifdef PC_PORT
+            Port_ReproBackground_Event("inventory_choice", menuSlot);
+#endif
             SoundReq(SFX_TEXTBOX_CHOICE);
         }
         item = gPauseMenu.items[menuSlot];

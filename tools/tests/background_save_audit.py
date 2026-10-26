@@ -12,7 +12,11 @@ from capture_background_audit import validate_trace
 from background_save_audit import save_cases, validate_save_pixels
 
 
-def trace():
+def trace(inventory=False):
+    ready = "save_inventory_ready" if inventory else "save_quest_ready"
+    returned = "save_inventory_returned" if inventory else "save_quest_returned"
+    page, prompt = (1, 11) if inventory else (2, 10)
+    navigation = "inventory_choice" if inventory else "quest_choice"
     rows = []
     clock = 0
     sample = dict(schema=2, task=2, state=2, substate=2, ui=0, family='unknown',
@@ -43,21 +47,24 @@ def trace():
         event('menu_decoration', case['decoration'])
         sample.update(family='titled', pause_screen=1, heading_style=1, heading_x=64, heading_y=16)
         event('pause_screen', 1)
-        sample['pause_screen'] = 2
-        event('pause_screen', 2)
+        if not inventory:
+            sample['pause_screen'] = 2
+            event('pause_screen', 2)
         if index:
-            for cursor, key in ((4, 32), (8, 32), (3, 64), (1, 64), (0, 32)):
+            reset = (((12, 16), (8, 64), (4, 64), (0, 64)) if inventory else
+                     ((4, 32), (8, 32), (3, 64), (1, 64), (0, 32)))
+            for cursor, key in reset:
                 sample.update(save_cursor=cursor, save_new_keys=key)
-                event('quest_choice', cursor)
+                event(navigation, cursor)
         sample['save_new_keys'] = 0
-        event('save_quest_ready', index, True)
-        for cursor, key in ((11, 32), (5, 64)):
+        event(ready, index, True)
+        for cursor, key in (((12, 64), (16, 32)) if inventory else ((11, 32), (5, 64))):
             sample.update(save_cursor=cursor, save_new_keys=key)
-            event('quest_choice', cursor)
+            event(navigation, cursor)
         sample['save_new_keys'] = 0
         event('save_prompt_request', index)
-        sample.update(family='plain', pause_screen=10, heading_style=0, heading_x=0, heading_y=0, save_cursor=0)
-        event('pause_screen', 10)
+        sample.update(family='plain', pause_screen=prompt, heading_style=0, heading_x=0, heading_y=0, save_cursor=0)
+        event('pause_screen', prompt)
         event('save_prompt', 0)
         event('save_ready', index, True)
         sample['health'] = 24 if case['decoration'] == 2 else 8
@@ -89,13 +96,13 @@ def trace():
                 frame(save_new_keys=1)
         else:
             event('save_decline_unchanged', index)
-        sample.update(save_new_keys=0, save_menu=1, pause_screen=2, family='titled',
-                      save_cursor=5, heading_style=1, heading_x=64, heading_y=16)
-        event('pause_screen', 2)
+        sample.update(save_new_keys=0, save_menu=1, pause_screen=page, family='titled',
+                      save_cursor=16 if inventory else 5, heading_style=1, heading_x=64, heading_y=16)
+        event('pause_screen', page)
         if case['accept'] and not case['error']:
             event('save_result_ready', index, True)
             event('save_readback', sample['health'])
-        event('save_quest_returned', index, True)
+        event(returned, index, True)
         event('save_exit_request', index)
         frame(save_new_keys=8)
         sample.update(save_new_keys=0, substate=2, ui=0, family='unknown')
@@ -105,17 +112,25 @@ def trace():
 
 
 class SaveAuditTests(unittest.TestCase):
+    inventory = False
+
     def setUp(self):
-        self.rows = trace()
+        self.rows = trace(self.inventory)
+
+    @property
+    def scenario(self):
+        return "inventory_save" if self.inventory else "save"
 
     def reject_event(self, name, **changes):
+        if self.inventory and name == 'quest_choice':
+            name = 'inventory_choice'
         rows = copy.deepcopy(self.rows)
         next(r for r in rows if r.get('event') == name).update(changes)
         with self.assertRaises((ValueError, StopIteration)):
-            validate_trace(rows, 'save')
+            validate_trace(rows, self.scenario)
 
     def test_complete_matrix(self):
-        events, frames = validate_trace(self.rows, 'save')
+        events, frames = validate_trace(self.rows, self.scenario)
         self.assertEqual(sum(r['event'] == 'save_success' for r in events), 6)
         self.assertEqual(sum(r['event'] == 'save_error' for r in events), 3)
         self.assertEqual(sum(r['event'] == 'save_decline_unchanged' for r in events), 9)
@@ -127,7 +142,7 @@ class SaveAuditTests(unittest.TestCase):
             rows = copy.deepcopy(self.rows)
             rows.pop(next(i for i, r in enumerate(rows) if r.get('event') == name))
             with self.assertRaises((ValueError, StopIteration)):
-                validate_trace(rows, 'save')
+                validate_trace(rows, self.scenario)
 
     def test_case_values_must_match_receipts(self):
         self.reject_event('save_held', value=17)
@@ -146,14 +161,14 @@ class SaveAuditTests(unittest.TestCase):
         indices = [i for i, r in enumerate(rows) if r.get('event') in ('save_write_fault', 'save_error')][:2]
         rows[indices[0]], rows[indices[1]] = rows[indices[1]], rows[indices[0]]
         with self.assertRaises(ValueError):
-            validate_trace(rows, 'save')
+            validate_trace(rows, self.scenario)
 
     def test_refusal_cannot_save(self):
         rows = copy.deepcopy(self.rows)
         index = next(i for i, r in enumerate(rows) if r.get('event') == 'save_decline_unchanged')
         rows.insert(index, dict(rows[index], event='save_success', value=1))
         with self.assertRaises(ValueError):
-            validate_trace(rows, 'save')
+            validate_trace(rows, self.scenario)
 
     def test_source_and_live_health(self):
         for key, value in (('health', 24), ('decoration', 2), ('family', 'titled'),
@@ -167,18 +182,18 @@ class SaveAuditTests(unittest.TestCase):
         rows = copy.deepcopy(self.rows)
         next(r for r in rows if r.get('event') == 'save_result_ready' and r['save_case'] == 5)['save_timer'] = 1
         with self.assertRaises(ValueError):
-            validate_trace(rows, 'save')
+            validate_trace(rows, self.scenario)
         rows = copy.deepcopy(self.rows)
         next(r for r in rows if 'event' not in r and not r['capture'] and r.get('save_timer') == 59)['save_timer'] = 0
         with self.assertRaisesRegex(ValueError, 'wait skipped'):
-            validate_trace(rows, 'save')
+            validate_trace(rows, self.scenario)
 
     def test_missing_capture_or_non_neutral_state(self):
         rows = copy.deepcopy(self.rows)
         capture = next(r for r in rows if 'event' not in r and r['capture'])
         capture['fade_active'] = 1
         with self.assertRaises(ValueError):
-            validate_trace(rows, 'save')
+            validate_trace(rows, self.scenario)
 
     def test_restore_original_room(self):
         self.reject_event('save_game_restored', world_room=9)
@@ -189,24 +204,36 @@ class SaveAuditTests(unittest.TestCase):
             rows = copy.deepcopy(self.rows)
             next(r for r in rows if 'event' not in r and r.get('save_new_keys') == key)['save_new_keys'] = 0
             with self.assertRaises(ValueError):
-                validate_trace(rows, 'save')
+                validate_trace(rows, self.scenario)
 
     def test_rom_pixels_and_exposed_identity(self):
         events = [r for r in self.rows if 'event' in r]
         refs = [bytes([8 + health * 8]) * 720 for health in range(3)]
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            phases = ('save_quest_ready', 'save_ready', 'save_held', 'save_result_ready', 'save_quest_returned')
+            phases = ('save_inventory_ready' if self.inventory else 'save_quest_ready',
+                      'save_ready', 'save_held', 'save_result_ready',
+                      'save_inventory_returned' if self.inventory else 'save_quest_returned')
             for event in events:
                 if event['event'] in phases:
                     Image.new('RGB', (240, 160), (8 + event['decoration'] * 8,) * 3).save(directory / f"{event['frame']:06d}.png")
-            self.assertEqual(validate_save_pixels(directory, events, refs)['checkpoints'], 81)
+            self.assertEqual(validate_save_pixels(directory, events, refs, inventory=self.inventory)['checkpoints'], 81)
             with self.assertRaises(ValueError):
-                validate_save_pixels(directory, events, [refs[0]] * 3)
+                validate_save_pixels(directory, events, [refs[0]] * 3, inventory=self.inventory)
             event = next(r for r in events if r['event'] == 'save_result_ready')
             Image.new('RGB', (240, 160)).save(directory / f"{event['frame']:06d}.png")
             with self.assertRaisesRegex(ValueError, 'ROM health field'):
-                validate_save_pixels(directory, events, refs)
+                validate_save_pixels(directory, events, refs, inventory=self.inventory)
+
+
+class InventorySaveAuditTests(SaveAuditTests):
+    inventory = True
+
+    def test_wrong_entry_route_rejected(self):
+        with self.assertRaises(ValueError):
+            validate_trace(self.rows, 'save')
+        with self.assertRaises(ValueError):
+            validate_trace(trace(), self.scenario)
 
 
 if __name__ == '__main__':

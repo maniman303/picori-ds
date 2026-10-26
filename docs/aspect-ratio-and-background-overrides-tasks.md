@@ -82,6 +82,12 @@ results; those results do not certify the revised catalog or title-frame fix.
   failure, the native error wait/dismissal, installed-family retention and
   quest/game restoration. Inventory-entry saves, host flush failures and other
   languages/regions remain open.
+- [x] Audit native inventory-entry save confirmation on EU/English at three
+  installed health decorations: 18 acceptance/refusal/EEPROM-failure cases.
+  Verify native cursor navigation, screen 11 installation, checksum readback,
+  error timing/dismissal, unchanged records on refusal/failure and inventory/game
+  restoration. Retain the Quest Status evidence; host flush failures and other
+  languages/regions remain open.
 - [x] Audit all six standalone map hints, first/repeated reveals, at three health
   preloads in all five EU languages. Verify native timer-30 reveal, A/B/START
   exits and the live palette-zero field before/after health mutation.
@@ -984,3 +990,26 @@ records raw artifacts, native success versus capture-command checker failures,
 final offline verification and remaining scope. This completes the Quest Status
 save slice; the broad context/state task and runtime adapter/compositor remain
 open.
+
+
+## Native inventory-entry save interaction coverage (2026-10-26)
+
+Added the separate `inventory_save` route using real UP / LEFT / A input to
+open screen 11, native remembered-cursor navigation and native inventory return.
+All 18 EU/English cases pass: six successful saves, nine refusals and three
+EEPROM write errors across three installed health decorations. The final native
+process and capture command both exit zero at frame 6,859. Validation covers
+81 source checkpoints / 1,296 ROM-derived field samples, error wait/dismissal,
+checksum readback, installed-family/heading lifetime and original-room restoration.
+The earlier externally terminated capture is retained and is not counted as
+completed evidence.
+
+Thirteen new inventory-checker tests bring the shared audit suite to 126 tests;
+11 exporter tests, catalog/profile agreement, engine/scroll and CPU PPU checks,
+the ARM64 incremental build and isolated EU startup smoke all pass. Retained
+Quest Status and 130-case menu/fusion traces still validate with the final tools;
+this is trace compatibility, not a fresh native pixel replay. See the
+[inventory save audit](background-context-state-audit.md#native-inventory-entry-save-choices-and-write-failure-2026-10-26)
+for artifacts and reproduction. Build options and existing goldens/artwork remain
+unchanged. The full context/state catalog, runtime adapter/compositor and broader
+regional/effect/device acceptance remain open.

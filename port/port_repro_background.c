@@ -1,5 +1,5 @@
 /* Native fixed-screen audit. Only compiled with repro_harness=y.
- * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions|figurine_actions|detail_maps|sleep|save;
+ * TMC_BACKGROUND_AUDIT=credits|prologue|intro|files|local_hint|menus|travel|figurines|hints|dungeons|travel_actions|figurine_actions|detail_maps|sleep|save|inventory_save;
  * TMC_BACKGROUND_AUDIT_OUT=<directory>.
  * The driver stages a synthetic save in memory, then runs native task/subtask
  * code at normal simulation speed. No timer, graphics or fade is skipped.
@@ -193,7 +193,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
             return;
         mode = strcmp(value, "credits") == 0 ? 1 : strcmp(value, "prologue") == 0 ? 2 :
                strcmp(value, "files") == 0 ? 3 : strcmp(value, "intro") == 0 ? 4 :
-               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : strcmp(value, "figurine_actions") == 0 ? 12 : strcmp(value, "detail_maps") == 0 ? 13 : strcmp(value, "sleep") == 0 ? 14 : strcmp(value, "save") == 0 ? 15 : 0;
+               strcmp(value, "local_hint") == 0 ? 5 : strcmp(value, "menus") == 0 ? 6 : strcmp(value, "travel") == 0 ? 7 : strcmp(value, "figurines") == 0 ? 8 : strcmp(value, "hints") == 0 ? 9 : strcmp(value, "dungeons") == 0 ? 10 : strcmp(value, "travel_actions") == 0 ? 11 : strcmp(value, "figurine_actions") == 0 ? 12 : strcmp(value, "detail_maps") == 0 ? 13 : strcmp(value, "sleep") == 0 ? 14 : strcmp(value, "save") == 0 ? 15 : strcmp(value, "inventory_save") == 0 ? 16 : 0;
         sDirectory = getenv("TMC_BACKGROUND_AUDIT_OUT");
         char path[4096];
         if (!mode || !sDirectory || snprintf(path, sizeof(path), "%s/trace.jsonl", sDirectory) >= (int)sizeof(path)) {
@@ -220,7 +220,7 @@ void Port_ReproBackground_Tick(unsigned int frame) {
         sFigurineInstalled = 0;
     if (gMain.task != TASK_GAME || gMain.substate != GAMEMAIN_SUBTASK || gUI.lastState != SUBTASK_MAPHINT)
         sHintInstalled = 0;
-    const int saveResult = mode == 15 ? Port_ReproBackground_SaveTick(frame) : 0;
+    const int saveResult = (mode == 15 || mode == 16) ? Port_ReproBackground_SaveTick(frame) : 0;
     const int sleepResult = mode == 14 ? Port_ReproBackground_SleepTick(frame) : 0;
     const int detailMapResult = mode == 13 ? Port_ReproBackground_DetailMapsTick(frame) : 0;
     const int figurineActionResult = mode == 12 ? Port_ReproBackground_FigurineActionsTick(frame) : 0;

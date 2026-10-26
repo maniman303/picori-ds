@@ -1208,3 +1208,74 @@ interactions, host flush errors, other languages/regions, game-over choices,
 fusion interactions and remaining file/post-credits paths keep the full
 context/state task open. Runtime image publication, cache/composition, resolved
 intermediate effects and physical-device measurements remain separate work.
+
+
+## Native inventory-entry save choices and write failure (2026-10-26)
+
+The `inventory_save` route extends the Quest Status save audit with a separate
+18-case EU/English matrix: the same six acceptance/refusal/write-error inputs
+at three installed health decorations. The existing `save` route and its case
+IDs remain unchanged. Both routes share native save/readback/error handling;
+entry and return checks distinguish inventory screen 1 / prompt 11 from Quest
+Status screen 2 / prompt 10.
+
+Only health and the initial inventory page are staged. Real UP / LEFT / A
+input moves from inventory cursor 0 through bottle slot 12 to Save slot 16 and
+opens the prompt. Subsequent openings reset the remembered cursor using RIGHT /
+UP / UP / UP (12 / 8 / 4 / 0) before repeating that path. A read-only
+`inventory_choice` event observes native navigation; no cursor, result, timer,
+graphics or return transition is assigned by the driver. Successful saves and
+refusals return automatically to inventory with Save selected; write errors
+retain the prompt until the native 60-tick wait and A dismissal finish.
+
+The checker requires the native 1 / 11 / 1 installation sequence, titled/plain/
+titled family changes, heading removal/restoration, installed-health retention
+across live-health mutation, checksum readback and unchanged prior records on
+refusal/failure. START must restore the original game room and clear the audit
+family. Restoration checks game task/update/UI state, not normal player-control
+readiness. The EEPROM fault remains repro-only; host flush failures are outside
+this route. Runtime saves/configuration are isolated in a temporary directory.
+
+Reproduce with a repro-enabled binary and verified EU ROM:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario inventory_save --language 1 \
+  --output .tmp/background-inventory-save-new
+python3 tools/tests/background_save_audit.py
+```
+
+Final evidence is under `.tmp/background-inventory-save-audit/eu-en-final/`.
+Both native process and capture command exit zero at frame 6,859. Its summary
+and `verification.json` retain the complete 18-case validation, binary/trace
+hashes and 1,131 captures: six successful saves, nine unchanged refusals, three
+unchanged write failures and 18 original-room restorations. The 81 source
+checkpoints compare 1,296 independent ROM-derived field pixels. Successful
+result/returned-inventory events share a framebuffer. The prompt and error
+dialog were inspected, and generated ready/held/returned contact sheets remain
+beside the raw captures.
+
+The first `eu-en/` attempt was externally terminated (exit 143) after frame
+6,235 with an incomplete final JSON line and without the last case. Its raw
+artifacts and `capture-outcome.json` remain separate; no complete-run success
+is inferred from it. The final run uses the final rebuilt binary and completes
+independently. `tmc_pc-repro`, `tmc-qemu` and `final-binary.json` identify that
+successful capture executable.
+
+All 126 audit-checker tests (13 new inventory checks), 11 exporter tests,
+catalog/profile C/C++ checks, engine/scroll regressions and ASan/UBSan CPU PPU
+checks pass (LeakSanitizer disabled for the sandbox). The final ARM64
+`xmake build -y tmc_pc` and isolated EU QEMU/dummy-SDL smoke reach
+`Port layer initialized. Entering AgbMain...`. Retained Quest Status and
+130-case menu/fusion raw traces still pass the final tools. They were not
+recaptured for this extension, so this records trace compatibility rather than
+new native framebuffer parity. Incoming build options, original goldens and
+artist files remain unchanged.
+
+The shared checker tests now run against both routes, including wrong-entry
+rejection, missing native events, navigation/answer input, error timing,
+readback, source/heading retention, return-room checks and ROM-field mismatch.
+The broad context/state catalog remains open for other languages/regions,
+host flush errors, game-over/fusion interactions and remaining file/post-credits
+paths. Runtime adapter, artwork loading/composition and intermediate effect
+resolution remain separate tasks.
