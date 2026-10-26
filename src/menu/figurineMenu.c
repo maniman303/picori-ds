@@ -139,9 +139,15 @@ void FigurineMenu_080A4608(void) {
     }
     gFigurineMenu.figure_idx = r1;
     SetFade(FADE_INSTANT, 8);
+#ifdef PC_PORT
+    Port_ReproBackground_Event("figurine_screen", r1);
+#endif
 }
 
 void FigurineMenu_ExitMenu(void) {
+#ifdef PC_PORT
+    Port_ReproBackground_Event("figurine_cancel", gFigurineMenu.figure_idx);
+#endif
     SetBgmVolume(0x100);
     SoundReq(SFX_MENU_CANCEL);
     ClearRoomFlag(2);
@@ -281,6 +287,9 @@ void FigurineMenu1_ViewAllFigurines(void) {
     prevFigurineIndex = gFigurineMenu.figure_idx;
     if (prevFigurineIndex != figurineIndex) {
         gFigurineMenu.figure_idx = figurineIndex;
+#ifdef PC_PORT
+        Port_ReproBackground_Event("figurine_choice", figurineIndex);
+#endif
         SoundReq(SFX_TEXTBOX_CHOICE);
         SetMenuType(2);
         infoY = 0;

@@ -48,6 +48,11 @@ results; those results do not certify the revised catalog or title-frame fix.
 - [ ] Finish the full context/state catalog across available regions, including
   dungeon/fusion/fast-travel/figurine screens and interaction/error paths;
   retain the completed file-operation, prologue, credits and pause-menu evidence.
+- [x] Audit the native figurine collection viewer on EU/English before/after
+  credits at three health preloads: owned/missing entries, native navigation,
+  B/START cancellation and gameplay restoration. Verify the live palette-zero
+  field survives health changes without selecting a menu-family image. Prize
+  reveal, description scrolling and other languages/regions remain open.
 - [x] Extend the native fusion audit to all seven layouts at each installed
   health on the available EU/English fixture; retain all 109 previous case IDs
   and native checkpoint pixels. Interaction/effect and regional/language gaps
@@ -772,3 +777,27 @@ The ARM64 release build and EU startup smoke under QEMU/dummy video/audio pass;
 release options stay unchanged with `repro_harness=n`. Native/artist files and
 committed goldens are not replaced; no packaging, device or extra-region
 acceptance is claimed. Runtime adapter/PNG loading/composition remain pending.
+
+
+## Figurine collection context coverage (2026-10-26)
+
+The first open context/state task gains a completed EU/English collection-viewer
+slice. The [figurine audit](background-context-state-audit.md#native-figurine-collection-audit-2026-10-26)
+records 27 views / 54 neutral checkpoints across three health preloads and
+pre-/post-credits collection limits. Native input visits owned/missing entries;
+six B/START exits restore gameplay. The palette-zero field remains independent
+of the overwritten health decoration and no pause-family image is selected.
+ROM decoding verifies the two exposed source samples and palette identity;
+all 108 checkpoint pixel comparisons pass. No new artwork filename is added.
+
+Seven new checker tests, the retained 26 audit-checker and 11 exporter tests,
+C/C++ catalog agreement, engine/scroll/CPU PPU regressions, ARM64 build and EU
+QEMU startup pass. The existing 130-case menu/fusion and 27-case travel traces
+still validate. The incoming build configuration is unchanged. Captures and
+binary hashes are local under `.tmp/background-figurine-context-audit/`, separate
+from original evidence and goldens; no artist files, packaging or profiles change.
+
+Dungeon menus, standalone hints, figurine prize effects/description scrolling,
+travel confirmation/effects, other interaction/error paths and regional/language
+coverage keep the full task open. Runtime adapter/loading/composition and device
+measurements remain their explicit later tasks.

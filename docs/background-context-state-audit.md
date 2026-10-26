@@ -465,3 +465,74 @@ reconstructions, and its exposed bottom row against the retained 54 native
 checkpoints. The extractor rerun and artist preservation evidence are recorded
 in the task list. Runtime source publication, effect masks and confirmation/
 travel-transition lifetime remain implementation/acceptance follow-ups.
+
+## Native figurine collection audit (2026-10-26)
+
+`--scenario figurines` extends the first open context/state gate with 27
+EU/English collection views across six openings: normal/damaged/critical health
+preloads, each before and after credits. Synthetic in-memory ownership marks
+entries 1, 130 and 136 owned; entries 2 and 7 are missing. Real DOWN/R input
+visits 1, 2, 7 and 130 before credits, and also 136 afterward. No selected index,
+native graphics, timers or fades are patched. B exits the pre-credits openings;
+START exits the post-credits openings. Every opening restores native gameplay.
+This stages access to the viewer, not the normal quest prerequisites.
+
+`FigurineMenu_080A4608` calls the shared health initializer, installs screen 3
+(graphics 89 / palette 206), then copies palette entry 251 into palette zero
+and clears BG3 before native list text is drawn. This is the catalog's existing
+procedural figurine field, not any of the five menu-health image families.
+Palette group 12, loaded by `LoadGfxGroups`, supplies entry 251 in the fixture;
+decoding only palettes 181/206 would incorrectly report its value as zero.
+The neutral fixture's value is `0x318e`, RGB (112,96,96); runtime composition
+must use the live source rather than hard-code this observation.
+
+Additive schema-v2 fields record `figurine_case`, `figurine_field`, selected
+index/ownership, staffroll status, palette zero/251 and description scroll/limit.
+Native `figurine_screen`, `figurine_choice` and `figurine_cancel` events record
+installation, input-driven navigation and exit. The field is retained through
+exit until gameplay restoration; reusing screen 3 never publishes a pause
+family or heading. The checker requires all 27 ordered ready/held pairs,
+six native installations/restorations, exact navigation events, health mutation
+and no extra health-decoration installation. All 54 checkpoints pass.
+
+The exposed samples at (100,40) and (220,100) match live palette zero at all
+54 checkpoints (108 pixel comparisons). Independent ROM decoding verifies
+BG2/BG3 transparency there after the native graphics/clear sequence, and the
+palette source agrees for all three preloads. BG1's description window begins
+at row 120. Frame corners are excluded: their opaque BG2 pixels have a different
+color. List lettering, figure sprites, selection bars and description text are
+outside the pixel claim. The neutral 27-view contact sheet was inspected.
+
+Reproduce with a repro-enabled binary and the standard capture driver:
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-qemu \
+  --rom /path/to/EU.gba --scenario figurines \
+  --output .tmp/background-figurine-context-audit/new-run
+python3 tools/tests/background_figurine_audit.py
+```
+
+Authoritative local artifacts are
+`.tmp/background-figurine-context-audit/eu-en-verified/`; `summary.json` records
+coverage and decoded capture hashes. The adjacent `binary.sha256` identifies
+the copied ARM64 binary. The earlier `eu-en/` and `eu-en-final/` runs were exploratory: their initial
+checkers used opaque frame corners or omitted base palette group 12. Both were
+corrected using ROM source coverage.
+Neither these runs nor the unrelated older `.tmp/background-figurine-audit/`
+replace committed goldens. No artist image was touched.
+
+The seven new failure-oriented checker tests, retained 26 audit-checker tests,
+11 exporter tests, C11/C++/UBSan catalog agreement, engine/scroll/CPU PPU checks,
+ARM64 `xmake build -y tmc_pc` and EU startup under QEMU/dummy video/audio pass.
+The startup reaches `Port layer initialized. Entering AgbMain...`. Existing
+130-case menu/fusion and 27-case travel traces still validate. Incoming build
+options (including `repro_harness=y`) are preserved; no staging or device
+deployment was performed.
+
+The collection view is a completed slice, not completion of the full gate.
+Prize drawing/reveal/duplicate effects, description scrolling, other ownership
+patterns, dungeon menus, standalone hints, travel confirmation/effects,
+remaining functional/error paths and other available languages still need
+coverage. USA/JP ROM fixtures and physical RG budgets remain unavailable.
+Runtime state publication, compositor effect targets and margin pixels remain
+separate implementation/acceptance tasks.

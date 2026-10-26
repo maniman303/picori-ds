@@ -30,6 +30,8 @@ int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int scree
 int Port_ReproBackground_MenuCase(void);
 int Port_ReproBackground_TravelTick(unsigned int frame, int decoration);
 int Port_ReproBackground_TravelCase(void);
+int Port_ReproBackground_FigurinesTick(unsigned int frame);
+int Port_ReproBackground_FigurineCase(void);
 void Port_ReproRando_Tick(unsigned int frame);
 void Port_ReproRando_LateTick(void);
 void Port_ReproPerfcap_Tick(unsigned int frame);
