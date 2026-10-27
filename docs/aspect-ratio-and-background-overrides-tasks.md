@@ -278,6 +278,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
   Unreviewed dynamic entities and effects are explicitly denied tall-scene
   admission; this is not a claim that their 4:3 behavior has been validated.
 - [ ] Extend transitions one validated case at a time; test camera completion.
+  The rolling-scroll completion regression covers all four directions and
+  verifies the existing wide-camera snap and tile refresh after the native
+  transition. It does not validate an extended transition aperture.
 
 ## 4. Layout
 

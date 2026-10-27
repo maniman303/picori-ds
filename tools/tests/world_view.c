@@ -14,6 +14,7 @@
 
 RoomControls gRoomControls;
 PlayerEntity gPlayerEntity;
+PlayerState gPlayerState;
 ActiveScriptInfo gActiveScriptInfo;
 u8 gUpdateVisibleTiles;
 u8 gShakeOffsets[256];
@@ -23,6 +24,10 @@ static int loads, shakes, shakeFills;
 static int sWsStageHeight;
 #endif
 void UpdateScrollVram(void) { ++shakeFills; }
+void MemFill32(u32 value, void* dest, u32 size) {
+    u32* words = dest;
+    for (u32 i = 0; i < size / sizeof(*words); ++i) words[i] = value;
+}
 
 /* Explicit test-only aperture injection. The runtime height gate stays 160
  * while the independent camera/map paths are checked at future DS geometry. */
@@ -36,6 +41,7 @@ void LoadRoomGfx(void) { ++loads; }
 void UpdateScreenShake(void) { ++shakes; }
 void UpdateSpriteForCollisionLayer(Entity* entity) { (void)entity; }
 void sub_080809D4(void);
+void sub_0807FEC8(RoomControls* controls);
 #include "world_view_functions.inc"
 
 static void check_helpers(void) {
@@ -189,6 +195,37 @@ static void check_cameras(void) {
     assert(gActiveScriptInfo.flags & 1);
 }
 
+static void check_scroll_transition_completion(void) {
+    for (int direction = 0; direction < 4; ++direction) {
+        memset(&gRoomControls, 0, sizeof(gRoomControls));
+        memset(&gPlayerState, 0, sizeof(gPlayerState));
+        memset(&gPlayerEntity, 0, sizeof(gPlayerEntity));
+        gRoomControls.origin_x = 100;
+        gRoomControls.origin_y = 200;
+        gRoomControls.width = 1024;
+        gRoomControls.height = 768;
+        gRoomControls.scrollAction = 2;
+        gRoomControls.scroll_direction = direction;
+        gRoomControls.camera_target = &gPlayerEntity.base;
+        gPlayerEntity.base.x.HALF.HI = 500;
+        gPlayerEntity.base.y.HALF.HI = 600;
+        viewWidth = MODE1_GBA_WIDTH > 240 ? 285 : 240;
+        viewHeight = 160;
+        const int frames = direction % 2 ? 60 : 40;
+        for (int frame = 0; frame < frames; ++frame) {
+            Scroll2Sub2(&gRoomControls);
+            assert(gRoomControls.scrollAction == (frame + 1 == frames ? 0 : 2));
+        }
+        assert(gPlayerState.startPosX == gPlayerEntity.base.x.HALF.HI);
+        assert(gPlayerState.startPosY == gPlayerEntity.base.y.HALF.HI);
+        if (viewWidth > 240) {
+            assert(gRoomControls.scroll_x == Port_Widescreen_CameraRestX(gPlayerEntity.base.x.HALF.HI));
+            assert(gRoomControls.scroll_y == Port_Widescreen_CameraRestY(gPlayerEntity.base.y.HALF.HI));
+            assert(gUpdateVisibleTiles == 1);
+        }
+    }
+}
+
 static void check_world_pixels(void) {
     static u16 map[128 * 128], buffer[32 * 32];
     static u16 shadow[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
@@ -304,6 +341,7 @@ int main(void) {
     check_helpers();
     check_shake_start();
     check_cameras();
+    check_scroll_transition_completion();
     check_regions();
     check_map_fill();
     check_world_pixels();
