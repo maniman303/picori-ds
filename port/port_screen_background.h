@@ -110,13 +110,17 @@ typedef enum {
     PORT_BACKGROUND_SOURCE_IMAGE,
     PORT_BACKGROUND_SOURCE_BLACK,
     /* The white native logo field, with its native layer/effect target.
-     * This is not an instruction to set the GBA backdrop color to white. */
+     * EU's outer field is the backdrop; opaque white BG2 logo pixels are
+     * foreground. The adapter must verify the source for other regions. */
     PORT_BACKGROUND_SOURCE_LOGO_FIELD,
     /* Resolve from the active palette-zero field, including palette fades.
      * Figurines copy entry 251 to zero; map hint copies entry 81 to zero.
-     * Local fusion hints set zero and entry 95 together (native 0x475f).
      * Do not use the unfaded EU reference swatch as a runtime RGB constant. */
-    PORT_BACKGROUND_SOURCE_PALETTE_ZERO
+    PORT_BACKGROUND_SOURCE_PALETTE_ZERO,
+    /* Local fusion hints fill BG3 with opaque palette index 95. Zero and 95
+     * start equal but belong to different fade banks and can later diverge.
+     * Read the live, already-faded palette entry 95 and apply BG3 effects. */
+    PORT_BACKGROUND_SOURCE_BG3_PALETTE_95
 } PortBackgroundSource;
 
 typedef struct {

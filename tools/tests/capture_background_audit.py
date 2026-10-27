@@ -467,9 +467,10 @@ class NativeLanguageTests(unittest.TestCase):
                 validate_language([row], 'BZMP', 2)
 
     def test_language_must_survive_return_and_events(self):
-        rows = [dict(task=1, language_slot=3), dict(writes_task=2, language_slot=2)]
-        with self.assertRaisesRegex(ValueError, 'native language slot'):
-            validate_language(rows, 'BZMP', 2)
+        for row in (dict(writes_task=2, language_slot=2), dict(writes_task=4, language_slot=2),
+                    dict(task=4, language_slot=2)):
+            with self.assertRaisesRegex(ValueError, 'native language slot'):
+                validate_language([dict(task=1, language_slot=3), row], 'BZMP', 2)
 
     def test_startup_alone_cannot_certify_language(self):
         with self.assertRaisesRegex(ValueError, 'no initialized'):

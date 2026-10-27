@@ -50,6 +50,7 @@ static void reset(void) {
     for (unsigned i = 0; i < 128; ++i) oam[i * 4] = 0x200;
     for (size_t i = 0; i < VIRTUAPPU_FRAME_BUFFER_SIZE; ++i) virtuappu_frame_buffer[i] = canary;
     virtuappu_mode1_pre_line_callback = NULL;
+    virtuappu_mode1_continue_constant_hdma = false;
     virtuappu_mode1_bg2x_hdma_strobe = false;
     virtuappu_mode1_bg2y_hdma_strobe = false;
     bgpal[1] = 0x001f;
@@ -110,6 +111,113 @@ static void scanline(int line) {
     assert(line == callbacks && line < 160);
     io16(0x12, hardware_table[line]);
     ++callbacks;
+}
+
+static void counted_hdma(int line) {
+    assert(line == callbacks && line < 160);
+    ++callbacks;
+    port_hdma_step_line(line);
+}
+
+static void check_constant_brightness(void) {
+    static uint32_t expected[MODE1_GBA_WIDTH * MODE1_MAX_RENDER_HEIGHT];
+    static uint8_t rows[MODE1_MAX_RENDER_HEIGHT * MODE1_IO_MEM_SIZE];
+    uint16_t controls[MODE1_MAX_RENDER_HEIGHT];
+    int32_t x[MODE1_MAX_RENDER_HEIGHT], y[MODE1_MAX_RENDER_HEIGHT];
+    uint16_t brightness = 8;
+    reset();
+    stripes(false);
+    io16(0x50, 0x82); /* brighten BG1 */
+    io16(0x54, brightness);
+    PPUMemory p = geometry(192, 1);
+    virtuappu_mode1_render_frame(&p);
+    memcpy(expected, virtuappu_frame_buffer, sizeof(expected));
+
+    io16(0x54, 0);
+    port_hdma_register(0, &brightness, io + 0x54, 0x160, 1);
+    assert(port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(!port_hdma_can_continue_brightness(NULL, sizeof(io)));
+    assert(!port_hdma_can_continue_brightness(io, 0x55));
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_BLEND | PORT_HDMA_FIXED_SOURCE));
+    for (int window = 0x20; window <= 0x80; window <<= 1) {
+        io[1] |= (uint8_t)window;
+        assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+        io[1] &= (uint8_t)~window;
+    }
+    virtuappu_mode1_pre_line_callback = counted_hdma;
+    virtuappu_mode1_continue_constant_hdma = true;
+    callbacks = 0;
+    virtuappu_mode1_render_frame(&p);
+    assert(callbacks == 160 && virtuappu_mode1_frame_height() == 192);
+    for (int row = 0; row < 192; ++row)
+        for (int col = 0; col < width; ++col)
+            assert(virtuappu_frame_buffer[row * pitch + col] == expected[row * pitch + col]);
+    untouched(192);
+
+    port_hdma_vblank_reset();
+    memset(rows, 0xa5, sizeof(rows));
+    callbacks = 0;
+    virtuappu_mode1_prepare_frame(&p, rows, controls, x, y, NULL);
+    assert(callbacks == 160 && virtuappu_mode1_frame_height() == 192);
+    assert(rows[159 * MODE1_IO_MEM_SIZE + 0x54] == 8);
+    assert(rows[160 * MODE1_IO_MEM_SIZE + 0x54] == 8);
+    assert(rows[191 * MODE1_IO_MEM_SIZE + 0x54] == 8);
+    port_hdma_unregister(0);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+
+    /* Unknown sources, drifting destinations, aliasing and multiple effects
+     * cannot claim a stable continuation. */
+    port_hdma_register(0, hardware_table, io + 0x54, 0x60, 1);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_BLEND | PORT_HDMA_INCREMENTING_SOURCE));
+    port_hdma_register(0, &brightness, io + 0x54, 0x100, 1);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(port_hdma_classify(io, sizeof(io)) & PORT_HDMA_OTHER); /* increment reaches other registers */
+    port_hdma_register(0, &brightness, io + 0x54, 0x1e0, 1); /* prohibited source mode */
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(port_hdma_classify(io, sizeof(io)) & PORT_HDMA_OTHER);
+    port_hdma_register(0, &brightness, io + 0x54, 0x160, 2);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    port_hdma_register(0, &brightness, io + 0x54, 0x560, 1);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    port_hdma_register(0, io + 0x54, io + 0x54, 0x160, 1);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    port_hdma_register(0, &brightness, io + 0x54, 0x160, 1);
+    port_hdma_register(1, &brightness, io + 0x40, 0x160, 1);
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_BLEND | PORT_HDMA_WINDOW | PORT_HDMA_FIXED_SOURCE));
+    port_hdma_unregister(0);
+    port_hdma_unregister(1);
+    port_hdma_register(0, hardware_table, io + 0x20, 0x60, 8);
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_AFFINE | PORT_HDMA_INCREMENTING_SOURCE));
+    port_hdma_register(0, hardware_table, io + 0x1c, 0x60, 1);
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_BG_SCROLL | PORT_HDMA_INCREMENTING_SOURCE));
+    port_hdma_register(0, hardware_table, io + 0x0e, 0x60, 1);
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_BG_CONTROL | PORT_HDMA_INCREMENTING_SOURCE));
+    port_hdma_unregister(0);
+    virtuappu_mode1_pre_line_callback = NULL;
+    virtuappu_reset();
+    assert(!virtuappu_mode1_continue_constant_hdma);
+}
+
+static void check_white_bg_vs_backdrop(void) {
+    reset();
+    bgpal[0] = 0x7fff;
+    bgpal[8] = 0x7fff;
+    memset(vram + 32, 0x88, 32); /* one opaque white BG2 tile */
+    vram[0x8000] = 1;           /* subsequent BG2 tiles are transparent */
+    io16(0, 0x400);
+    io16(0x0c, 0x1000);        /* BG2 screenbase 16 */
+    io16(0x54, 8);
+    PPUMemory p = geometry(160, 1);
+    io16(0x50, 0xe0);          /* darken backdrop only */
+    virtuappu_mode1_render_frame(&p);
+    assert(virtuappu_frame_buffer[0] == 0xfff8f8f8);
+    assert(virtuappu_frame_buffer[8] == 0xff808080);
+    io16(0x50, 0xc4);          /* darken BG2 only */
+    virtuappu_mode1_render_frame(&p);
+    assert(virtuappu_frame_buffer[0] == 0xff808080);
+    assert(virtuappu_frame_buffer[8] == 0xfff8f8f8);
 }
 
 static void check_raster(void) {
@@ -237,6 +345,8 @@ int main(void) {
     check_stripes(false);
     check_stripes(true);
     check_raster();
+    check_constant_brightness();
+    check_white_bg_vs_backdrop();
     check_snapshot();
     reset();
     p = geometry(192, 1);

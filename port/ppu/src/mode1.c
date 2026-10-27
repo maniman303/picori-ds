@@ -19,6 +19,7 @@
 #include "virtuappu.h"
 
 virtuappu_mode1_pre_line_fn virtuappu_mode1_pre_line_callback = NULL;
+bool virtuappu_mode1_continue_constant_hdma = false;
 
 typedef struct Mode1TilemapEntry {
     uint16_t raw;
@@ -135,7 +136,8 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
         height = MODE1_MAX_RENDER_HEIGHT;
     /* No HDMA continuation is implied by extra framebuffer storage. Keep
      * unknown raster effects in a native-height aperture until classified. */
-    if (virtuappu_mode1_pre_line_callback != NULL && height > MODE1_GBA_HEIGHT)
+    if (virtuappu_mode1_pre_line_callback != NULL && !virtuappu_mode1_continue_constant_hdma &&
+        height > MODE1_GBA_HEIGHT)
         height = MODE1_GBA_HEIGHT;
 
     if (ppu != NULL && ppu->frame_width != 0u) {
@@ -1427,7 +1429,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
 
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
     for (line = 0; line < raster_rows; ++line) {
-        if (per_line_io) {
+        if (per_line_io && line < MODE1_GBA_HEIGHT) {
             virtuappu_mode1_pre_line_callback(line);
         }
         /* Snapshot IO for the GPU. When there is no per-line HDMA callback,
@@ -1515,14 +1517,17 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
     for (line = 0; line < raster_rows; ++line) {
         if (per_line_io) {
-            virtuappu_mode1_pre_line_callback(line);
-            memcpy(io_snapshots[line], mode1_memory.io_mem, MODE1_IO_MEM_SIZE);
+            const int snapshot_line = line < MODE1_GBA_HEIGHT ? line : MODE1_GBA_HEIGHT - 1;
+            if (line < MODE1_GBA_HEIGHT) {
+                virtuappu_mode1_pre_line_callback(line);
+                memcpy(io_snapshots[snapshot_line], mode1_memory.io_mem, MODE1_IO_MEM_SIZE);
+            }
             per_line_dispcnt[line] =
 #ifdef TMC_N64
-                *(const uint16_t*)&io_snapshots[line][MODE1_IO_DISPCNT];
+                *(const uint16_t*)&io_snapshots[snapshot_line][MODE1_IO_DISPCNT];
 #else
-                (uint16_t)io_snapshots[line][MODE1_IO_DISPCNT] |
-                ((uint16_t)io_snapshots[line][MODE1_IO_DISPCNT + 1] << 8);
+                (uint16_t)io_snapshots[snapshot_line][MODE1_IO_DISPCNT] |
+                ((uint16_t)io_snapshots[snapshot_line][MODE1_IO_DISPCNT + 1] << 8);
 #endif
         } else {
             per_line_dispcnt[line] = dispcnt;
@@ -1560,7 +1565,8 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
         bool obj_1d = (line_dispcnt & MODE1_DISP_OBJ_1D) != 0u;
         const uint8_t* prev_override = virtuappu_mode1_io_thread_override;
 
-        virtuappu_mode1_io_thread_override = per_line_io ? io_snapshots[line] : mode1_memory.io_mem;
+        virtuappu_mode1_io_thread_override = per_line_io ? io_snapshots[line < MODE1_GBA_HEIGHT ? line : MODE1_GBA_HEIGHT - 1]
+                                                          : mode1_memory.io_mem;
 
         memset(obj_layer, 0, (size_t)mode1_frame_width * sizeof(uint32_t));
         memset(obj_priority, 0xFF, (size_t)mode1_frame_width);

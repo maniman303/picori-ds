@@ -22,6 +22,7 @@ PPUMemory virtuappu_registers;
 void virtuappu_reset(void)
 {
     virtuappu_mode1_bind_obj_positions(NULL);
+    virtuappu_mode1_continue_constant_hdma = false;
     memset(virtuappu_frame_buffer, 0, sizeof(virtuappu_frame_buffer));
     memset(virtuappu_vram, 0, sizeof(virtuappu_vram));
     memset(&virtuappu_registers, 0, sizeof(virtuappu_registers));

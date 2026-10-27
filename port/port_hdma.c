@@ -32,6 +32,7 @@ typedef struct {
     uint16_t count; // units per HBlank transfer
     uint8_t unit;   // 2 or 4 bytes
     uint8_t src_fixed;
+    uint8_t src_mode_invalid;
     uint8_t dest_mode; // HdmaDestMode
 } HdmaChannel;
 
@@ -51,6 +52,7 @@ void port_hdma_register(int channel, const void* src, void* dest, uint16_t cnt_h
     c->count = count ? count : 1;
     c->unit = (cnt_h & DMA_CNT_32BIT) ? 4 : 2;
     c->src_fixed = (cnt_h & DMA_CNT_SRC_FIXED) ? 1 : 0;
+    c->src_mode_invalid = (cnt_h & 0x0180) == 0x0180;
     dm = cnt_h & DMA_CNT_DEST_MASK;
     if (dm == DMA_CNT_DEST_FIXED) {
         c->dest_mode = DEST_FIXED;
@@ -77,6 +79,64 @@ int port_hdma_has_active_channels(void) {
         }
     }
     return 0;
+}
+
+uint32_t port_hdma_classify(const void* io, size_t io_size) {
+    uint32_t result = 0;
+    uintptr_t base = (uintptr_t)io;
+    if (!io)
+        return PORT_HDMA_OTHER;
+    if (io_size > 0x400) io_size = 0x400;
+    for (int ch = 0; ch < HDMA_CHANNELS; ++ch) {
+        const HdmaChannel* c = &s_channels[ch];
+        if (!c->active)
+            continue;
+        result |= c->src_fixed ? PORT_HDMA_FIXED_SOURCE : PORT_HDMA_INCREMENTING_SOURCE;
+        if (c->src_mode_invalid)
+            result |= PORT_HDMA_OTHER;
+        uintptr_t dest = (uintptr_t)c->dest_orig;
+        size_t span = c->dest_mode == DEST_FIXED ? c->unit : (size_t)c->unit * c->count;
+        if (c->dest_mode == DEST_INC) span *= 160;
+        if (dest < base || dest - base >= io_size || span > io_size - (dest - base)) {
+            result |= PORT_HDMA_OTHER;
+            continue;
+        }
+        for (size_t offset = (size_t)(dest - base); offset < (size_t)(dest - base) + span; ++offset) {
+            if (offset >= 0x08 && offset < 0x10) result |= PORT_HDMA_BG_CONTROL;
+            else if (offset >= 0x10 && offset < 0x20) result |= PORT_HDMA_BG_SCROLL;
+            else if (offset >= 0x20 && offset < 0x40) result |= PORT_HDMA_AFFINE;
+            else if (offset >= 0x40 && offset < 0x4c) result |= PORT_HDMA_WINDOW;
+            else if (offset >= 0x50 && offset < 0x56) result |= PORT_HDMA_BLEND;
+            else result |= PORT_HDMA_OTHER;
+        }
+    }
+    return result;
+}
+
+int port_hdma_can_continue_brightness(const void* io, size_t io_size) {
+    int active = 0;
+    uintptr_t base = (uintptr_t)io;
+    if (!io || io_size < 0x56 || base > UINTPTR_MAX - 0x56)
+        return 0;
+    /* WIN0, WIN1 and OBJWIN can each change whether effects apply outside
+     * the hardware viewport; their tall geometry is not classified yet. */
+    if (((const uint8_t*)io)[1] & 0xe0)
+        return 0;
+    for (int ch = 0; ch < HDMA_CHANNELS; ++ch) {
+        const HdmaChannel* c = &s_channels[ch];
+        if (!c->active)
+            continue;
+        active = 1;
+        if (!c->src_orig || !c->src_fixed || c->src_mode_invalid || c->unit != 2 || c->count != 1 ||
+            c->dest_mode == DEST_INC || (uintptr_t)c->dest_orig != base + 0x54)
+            return 0;
+        /* Repeated DMA writes may mutate another channel's source. */
+        uintptr_t source = (uintptr_t)c->src_orig;
+        if (source > UINTPTR_MAX - c->unit ||
+            (source < base + 0x56 && source + c->unit > base + 0x54))
+            return 0;
+    }
+    return active;
 }
 
 int port_hdma_dest_overlaps(const void* lo, const void* hi) {

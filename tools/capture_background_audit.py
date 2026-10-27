@@ -308,7 +308,9 @@ def validate_language(rows, code, language):
     remain usable by other checkers, but cannot certify localization coverage.
     """
     expected = max(1, language) + 1 if code == 'BZMP' else 0 if code == 'BZMJ' else language
-    initialized = [row for row in rows if row.get('task', row.get('writes_task')) in (1, 2, 3)]
+    # TASK_STAFFROLL is 4; TASK_GAMEOVER is 3. Both can return to another
+    # screen after localized prompts and must remain part of the audit.
+    initialized = [row for row in rows if row.get('task', row.get('writes_task')) in (1, 2, 3, 4)]
     if not initialized:
         raise ValueError('no initialized native language observations')
     if any(row.get('language_slot') != expected for row in initialized):

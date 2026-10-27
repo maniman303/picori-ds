@@ -22,6 +22,10 @@ extern "C" {
 
 typedef void (*virtuappu_mode1_pre_line_fn)(int line);
 extern virtuappu_mode1_pre_line_fn virtuappu_mode1_pre_line_callback;
+/* Set only for a host-verified constant BLDY transfer with windows disabled.
+ * Extra rendered lines reuse line 159's state; the callback still runs 160
+ * times. Reset by the host for every frame. Unknown callbacks stay capped. */
+extern bool virtuappu_mode1_continue_constant_hdma;
 
 /* PORT_WIDESCREEN_SPIKE: MODE1_GBA_WIDTH made overridable via
  * -DMODE1_GBA_WIDTH=N so the PC port can render wider frames. */
@@ -198,9 +202,9 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu);
  *   dispcnt_per_line : entry count uint16_t
  *   aff_ref_x/y      : entry count int32_t (filled only when affine)
  * With uniform IO only row zero is written. Callbacks still run exactly the
- * original 160 rows. Until extension policies are classified, an active
- * callback caps the effective render height at 160; query frame_height after
- * setup. No game table is read for an extra render row.
+ * original 160 rows. Unknown callbacks cap the effective height at 160. A
+ * host-verified constant brightness callback may reuse its last IO state for
+ * added rows. No game table is read for an extra render row.
  * `out_frame_dispcnt` receives the frame-start DISPCNT. Returns nonzero if
  * forced-blank is set (the GPU shader handles it, but the host may skip). */
 int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, uint16_t* dispcnt_per_line,

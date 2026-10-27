@@ -1425,6 +1425,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * channel is active. Affine BG rendering treats BG2X/BG2Y differently
      * when HDMA has already supplied per-line reference points. */
     virtuappu_mode1_pre_line_callback = port_hdma_has_active_channels() ? port_hdma_step_line : nullptr;
+    virtuappu_mode1_continue_constant_hdma = port_hdma_can_continue_brightness(gIoMem, 0x400);
 
     /* Affine reference write strobes: a per-line HDMA write to BG2X/BG2Y
      * must reload the internal latch even when it writes the SAME value

@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 29 unchecked
+[the closure checklist](background-context-closure-checklist.md): 28 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -150,8 +150,16 @@ additional automatically reopened tasks.
   lifetime through outgoing fade/scene replacement and normal player-control
   return. Preserve all 54 previous selection/cancel checkpoint pixels. Broader
   masks, languages/regions and resolved intermediate effects remain open.
-- [ ] Resolve per-context effect targets from unfaded source coverage, including
-  white logo BG versus backdrop, title local alpha, and masked palette fades.
+- [x] Resolve per-context effect targets from unfaded source coverage for the
+  available EU fixture, including white logo BG versus backdrop, title local
+  alpha, and masked palette fades. Retain USA/JP under the regional fixture
+  gate; publish the resulting per-edge policy in the later compositor work.
+- [x] Audit EU unfaded image/edge ownership and palette banks in all five
+  languages; distinguish logo backdrop from opaque white BG2 and correct the
+  local fusion hint to live BG3 palette entry 95. Add full-precision palette,
+  brightness and explicit-second-input alpha helpers, with real `FadeMain` mask
+  checks. Unobserved intermediate effects and publication remain open in the
+  [effect-target audit](background-effect-target-audit.md).
 - [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
 
 The [context/state audit](background-context-state-audit.md) records the available
@@ -230,8 +238,15 @@ or tile alignment. Native-content centering continues to use floor offsets.
   rows. Guard HDMA against extra/negative callback lines; stable-state scenes
   can render extra rows and continue affine references without extra IO copies.
 - [ ] Classify HDMA continuations and implement full-canvas effect geometry.
-  Until then, active callbacks cap the effective aperture at 160. This is an
-  interim safety gate while 4:3 remains disabled, not completed 4:3 behavior.
+  Unclassified or varying callbacks cap the effective aperture at 160; the
+  verified fixed-brightness case can extend. This is an interim safety gate
+  while 4:3 remains disabled, not completed 4:3 behavior.
+- [x] Classify the current HDMA destinations and fail closed for unsupported
+  continuations. Extend only verified fixed-source BLDY without windows; retain
+  160 hardware callbacks and snapshot storage. Add bounded full-canvas iris
+  spans checked against the native circle; publication, radius policy and other
+  raster/window continuations remain open in the
+  [HDMA audit](background-effect-target-audit.md#hdma-classification-and-geometry).
 - [x] Add a shared two-axis camera-rest formula and connect port camera snaps,
   initialization, expanded-height follow and script completion. Preserve native
   vertical pacing and fix small-room clamp agreement.
@@ -1187,3 +1202,26 @@ fixtures outstanding. The broad context/state parent remains open, and the
 implementation list still has 29 unchecked parent items. Runtime adapter,
 composition, artwork loading, effect resolution and device acceptance retain
 their separate tasks.
+
+## EU effect targets and initial HDMA continuation (2026-10-27)
+
+Resolved the available EU source targets using 33 independently decoded image
+recipes, all native edge owners and all five languages. The logo's outer white
+field is backdrop while some opaque white logo pixels are BG2. The local fusion
+hint's solid field is BG3 palette entry 95, not palette zero: their equal neutral
+colors can diverge under masked fades. The catalog now distinguishes those sources.
+Native title, pause, prologue, fusion, figurine, Game Over, credits and travel
+effect timelines, real staff-roll/FadeMain/FadeVBlank mask checks, and bounded
+RGB888 effect helpers are recorded in the [effect audit](background-effect-target-audit.md).
+Regional fixtures, native intermediate screenshot acceptance and compositor
+publication remain separate; this does not claim image-margin rendering.
+
+Classified the existing HDMA producers and implemented safe fixed-source BLDY
+continuation without additional hardware callbacks or a larger IO snapshot
+pool. Varying/unknown channels and window effects retain the native-height
+fallback. Full-canvas iris spans match the real native circle generator for all
+five profiles, but scene-wide radius policy and publication are still pending;
+the HDMA/full-canvas parent task remains open. CPU PPU geometry/sanitizer tests,
+EU logo/title byte-exact parity, catalog/exporter agreement, the ARM64 build and
+isolated EU startup pass. The implementation list now has 28 unchecked parent
+items; C7 remains open for missing USA/JP ROM fixtures.

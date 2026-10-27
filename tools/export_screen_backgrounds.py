@@ -278,7 +278,7 @@ SOLID_CONTEXTS = {
     'credits_text': 'Black in explicitly cleared/text-only phases.',
     'figurine_collection_and_details': 'Live palette-zero field copied from palette entry 251.',
     'map_hint': 'Generated field matching native bottom-center pixel; EU reference #C8E090.',
-    'local_map_hint': 'Live palette-zero field; fusion reveal replaces the menu decoration with a solid BG3.',
+    'local_map_hint': 'Live BG3 palette entry 95; fusion reveal replaces the menu decoration with a solid field.',
 }
 
 

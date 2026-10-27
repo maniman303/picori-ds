@@ -9,11 +9,11 @@ health value, unlock mask or quest flag. A new variant belongs in this gate
 when it exercises an unverified installation, source lifetime, foreground layout
 or functional/error return path. Exhaustive products remain acceptance work.
 
-There are **29 unchecked implementation-list items** as of this revision:
+There are **28 unchecked implementation-list items** as of this revision:
 
 | Section | Unchecked items |
 | --- | ---: |
-| Catalog/baseline | 3 |
+| Catalog/baseline | 2 |
 | Geometry/settings | 0 |
 | World rendering | 4 |
 | Layout | 5 |
@@ -21,7 +21,7 @@ There are **29 unchecked implementation-list items** as of this revision:
 | Artwork loading | 5 |
 | Export synchronization | 1 |
 | Acceptance/budgets | 4 |
-| **Total** | **29** |
+| **Total** | **28** |
 
 The first item contains these seven coverage groups: **six completed, one
 remaining** (C7 currently lacks ROM fixtures). They are a breakdown of
@@ -72,7 +72,7 @@ cannot expand silently after every completed route.
   supplies only an EU ROM; retain this external coverage limitation explicitly.
   Unavailable fixtures are not evidence of regional acceptance.
 
-Effect target resolution, top-left title-frame completion, compositor/PNG work,
+Regional effect acceptance, top-left title-frame completion, compositor/PNG work,
 profile enablement, packaging, GPU acceptance and physical RG measurements have
 their own unchecked parent tasks. They do not generate further context-audit
 subtasks by implication. The first parent task stays open until its applicable
