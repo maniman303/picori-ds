@@ -234,6 +234,38 @@ static void check_scroll_transition_completion(void) {
     }
 }
 
+/* Once the black-fade arrival has published its staged height, the real
+ * camera follow and script wait must agree on the new two-axis rest point. */
+static void check_black_fade_arrival_camera(void) {
+    memset(&gRoomControls, 0, sizeof(gRoomControls));
+    memset(&gPlayerEntity, 0, sizeof(gPlayerEntity));
+    gRoomTransition.type = TRANSITION_FADE_BLACK;
+    gRoomControls.origin_x = 100;
+    gRoomControls.origin_y = 200;
+    gRoomControls.width = 1024;
+    gRoomControls.height = 768;
+    gRoomControls.scrollAction = 1;
+    gRoomControls.scrollSpeed = 4;
+    gRoomControls.camera_target = &gPlayerEntity.base;
+    gPlayerEntity.base.x.HALF.HI = 500;
+    gPlayerEntity.base.y.HALF.HI = 900;
+    viewWidth = MODE1_GBA_WIDTH > 240 ? 256 : 240;
+    viewHeight = 192;
+    gRoomControls.scroll_x = 380;
+    gRoomControls.scroll_y = 808; /* old 160-row bottom clamp */
+    const int targetX = Port_Widescreen_CameraRestX(gPlayerEntity.base.x.HALF.HI);
+    const int targetY = Port_Widescreen_CameraRestY(gPlayerEntity.base.y.HALF.HI);
+    ScriptExecutionContext context = {0};
+    gActiveScriptInfo.flags = 0;
+    WaitForCameraTouchRoomBorder(NULL, &context);
+    assert(!(gActiveScriptInfo.flags & 1));
+    for (int i = 0; i < 64; ++i) Scroll1(&gRoomControls);
+    assert(gRoomControls.scroll_x == targetX && gRoomControls.scroll_y == targetY);
+    gActiveScriptInfo.flags = 0;
+    WaitForCameraTouchRoomBorder(NULL, &context);
+    assert(gActiveScriptInfo.flags & 1);
+}
+
 static void check_scroll4_transition_completion(void) {
     for (int scenario = 0; scenario < (MODE1_GBA_WIDTH > 240 ? 2 : 1); ++scenario) {
         memset(&gRoomControls, 0, sizeof(gRoomControls));
@@ -408,6 +440,7 @@ int main(void) {
     check_shake_start();
     check_cameras();
     check_scroll_transition_completion();
+    check_black_fade_arrival_camera();
     check_scroll4_transition_completion();
     check_scroll5_transition_completion();
     check_regions();

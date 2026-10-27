@@ -35,6 +35,7 @@
 #include "port_entity_ctx.h"
 #include "port_oam.h"
 #include "port_gba_mem.h"
+#include "port_hdma.h"
 #include "port_rom.h"
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
@@ -1001,6 +1002,7 @@ static PortViewportUpload sWsUpload;
 static int sWsStageHeight;
 static int sWsManagerDirty;
 static int sWsEntityDirty;
+static int sWsFixedInstalled;
 static uint64_t sWsValidatedKey = UINT64_MAX;
 
 /* Key identifying the room the content cache belongs to. Checked by
@@ -1273,9 +1275,10 @@ void Port_Widescreen_PublishScene(void) {
         scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
         /* These subtasks replace the world with a complete native screen.
          * Phase 0 is still the departing world and phase 4 has already
-         * restored it, so classify only the installed screen lifetime. */
+         * restored it. Phase 1 may retain an earlier installed screen. */
         if (gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_SUBTASK &&
             gUI.nextToLoad >= 2 && gUI.nextToLoad <= 3) {
+            sWsFixedInstalled = 0;
             switch (gUI.lastState) {
                 case SUBTASK_PAUSEMENU:
                 case SUBTASK_MAPHINT:
@@ -1283,7 +1286,7 @@ void Port_Widescreen_PublishScene(void) {
                 case SUBTASK_FIGURINEMENU:
                 case SUBTASK_FASTTRAVEL:
                 case SUBTASK_LOCALMAPHINT:
-                    scene.capabilities |= PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_FIXED_SCREEN;
+                    sWsFixedInstalled = 1;
                     break;
                 case SUBTASK_AUXCUTSCENE:
                     /* Story pages temporarily replace the auxiliary room;
@@ -1292,12 +1295,19 @@ void Port_Widescreen_PublishScene(void) {
                     if (gMenu.menuType == 1 && gMenu.field_0x0 == 1 &&
                         (gMenu.field_0x3 == 0 || gMenu.field_0x3 == 2) &&
                         gMapBottom.bgSettings == NULL && gMapTop.bgSettings == NULL)
-                        scene.capabilities |= PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_FIXED_SCREEN;
+                        sWsFixedInstalled = 1;
                     break;
                 default:
                     break;
             }
+        } else if (gMain.state != GAMETASK_MAIN || gMain.substate != GAMEMAIN_SUBTASK ||
+                   gUI.nextToLoad == 0 || gUI.nextToLoad >= 4) {
+            sWsFixedInstalled = 0;
         }
+        /* Phase 1 may be a handoff from an already installed menu. Keep
+         * its native composition until the replacement screen is installed. */
+        if (sWsFixedInstalled)
+            scene.capabilities |= PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_FIXED_SCREEN;
         /* Check the whole sequence before any camera or map copy sees it. */
         if (!Port_Viewport_MapTileRowsWithShake(192, gRoomControls.aff_y) ||
             (gRoomControls.shake_duration &&
@@ -1333,8 +1343,18 @@ void Port_Widescreen_PublishScene(void) {
             scene.capabilities |= PORT_SCENE_TALL_ENTITIES_EMPTY;
         if (sWsValidatedKey == Port_WidescreenRoomKey() && Port_Oam_VisibleSlotsTagged(gOamMem))
             scene.capabilities |= PORT_SCENE_TALL_OAM_VERIFIED;
+        /* The ordinary black-fade arrival updates one installed room with
+         * palette fades, rather than mixing two rooms in the rolling tile
+         * buffer. It can use the same staged aperture as steady gameplay
+         * once all independent room, entity and upload gates pass. */
+        int steadyOrBlackArrival = gMain.substate == GAMEMAIN_UPDATE ||
+            (gMain.substate == GAMEMAIN_CHANGEROOM && gRoomTransition.type == TRANSITION_FADE_BLACK &&
+             gFadeControl.active && gFadeControl.type == FADE_INSTANT &&
+             !(gScreen.lcd.displayControl & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON)) &&
+             !(gIoMem[1] & 0xe0) && /* already-latched WIN0/WIN1/OBJWIN */
+             !port_hdma_has_active_channels());
         if (!sWsManagerDirty && gManagerCount == 0 && gUnk_03003DE0 == 0 &&
-            gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_UPDATE &&
+            gMain.state == GAMETASK_MAIN && steadyOrBlackArrival &&
             !gRoomControls.reload_flags && gRoomControls.scrollAction == 1 &&
             ((gMapBottom.bgSettings != NULL &&
               Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control) >= 0) ||
@@ -1342,6 +1362,7 @@ void Port_Widescreen_PublishScene(void) {
               Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control) >= 0)))
             scene.capabilities |= PORT_SCENE_TALL_MANAGER_FREE;
     } else {
+        sWsFixedInstalled = 0;
         if (gMain.task == TASK_TITLE || gMain.task == TASK_FILE_SELECT ||
             gMain.task == TASK_GAMEOVER || gMain.task == TASK_STAFFROLL)
             scene.capabilities |= PORT_SCENE_FIXED_SCREEN;

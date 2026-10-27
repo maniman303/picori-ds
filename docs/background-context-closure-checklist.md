@@ -9,19 +9,19 @@ health value, unlock mask or quest flag. A new variant belongs in this gate
 when it exercises an unverified installation, source lifetime, foreground layout
 or functional/error return path. Exhaustive products remain acceptance work.
 
-There are **23 unchecked implementation-list items** as of this revision:
+There are **21 unchecked implementation-list items** as of this revision:
 
 | Section | Unchecked items |
 | --- | ---: |
 | Catalog/baseline | 0 |
 | Geometry/settings | 0 |
-| World rendering | 1 |
-| Layout | 5 |
+| World rendering | 0 |
+| Layout | 4 |
 | Margin composition | 7 |
 | Artwork loading | 5 |
 | Export synchronization | 1 |
 | Acceptance/budgets | 4 |
-| **Total** | **23** |
+| **Total** | **21** |
 
 The completed catalog item contains seven resolved groups. C1–C6 have native
 lifecycle/source evidence; C7 records the revised regional policy rather than

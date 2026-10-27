@@ -105,6 +105,24 @@ static void check_stripes(bool affine) {
     untouched(192);
 }
 
+/* A black palette fade changes live palette entries, not scanline IO. Verify
+ * both the old native area and newly exposed rows at each arrival step. */
+static void check_tall_palette_fade(void) {
+    reset();
+    stripes(false);
+    PPUMemory p = geometry(192, 1);
+    for (unsigned red = 0; red <= 31; ++red) {
+        bgpal[1] = bgpal[2] = bgpal[3] = (uint16_t)red;
+        virtuappu_mode1_render_frame(&p);
+        assert(virtuappu_mode1_frame_height() == 192);
+        const uint32_t expected = 0xff000000u | (red << 3);
+        for (int y = 0; y < 192; ++y)
+            for (int x = 0; x < 240; ++x)
+                assert(virtuappu_frame_buffer[y * pitch + x] == expected);
+    }
+    untouched(192);
+}
+
 /* A static window is just as unclassified as an HDMA-driven one. */
 static void check_static_window_fallback(void) {
     reset();
@@ -367,6 +385,7 @@ int main(void) {
     assert(virtuappu_mode1_frame_height() == 192);
     check_stripes(false);
     check_stripes(true);
+    check_tall_palette_fade();
     check_raster();
     check_static_window_fallback();
     check_constant_brightness();

@@ -21,7 +21,7 @@ static struct { unsigned active, xPos, yPos, width, height; } gCurrentWindow;
 static int virtuappu_mode1_ws_shadow_base_tile[4];
 static u16* virtuappu_mode1_ws_shadow[4];
 static uint64_t sWsContentKey = UINT64_MAX;
-static int sWsContentPx, sWsStageHeight, sWsManagerDirty, sWsEntityDirty;
+static int sWsContentPx, sWsStageHeight, sWsManagerDirty, sWsEntityDirty, sWsFixedInstalled;
 static u16 gOamMem[512];
 static int Port_Widescreen_HasDynamicEntities(void) { return 0; }
 static bool Port_Oam_VisibleSlotsTagged(const u16* p) { (void)p; return true; }
@@ -37,14 +37,22 @@ int Port_Widescreen_EffectiveViewWidth(void);
 /* Only unrelated task/HUD dependencies are stubbed; shadow publication runs
  * the production UpdateShadows body, including its area and BG gates. */
 enum { TASK_TITLE = 0, TASK_FILE_SELECT = 1, TASK_GAME = 2, TASK_GAMEOVER = 3, TASK_STAFFROLL = 4,
-       GAMETASK_MAIN = 2, GAMEMAIN_UPDATE = 2, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
+       GAMETASK_MAIN = 2, GAMEMAIN_CHANGEROOM = 1, GAMEMAIN_UPDATE = 2,
+       TRANSITION_FADE_BLACK = 5, FADE_INSTANT = 4, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
        AREA_CAVE_OF_FLAMES = 0x60, MANAGER = 9, ENTER_ROOM_TEXTBOX_MANAGER = 1 };
 enum { GAMEMAIN_SUBTASK = 7, SUBTASK_PAUSEMENU = 1, SUBTASK_MAPHINT = 3, SUBTASK_KINSTONEMENU = 4,
        SUBTASK_AUXCUTSCENE = 5,
        SUBTASK_FIGURINEMENU = 7, SUBTASK_FASTTRAVEL = 9, SUBTASK_LOCALMAPHINT = 10 };
 #define MODE1_GBA_BG_COUNT 4
 #define DISPCNT_BG3_ON 0x800
+#define DISPCNT_WIN0_ON 0x2000
+#define DISPCNT_WIN1_ON 0x4000
+#define DISPCNT_OBJWIN_ON 0x8000
+static int port_hdma_has_active_channels(void) { return 0; }
+static u8 gIoMem[0x400];
 static struct { int task, state, substate; } gMain;
+static struct { int type; } gRoomTransition;
+static struct { int active, type; } gFadeControl;
 static struct { int nextToLoad, lastState; } gUI;
 static struct { int menuType, field_0x0, field_0x3; } gMenu;
 typedef struct { u32 control; int yOffset; } TestBg;
@@ -231,6 +239,16 @@ int main(void) {
             CHECK(!!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) == (phase == 2 || phase == 3));
         }
     }
+    gUI.lastState = SUBTASK_PAUSEMENU;
+    gUI.nextToLoad = 2;
+    Port_Widescreen_PublishScene();
+    gUI.lastState = SUBTASK_AUXCUTSCENE;
+    gUI.nextToLoad = 1;
+    Port_Widescreen_PublishScene();
+    CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
+    gUI.nextToLoad = 2;
+    Port_Widescreen_PublishScene();
+    CHECK(!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN));
     gUI.lastState = SUBTASK_AUXCUTSCENE;
     gUI.nextToLoad = 2;
     gMenu.menuType = gMenu.field_0x0 = 1;

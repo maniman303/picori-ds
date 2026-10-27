@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 23 unchecked
+[the closure checklist](background-context-closure-checklist.md): 21 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -277,24 +277,35 @@ or tile alignment. Native-content centering continues to use floor offsets.
   all direct OAM consumers and scene capability decisions before enablement.
   Unreviewed dynamic entities and effects are explicitly denied tall-scene
   admission; this is not a claim that their 4:3 behavior has been validated.
-- [ ] Extend transitions one validated case at a time; test camera completion.
+- [x] Extend transitions one validated case at a time; test camera completion.
+  A palette-only black-fade room arrival now admits staged tall geometry when
+  the room, sprite, manager and upload gates pass. Windows, HDMA, mosaic and
+  other transitions retain native-height fallback. The production staging test
+  verifies admission and withdrawal, the PPU regression checks the palette fade
+  across all 192 rows, and the real camera/script-wait regression checks
+  arrival completion. These are ROM-free fixtures; 4:3 remains disabled until
+  the separate scene and acceptance gates are complete.
   The rolling-scroll completion regression covers all four directions and
   verifies the existing wide-camera snap and tile refresh after the native
   transition. The separate timed Scroll4 and iris Scroll5 completion paths are
   also checked, including camera snap and refresh with injected wide and tall
   apertures. Completion now restores the camera for height-only expansion too.
   Rolling entry also reframes a height-only expanded view before replacing its
-  room. These checks do not validate an extended transition aperture.
+  room. Rolling transitions retain their native aperture until their mixed-room
+  tile streaming is separately validated.
 
 ## 4. Layout
 
-- [ ] Translate each complete fixed-screen composition once using the native
+- [x] Translate each complete fixed-screen composition once using the native
   content rectangle; include HD text and any hit testing.
   The shared SDL/GPU/surface viewport now projects the published native
   rectangle exactly, including odd margins, and the HD text overlay follows
   that viewport. Installed menu and story-page scenes are held to native raster
-  dimensions. Full canvas composition, remaining scene lifetimes and visual
-  acceptance remain open.
+  dimensions, including menu-to-menu handoffs. File-select presentation captures
+  at 16:9 and 21:9 have byte-identical 240x160 crops against native at 4x scale;
+  fixed screens use button input and have no screen-coordinate hit testing.
+  Added artwork, margin effects and unsupported-profile enablement remain
+  separate tasks.
 - [ ] Implement top-left title-frame completion strictly in added margins,
   preserving native pixels and label placement. Verify native OBJ source/mask,
   local effects and animated heading pose; missing PNGs must not leave the cut
@@ -1419,3 +1430,39 @@ in-tree Vulkan-RT consumer falls back to the composite image. These guards do
 not add 4:3 support or certify out-of-tree OAM readers. Entity-boundary, OAM
 write, shared-framebuffer, snapshot, staging, presentation and signed-OBJ
 regressions pass, alongside the ARM64 build, EU native PPU parity and startup.
+
+## Fixed-screen layout and black-fade arrival
+
+Fixed-screen classification is published with the viewport at simulation
+boundaries. The native raster is projected into the selected canvas using the
+published native rectangle in the SDL renderer, SDL_GPU and surface paths;
+the HD-text overlay consumes the same frame rectangle. The native composition
+is retained during menu-to-menu handoffs until the incoming screen is installed.
+Opening and retelling story pages are classified only while they replace the
+auxiliary room, and gameplay is restored when the room maps return.
+
+EU file-select presentation captures at scale 4 compare byte-for-byte inside
+the native crop at 3:2, 16:9 and 21:9, including two animation frames. The
+16:9 black margins are 88 and 92 output pixels. In a 16:9 native-raster replay,
+all 151 opening and 141 retelling story captures from image installation to
+world/clear handoff match their retained 3:2 PNGs. These are SDL software
+captures; GPU display and unsupported profiles remain part of acceptance.
+Artifacts are under `.tmp/fixed-screen-presentation-check/` and
+`.tmp/fixed-screen-lifecycle/`.
+
+An initial 16:9 menu replay hit its 300-second limit before completing the
+130-case route. Among its first 106 canonical cases, 622 installed-screen
+captures with retained matching frame IDs are byte-identical to the earlier
+native menu audit. All 212 ready/held checkpoints from the original 106-case
+menu audit also match by case ID, as do 46 available fusion-audit checkpoints.
+The interrupted command is not a completed route. A fresh 16:9 replay then
+completed all 130 cases at frame 10,033, and all 260 ready/held checkpoints
+match the retained complete 3:2 fusion audit byte-for-byte.
+
+One transition continuation is admitted for a palette-only black-fade arrival
+after the destination map has been filled and uploaded, with no windows or
+active HDMA and all existing room, manager and signed-OBJ gates satisfied.
+The staging, 192-row palette and camera/script-completion fixtures verify that
+case and reject unrelated fades. No production caller currently certifies a
+tall room and 4:3 remains unavailable; rolling, mosaic, iris and unclassified
+transition continuations retain their native-height safety fallback.

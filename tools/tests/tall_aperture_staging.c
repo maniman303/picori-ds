@@ -2,6 +2,7 @@
 #include "global.h"
 #include "main.h"
 #include "game.h"
+#include "fade.h"
 #include "room.h"
 #include "map.h"
 #include "screen.h"
@@ -21,6 +22,8 @@ Main gMain;
 UI gUI;
 u8 _gMenuSharedStorage[0x40] __attribute__((aligned(8)));
 RoomControls gRoomControls;
+RoomTransition gRoomTransition;
+FadeControl gFadeControl;
 MapLayer gMapBottom, gMapTop;
 Screen gScreen;
 u8 gUpdateVisibleTiles, gManagerCount, gUnk_03003DE0;
@@ -29,16 +32,19 @@ u16 gOamMem[512];
 GenericEntity gEntities[MAX_ENTITIES], gAuxPlayerEntities[MAX_AUX_PLAYER_ENTITIES];
 u16 gMapDataBottomSpecial[0x4000], gMapDataTopSpecial[0x4000];
 u8 gEwram[0x40000];
+u8 gIoMem[0x400];
 static BgSettings bg;
 static uint64_t sWsContentKey = UINT64_MAX;
 static s32 sWsContentPx;
 static PortViewportUpload sWsUpload;
 static int sWsStageHeight;
-static int sWsManagerDirty, sWsEntityDirty;
+static int sWsManagerDirty, sWsEntityDirty, sWsFixedInstalled;
 static uint64_t sWsValidatedKey = UINT64_MAX;
 static int Port_WidescreenScanContentPx(void) { return 0; }
 static int Port_WidescreenPpuBgForControl(u32 c) { (void)c; return 1; }
 static int Port_WidescreenRepeatingOverlayLive(void) { return 0; }
+static int activeHdma;
+int port_hdma_has_active_channels(void) { return activeHdma; }
 int Port_Widescreen_TargetViewWidth(void) { return Port_Viewport_Get()->canvas.width; }
 void sub_0807D280(u16* a, u16* b) { (void)a; (void)b; }
 void sub_0807D46C(u16* a, u16* b) { (void)a; (void)b; }
@@ -71,6 +77,46 @@ int main(void) {
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
     assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 192);
+    /* Only the palette-only black-fade arrival may use this staged room.
+     * Other transition types and an unrecognized fade drop to native. */
+    gMain.substate = GAMEMAIN_CHANGEROOM;
+    gRoomTransition.type = TRANSITION_FADE_BLACK;
+    gFadeControl.active = 1;
+    gFadeControl.type = FADE_INSTANT;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 192);
+    gFadeControl.type |= FADE_MOSAIC;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160);
+    gFadeControl.type = FADE_INSTANT;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160 && sWsUpload.filled && !sWsUpload.uploaded);
+    Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 192);
+    gScreen.lcd.displayControl |= DISPCNT_WIN0_ON;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160);
+    gScreen.lcd.displayControl &= ~DISPCNT_WIN0_ON;
+    gIoMem[1] = 0x20; /* previous VBlank still has WIN0 enabled */
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160);
+    gIoMem[1] = 0;
+    activeHdma = 1;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160);
+    activeHdma = 0;
+    Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 192);
+    gRoomTransition.type = TRANSITION_FADE_WHITE_SLOW;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160);
+    gRoomTransition.type = TRANSITION_FADE_BLACK;
+    gFadeControl.active = 0;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 160);
+    gMain.substate = GAMEMAIN_UPDATE;
+    Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->world.height == 192);
     gOamMem[0] = 0; /* a raw visible OAM slot cannot establish signed coordinates */
     Port_Widescreen_BeforePresent();
     assert(Port_Viewport_Get()->world.height == 160);
@@ -147,6 +193,10 @@ int main(void) {
     ++gRoomControls.room;
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 160); /* certification is room-specific */
+    gMain.task = TASK_TITLE;
+    Port_Widescreen_PublishScene();
+    assert(Port_Viewport_Get()->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
+    assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 160);
     puts("Room aperture waits for matching map fill and upload: PASS");
     return 0;
 }
