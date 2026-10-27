@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 25 unchecked
+[the closure checklist](background-context-closure-checklist.md): 24 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -263,10 +263,11 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Add shake-aware tile-row coverage/padding with bounded backing copies;
   test positive/negative offsets at every fractional camera phase. Keep native
   uploads unchanged and expose unsupported-wrap classification to scene selection.
-- [ ] Finish room-aperture publication, unsupported-shake fallback selection,
+- [x] Finish room-aperture publication, unsupported-shake fallback selection,
   per-manager graphics residency and upload timing before exposing rows 160–191.
-  The scene snapshot now reports unsupported whole shake sequences; tall
-  aperture selection still needs to consume that flag.
+  Taller rows are staged and uploaded before publication; all manager-occupied
+  rooms conservatively fall back to native height until separately validated.
+  Other scene, sprite and layout approvals still keep 4:3 disabled.
 - [x] Add signed per-slot OBJ positions, attribute validation, build/DMA lifetime
   and explicit hidden/parked semantics to the software/supersampled paths.
   Verify real Y=160/191 pieces and X > 511 without changing packed OAM.
@@ -1353,3 +1354,36 @@ agreement covers all five profiles and edge centers; independent ASan/UBSan
 checks exercise all 151 radii across profile edges. PPU geometry, catalog,
 world-view and persistence regressions, the ARM64 build, EU byte-exact logo/title
 parity and EU dummy-SDL startup pass.
+
+## Room aperture and streaming gate (2026-10-27)
+
+The viewport now resolves a bounded room aperture and rejects taller geometry
+for unsafe shake, native transitions, unverified scenes, rooms with managers,
+missing live maps or incomplete map upload. A future scene validator must
+explicitly opt in for each room; no production caller enables that option and
+the 4:3 profile remains disabled. The world raster height consumes the room
+aperture rather than the canvas height.
+
+Taller map rows are filled while the native aperture is still active. Publication
+requires the same room, tile origin and row count at fill and actual VRAM upload;
+a changed room, camera or shake footprint restarts staging. A manager created
+and removed between boundaries still blocks the room until reload. The
+pre-presentation check catches late manager changes. The whole shake sequence
+determines required padding, and starting a shake on a tall aperture refreshes
+its backing rows before upload. Native-height fill/upload sizes are unchanged.
+
+The conservative per-manager policy rejects all managers rather than certifying
+unreviewed graphics residency. The town and festival loaders replace two shared
+VRAM spans immediately on PC; the village loader replaces eight chunks over
+eight updates and may switch groups mid-stream. Synthetic tests exercise those
+actual manager bodies, all EU village groups, town/festival groups and region
+boundaries, with USA/JP source paths tested against synthetic data only. A PC
+village no-region case now retains its current valid group or waits for a first
+group instead of using an uninitialized/sentinel index. Additional manager
+residency, scene, sprite, effect and layout work remains necessary to expose 4:3
+in manager-occupied rooms; no ROM-based USA/JP acceptance is claimed.
+
+Production-body staging, native/tall world pixel, manager upload, widescreen
+engine and catalog regressions pass; staging and manager tests run under
+ASan/UBSan. ARM64 build, EU logo/title PPU parity and EU dummy-SDL startup pass.
+The test-only tall profile used for staging does not change release availability.

@@ -19,18 +19,28 @@ static PortViewportGeometry sGeometry = {
     240, 160, 240, 0, 0
 };
 
-static void ResolveWorld(void) {
+PortViewportRect Port_Viewport_ResolveWorldRect(PortViewportRect canvas, PortViewportScene scene) {
     PortViewportRect world = { 0, 0, 240, 160 };
-    const PortViewportScene* scene = &sGeometry.scene;
-    const uint32_t required = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
-    if ((scene->capabilities & required) == required &&
-        !(scene->capabilities & (PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT)) &&
-        scene->roomWidth > 240 && scene->roomHeight > 0) {
-        world.width = scene->roomWidth < sGeometry.canvas.width ? scene->roomWidth : sGeometry.canvas.width;
-    }
-    world.x = (sGeometry.canvas.width - world.width) / 2;
-    world.y = (sGeometry.canvas.height - world.height) / 2;
-    sGeometry.world = world;
+    const uint32_t wide = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
+    const uint32_t tall = PORT_SCENE_WORLD | PORT_SCENE_MAP_LIVE | PORT_SCENE_TALL_MANAGER_FREE |
+                          PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY;
+    const uint32_t native = PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT;
+    if (canvas.x != 0 || canvas.y != 0 || canvas.width < 240 || canvas.width > 569 ||
+        canvas.height < 160 || canvas.height > 192)
+        return world;
+    if ((scene.capabilities & wide) == wide && !(scene.capabilities & native) &&
+        scene.roomWidth > 240 && scene.roomHeight > 0)
+        world.width = scene.roomWidth < canvas.width ? scene.roomWidth : canvas.width;
+    if ((scene.capabilities & tall) == tall && !(scene.capabilities & (native | PORT_SCENE_TALL_SHAKE_UNSAFE)) &&
+        scene.roomWidth >= 240 && scene.roomHeight > 160 && canvas.height > 160)
+        world.height = scene.roomHeight < canvas.height ? scene.roomHeight : canvas.height;
+    world.x = canvas.x + (canvas.width - world.width) / 2;
+    world.y = canvas.y + (canvas.height - world.height) / 2;
+    return world;
+}
+
+static void ResolveWorld(void) {
+    sGeometry.world = Port_Viewport_ResolveWorldRect(sGeometry.canvas, sGeometry.scene);
 }
 
 void Port_Viewport_PublishScene(PortViewportScene scene) {
@@ -75,6 +85,10 @@ bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int
     return aspect == PORT_ASPECT_NATIVE_3_2 &&
            Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight);
 #else
+#ifdef PORT_VIEWPORT_TEST_TALL
+    if (aspect == PORT_ASPECT_DS_4_3)
+        return Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight);
+#endif
     return Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight) &&
            profile->width <= 512 && profile->height <= 160;
 #endif
@@ -116,6 +130,17 @@ const PortViewportGeometry* Port_Viewport_Get(void) {
     return &sGeometry;
 }
 
+int Port_Viewport_RasterHeight(const PortViewportGeometry* geometry) {
+    if (!geometry || geometry->canvas.height < 160 || geometry->canvas.height > 192)
+        return 160;
+    if ((geometry->scene.capabilities & PORT_SCENE_WORLD) &&
+        geometry->world.height >= 160 && geometry->world.height <= geometry->canvas.height)
+        return geometry->world.height;
+    if (geometry->scene.capabilities & PORT_SCENE_WORLD)
+        return 160;
+    return geometry->canvas.height;
+}
+
 PortViewportRect Port_Viewport_NativeContentRect(const PortViewportProfile* profile) {
     PortViewportRect rect = { 0, 0, PORT_VIEWPORT_NATIVE_WIDTH, PORT_VIEWPORT_NATIVE_HEIGHT };
     if (profile != NULL && profile->width >= rect.width && profile->height >= rect.height) {
@@ -154,14 +179,53 @@ int Port_Viewport_MapTileRowsWithShake(int viewHeight, int shakeY) {
 
 /* Whole-sequence classification prevents a later negative/positive phase
  * from invalidating a tall aperture after camera and map-fill work. */
-bool Port_Viewport_ShakeSequenceFits(int viewHeight, const uint8_t* xyPairs) {
-    if (!xyPairs)
-        return false;
+int Port_Viewport_ShakeSequenceRows(int viewHeight, const uint8_t* xyPairs) {
+    int rows = Port_Viewport_MapTileRows(viewHeight);
+    if (!xyPairs || !rows)
+        return 0;
     for (int i = 0; i < 8; ++i) {
         unsigned value = xyPairs[2 * i + 1];
         int y = value < 128 ? (int)value : (int)value - 256;
-        if (!Port_Viewport_MapTileRowsWithShake(viewHeight, y))
-            return false;
+        int phaseRows = Port_Viewport_MapTileRowsWithShake(viewHeight, y);
+        if (!phaseRows)
+            return 0;
+        if (phaseRows > rows)
+            rows = phaseRows;
     }
-    return true;
+    return rows;
+}
+
+bool Port_Viewport_ShakeSequenceFits(int viewHeight, const uint8_t* xyPairs) {
+    return Port_Viewport_ShakeSequenceRows(viewHeight, xyPairs) != 0;
+}
+
+void Port_Viewport_UploadReset(PortViewportUpload* u) {
+    if (u) memset(u, 0, sizeof(*u));
+}
+
+static bool UploadMatches(const PortViewportUpload* u, uint64_t key, int x, int y, int rows) {
+    return u && u->requested && u->roomKey == key && u->tileX == x && u->tileY == y && u->rows == rows;
+}
+
+bool Port_Viewport_UploadRequest(PortViewportUpload* u, uint64_t key, int x, int y, int height, int rows) {
+    if (!u || height <= 160 || height > 192 || rows < Port_Viewport_MapTileRows(height) || rows > 32) {
+        Port_Viewport_UploadReset(u);
+        return false;
+    }
+    if (!UploadMatches(u, key, x, y, rows) || u->height != height) {
+        u->roomKey = key; u->tileX = x; u->tileY = y; u->height = height; u->rows = rows;
+        u->requested = true; u->filled = false; u->uploaded = false;
+    }
+    return u->uploaded;
+}
+
+void Port_Viewport_UploadFilled(PortViewportUpload* u, uint64_t key, int x, int y, int rows) {
+    if (!u) return;
+    u->filled = UploadMatches(u, key, x, y, rows);
+    u->uploaded = false;
+}
+
+void Port_Viewport_UploadCompleted(PortViewportUpload* u, uint64_t key, int x, int y, int rows) {
+    if (!u) return;
+    u->uploaded = u->filled && UploadMatches(u, key, x, y, rows);
 }

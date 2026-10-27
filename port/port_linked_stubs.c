@@ -9,6 +9,7 @@
 #include "entity.h"
 #include "enemy.h"
 #include "fade.h"
+#include "game.h"
 
 #define gMapDataBottomSpecial gMapDataBottomSpecial_HIDDEN
 #include "fileselect.h"
@@ -954,6 +955,7 @@ void UpdateScrollVram(void) {
     if (gMapTop.bgSettings != NULL) {
         func(gMapDataTopSpecial, &gBG2Buffer[0x20]);
     }
+    Port_Widescreen_MapFilled(mode);
 }
 
 #if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
@@ -993,6 +995,10 @@ static u16 sWsShadowOverlay[MODE1_WS_SHADOW_ROWS * MODE1_WS_SHADOW_COLS];
  * late-streaming map data cannot change framing mid-room. */
 static uint64_t sWsContentKey = UINT64_MAX;
 static s32 sWsContentPx = 0;
+static PortViewportUpload sWsUpload;
+static int sWsStageHeight;
+static int sWsManagerDirty;
+static uint64_t sWsValidatedKey = UINT64_MAX;
 
 /* Key identifying the room the content cache belongs to. Checked by
  * scene publication so a stale cache (previous room) is never consulted —
@@ -1208,6 +1214,42 @@ static int Port_WidescreenRepeatingOverlayLive(void) {
 
 /* The game indexes eight XY pairs by the three-bit shake magnitude. */
 extern u8 gShakeOffsets[256];
+extern u8 gUnk_03003DE0;
+
+static int Port_Widescreen_MapTileX(void) {
+    return (u16)(gRoomControls.scroll_x - gRoomControls.origin_x) >> 4;
+}
+static int Port_Widescreen_MapTileY(void) {
+    return (u16)(gRoomControls.scroll_y - gRoomControls.origin_y) >> 4;
+}
+
+void Port_Widescreen_ManagerCreated(void) {
+    /* A transient manager can upload graphics and disappear before the next
+     * snapshot. Keep the room blocked until a fresh room load. */
+    sWsManagerDirty = 1;
+}
+
+void Port_Widescreen_SetTallValidated(int validated) {
+    sWsValidatedKey = validated ? Port_WidescreenRoomKey() : UINT64_MAX;
+}
+
+void Port_Widescreen_MapFilled(unsigned mode) {
+    if (sWsStageHeight <= 160)
+        return;
+    if (mode != 1) {
+        sWsUpload.filled = false;
+        sWsUpload.uploaded = false;
+        return;
+    }
+    Port_Viewport_UploadFilled(&sWsUpload, Port_WidescreenRoomKey(), Port_Widescreen_MapTileX(),
+                               Port_Widescreen_MapTileY(), Port_Widescreen_MapBufferSize() / 64);
+}
+
+void Port_Widescreen_MapUploaded(void) {
+    if (sWsStageHeight > 160)
+        Port_Viewport_UploadCompleted(&sWsUpload, Port_WidescreenRoomKey(), Port_Widescreen_MapTileX(),
+                                      Port_Widescreen_MapTileY(), Port_Widescreen_MapBufferSize() / 64);
+}
 
 /* Classify only on the simulation side. Content width is sampled once at
  * room entry, after map loading and before camera setup, and held throughout
@@ -1217,8 +1259,9 @@ void Port_Widescreen_PublishScene(void) {
     if (gMain.task == TASK_GAME) {
         scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
         /* Check the whole sequence before any camera or map copy sees it. */
-        if (gRoomControls.shake_duration &&
-            !Port_Viewport_ShakeSequenceFits(192, &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16]))
+        if (!Port_Viewport_MapTileRowsWithShake(192, gRoomControls.aff_y) ||
+            (gRoomControls.shake_duration &&
+             !Port_Viewport_ShakeSequenceFits(192, &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16])))
             scene.capabilities |= PORT_SCENE_TALL_SHAKE_UNSAFE;
         uint64_t key = Port_WidescreenRoomKey();
         if (key != sWsContentKey) {
@@ -1239,14 +1282,65 @@ void Port_Widescreen_PublishScene(void) {
              Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control) >= 0) ||
             Port_WidescreenRepeatingOverlayLive())
             scene.capabilities |= PORT_SCENE_MAP_LIVE;
+        /* Every manager is conservatively unverified for tall residency. PC
+         * LoadResourceAsync copies immediately, and managers update after map
+         * fill, so timer==complete alone cannot certify a wider view. */
+        if (gManagerCount != 0)
+            sWsManagerDirty = 1;
+        if (!sWsManagerDirty && gManagerCount == 0 && gUnk_03003DE0 == 0 &&
+            gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_UPDATE &&
+            !gRoomControls.reload_flags && gRoomControls.scrollAction == 1 &&
+            ((gMapBottom.bgSettings != NULL &&
+              Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control) >= 0) ||
+             (gMapTop.bgSettings != NULL &&
+              Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control) >= 0)))
+            scene.capabilities |= PORT_SCENE_TALL_MANAGER_FREE;
     } else {
         /* Re-entering the same room after a non-game task reloads its maps. */
         sWsContentKey = UINT64_MAX;
     }
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    if (gMain.task == TASK_GAME && sWsValidatedKey == Port_WidescreenRoomKey())
+        scene.capabilities |= PORT_SCENE_TALL_VALIDATED;
+    /* Ask for the prospective geometry without claiming that its rows exist.
+     * Stage a full map fill/upload while still presenting native height. */
+    PortViewportScene candidate = scene;
+    candidate.capabilities |= PORT_SCENE_TALL_ROWS_READY;
+    int targetHeight = Port_Viewport_ResolveWorldRect(geometry->canvas, candidate).height;
+    if (targetHeight > 160 && geometry->world.height <= 160) {
+        sWsStageHeight = targetHeight;
+        int rows = Port_Widescreen_MapBufferSize() / 64;
+        bool ready = Port_Viewport_UploadRequest(&sWsUpload, Port_WidescreenRoomKey(),
+                                                  Port_Widescreen_MapTileX(), Port_Widescreen_MapTileY(),
+                                                  targetHeight, rows);
+        if (ready) {
+            scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
+        } else if (!sWsUpload.filled) {
+            gUpdateVisibleTiles = 1;
+            UpdateScrollVram();
+        }
+    } else if (targetHeight > 160) {
+        scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
+        sWsStageHeight = 0;
+        Port_Viewport_UploadReset(&sWsUpload);
+    } else {
+        sWsStageHeight = 0;
+        Port_Viewport_UploadReset(&sWsUpload);
+    }
     Port_Viewport_PublishScene(scene);
 }
 
+void Port_Widescreen_BeforePresent(void) {
+    if (sWsValidatedKey != UINT64_MAX || sWsStageHeight > 0 ||
+        Port_Viewport_Get()->world.height > 160)
+        Port_Widescreen_PublishScene();
+}
+
 void Port_Widescreen_RoomLoaded(void) {
+    sWsManagerDirty = gManagerCount != 0;
+    sWsValidatedKey = UINT64_MAX;
+    sWsStageHeight = 0;
+    Port_Viewport_UploadReset(&sWsUpload);
     sWsContentKey = UINT64_MAX;
     Port_Widescreen_PublishScene();
     if (Port_Widescreen_TargetViewWidth() > 240 && getenv("TMC_WS_TRACE") != NULL) {
@@ -1325,6 +1419,11 @@ void Port_Widescreen_UpdateShadows(void) {
     }
 }
 #else
+void Port_Widescreen_SetTallValidated(int validated) { (void)validated; }
+void Port_Widescreen_ManagerCreated(void) {}
+void Port_Widescreen_BeforePresent(void) {}
+void Port_Widescreen_MapFilled(unsigned mode) { (void)mode; }
+void Port_Widescreen_MapUploaded(void) {}
 void Port_Widescreen_PublishScene(void) {
     PortViewportScene scene = { gMain.task == TASK_GAME ? PORT_SCENE_WORLD : 0,
                                 gRoomControls.width, gRoomControls.height };
@@ -1357,6 +1456,8 @@ int Port_Widescreen_TargetViewWidth(void) {
 
 #endif
 
+extern u8 gShakeOffsets[256];
+
 /* Height stays native until scene capabilities validate vertical streaming,
  * sprite visibility and raster continuation as one coherent world aperture. */
 int Port_Widescreen_EffectiveViewHeight(void) {
@@ -1364,10 +1465,22 @@ int Port_Widescreen_EffectiveViewHeight(void) {
 }
 
 unsigned Port_Widescreen_MapBufferSize(void) {
-    const int height = Port_Widescreen_EffectiveViewHeight();
+    int height = Port_Widescreen_EffectiveViewHeight();
+#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
+    if (sWsStageHeight > height)
+        height = sWsStageHeight;
+#endif
     int rows = Port_Viewport_MapTileRows(height);
     if (height > PORT_VIEWPORT_NATIVE_HEIGHT) {
         rows = Port_Viewport_MapTileRowsWithShake(height, gRoomControls.aff_y);
+        if (gRoomControls.shake_duration) {
+            int sequenceRows = Port_Viewport_ShakeSequenceRows(
+                height, &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16]);
+            if (!sequenceRows)
+                rows = 0;
+            else if (rows && sequenceRows > rows)
+                rows = sequenceRows;
+        }
         /* Unsupported coverage must be rejected by scene capability selection.
          * Still bound this backing copy, and never send a zero DMA length. */
         if (rows == 0)

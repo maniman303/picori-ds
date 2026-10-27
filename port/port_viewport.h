@@ -66,7 +66,12 @@ enum {
     PORT_SCENE_NATIVE_TRANSITION = 1u << 3,
     PORT_SCENE_NATIVE_CONTENT = 1u << 4,
     /* The active shake sequence cannot cover a 192-row map window. */
-    PORT_SCENE_TALL_SHAKE_UNSAFE = 1u << 5
+    PORT_SCENE_TALL_SHAKE_UNSAFE = 1u << 5,
+    /* Manager-free is a conservative residency gate, not evidence that
+     * entity, special-BG or compositor/layout work is complete. */
+    PORT_SCENE_TALL_MANAGER_FREE = 1u << 6,
+    PORT_SCENE_TALL_VALIDATED = 1u << 7,
+    PORT_SCENE_TALL_ROWS_READY = 1u << 8
 };
 
 typedef struct {
@@ -96,11 +101,32 @@ typedef struct {
 bool Port_Viewport_Publish(PortAspectMode selected, bool consoleParity,
                            int capacityWidth, int capacityHeight, int pitchPixels);
 const PortViewportGeometry* Port_Viewport_Get(void);
+/* Game world raster must obey the room aperture, even when the canvas is taller. */
+int Port_Viewport_RasterHeight(const PortViewportGeometry* geometry);
 
 /* Simulation-side publication at room/transition and display boundaries.
  * Pure policy: no game globals, file access or allocation. Invalid extents
  * fail closed to native; a room cap never changes canvas or UI dimensions. */
 void Port_Viewport_PublishScene(PortViewportScene scene);
+
+/* Room aperture policy, also usable to validate a prospective taller canvas
+ * while its profile is still disabled. TALL_VALIDATED must be supplied only
+ * after the separate scene, entity and presentation gates are satisfied. */
+PortViewportRect Port_Viewport_ResolveWorldRect(PortViewportRect canvas, PortViewportScene scene);
+
+/* Two-phase map staging. A taller aperture may be published only after its
+ * exact room/tile origin and row footprint were filled and uploaded. */
+typedef struct {
+    uint64_t roomKey;
+    int tileX, tileY, height, rows;
+    bool requested, filled, uploaded;
+} PortViewportUpload;
+void Port_Viewport_UploadReset(PortViewportUpload* upload);
+bool Port_Viewport_UploadRequest(PortViewportUpload* upload, uint64_t roomKey, int tileX, int tileY,
+                                 int height, int rows);
+void Port_Viewport_UploadFilled(PortViewportUpload* upload, uint64_t roomKey, int tileX, int tileY, int rows);
+void Port_Viewport_UploadCompleted(PortViewportUpload* upload, uint64_t roomKey, int tileX, int tileY, int rows);
+
 
 /* One translation for the complete original fixed-screen composition. This
  * rectangle does not describe the world aperture or live-gameplay UI bounds. */
@@ -120,6 +146,7 @@ int Port_Viewport_MapTileRows(int viewHeight);
  * requires a native aperture or an explicit remapping policy. */
 int Port_Viewport_MapTileRowsWithShake(int viewHeight, int shakeY);
 /* Classify all eight XY pairs of a shake sequence before its first frame. */
+int Port_Viewport_ShakeSequenceRows(int viewHeight, const uint8_t* xyPairs);
 bool Port_Viewport_ShakeSequenceFits(int viewHeight, const uint8_t* xyPairs);
 
 #ifdef __cplusplus

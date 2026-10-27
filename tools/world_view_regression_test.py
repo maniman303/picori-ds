@@ -21,7 +21,7 @@ def main():
                                    'static void ram_sub_080B197C_c(',
                                    'static void Port_WidescreenShadow_Populate('),
         'src/scroll.c': ('void Scroll1(RoomControls* controls)', 'void sub_08080974(u32 arg0, u32 arg1)',
-                         'void sub_080809D4(void)'),
+                         'void sub_080809D4(void)', 'void InitScreenShake(u32 time, u32 magnitude)'),
         'src/script.c': ('void WaitForCameraTouchRoomBorder(Entity* entity, ScriptExecutionContext* context)',),
         'src/main.c': ('u32 CheckRegionOnScreen(u32 x0, u32 y0, u32 x1, u32 y1)',),
     }

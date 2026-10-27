@@ -16,14 +16,20 @@ RoomControls gRoomControls;
 PlayerEntity gPlayerEntity;
 ActiveScriptInfo gActiveScriptInfo;
 u8 gUpdateVisibleTiles;
+u8 gShakeOffsets[256];
 static int viewWidth = 240, viewHeight = 160;
-static int loads, shakes;
+static int loads, shakes, shakeFills;
+#if MODE1_GBA_WIDTH > 240
+static int sWsStageHeight;
+#endif
+void UpdateScrollVram(void) { ++shakeFills; }
 
 /* Explicit test-only aperture injection. The runtime height gate stays 160
  * while the independent camera/map paths are checked at future DS geometry. */
 int Port_Widescreen_EffectiveViewWidth(void) { return viewWidth; }
 int Port_Widescreen_EffectiveViewHeight(void) { return viewHeight; }
 void Port_Widescreen_PublishScene(void) {}
+void Port_Widescreen_BeforePresent(void) {}
 void Port_Widescreen_RoomLoaded(void) {}
 void LoadRoomTileSet(void) { ++loads; }
 void LoadRoomGfx(void) { ++loads; }
@@ -66,10 +72,32 @@ static void check_helpers(void) {
     shake[15] = (uint8_t)-9;
     assert(!Port_Viewport_ShakeSequenceFits(192, shake));
     shake[15] = 41;
+    assert(Port_Viewport_ShakeSequenceRows(192, shake) == 32);
     assert(Port_Viewport_ShakeSequenceFits(192, shake));
     shake[15] = 42;
     assert(!Port_Viewport_ShakeSequenceFits(192, shake));
     assert(!Port_Viewport_ShakeSequenceFits(192, NULL));
+    memset(gShakeOffsets, 0, sizeof(gShakeOffsets));
+    gShakeOffsets[15] = 8;
+    viewHeight = 192;
+    gRoomControls.shake_duration = 1;
+    assert(Port_Widescreen_MapBufferSize() == 28 * 32 * sizeof(u16));
+    gRoomControls.shake_duration = 0;
+}
+
+static void check_shake_start(void) {
+    gRoomControls.scrollAction = 1;
+    viewHeight = 160; gUpdateVisibleTiles = 0; shakeFills = 0;
+    InitScreenShake(12, 3);
+    assert(gRoomControls.shake_duration == 12 && gRoomControls.shake_magnitude == 3);
+    assert(gUpdateVisibleTiles == 0 && shakeFills == 0);
+    viewHeight = 192;
+    InitScreenShake(12, 3);
+    assert(gUpdateVisibleTiles == 1 && shakeFills == 1);
+    gRoomControls.scrollAction = 2; gUpdateVisibleTiles = 2;
+    InitScreenShake(12, 3);
+    assert(gUpdateVisibleTiles == 2 && shakeFills == 1);
+    gRoomControls.shake_duration = 0;
 }
 
 static void check_cameras(void) {
@@ -274,6 +302,7 @@ static void check_map_fill(void) {
 
 int main(void) {
     check_helpers();
+    check_shake_start();
     check_cameras();
     check_regions();
     check_map_fill();

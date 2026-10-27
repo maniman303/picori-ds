@@ -1000,7 +1000,7 @@ bind_virtuappu_memory: {
 
     virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
     virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
-    virtuappu_registers.frame_height = Port_Viewport_Get()->canvas.height;
+    virtuappu_registers.frame_height = Port_Viewport_RasterHeight(Port_Viewport_Get());
     virtuappu_registers.mode = 1;
     virtuappu_mode1_set_frame_geometry(&virtuappu_registers);
 
@@ -1394,7 +1394,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
 
     virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
     virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
-    virtuappu_registers.frame_height = Port_Viewport_Get()->canvas.height;
+    virtuappu_registers.frame_height = Port_Viewport_RasterHeight(Port_Viewport_Get());
 
     dispcnt = (uint16_t)(gIoMem[0x00] | (gIoMem[0x01] << 8));
     gbaMode = (uint8_t)(dispcnt & 0x07);

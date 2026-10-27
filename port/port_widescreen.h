@@ -63,6 +63,13 @@ extern "C" {
  * completing a transition. Repeated presentation reads the published snapshot. */
 void Port_Widescreen_PublishScene(void);
 void Port_Widescreen_RoomLoaded(void);
+/* Future scene validation opts in per room; no current caller enables it. */
+void Port_Widescreen_SetTallValidated(int validated);
+/* Stage taller map rows before publishing the larger world aperture. */
+void Port_Widescreen_MapFilled(unsigned mode);
+void Port_Widescreen_MapUploaded(void);
+void Port_Widescreen_BeforePresent(void);
+void Port_Widescreen_ManagerCreated(void);
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
 int Port_Widescreen_EffectiveViewWidth(void);

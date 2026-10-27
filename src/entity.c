@@ -30,6 +30,7 @@ Temp gUnk_02033290[32] __attribute__((aligned(8)));
 #endif
 #ifdef PC_PORT
 #include "port_entity_ctx.h"
+#include "port_widescreen.h"
 #ifdef PC_PORT
 #include <stdio.h> /* fprintf for the entity-list cycle warning in GetEmptyEntity */
 
@@ -882,6 +883,9 @@ void AppendEntityToList(Entity* entity, u32 listIndex) {
         gEntCount++;
     } else {
         gManagerCount++;
+#ifdef PC_PORT
+        Port_Widescreen_ManagerCreated();
+#endif
     }
     InitDefaultPriority(entity);
 #ifdef PC_PORT

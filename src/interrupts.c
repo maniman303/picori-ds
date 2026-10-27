@@ -248,6 +248,9 @@ void WaitForNextFrame(void) {
             DmaCopy32(3, &gBG1Buffer, VRAM + (gMapBottom.bgSettings->control & 0x1f00) * 8, mapBufferSize);
         if (gMapTop.bgSettings != NULL)
             DmaCopy32(3, &gBG2Buffer, VRAM + (gMapTop.bgSettings->control & 0x1f00) * 8, mapBufferSize);
+#ifdef PC_PORT
+        Port_Widescreen_MapUploaded();
+#endif
     }
     FadeVBlank();
 }

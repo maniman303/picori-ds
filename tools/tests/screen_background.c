@@ -110,6 +110,61 @@ static void CheckPublication(void) {
     assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
 }
 
+static void CheckFutureRoomAperture(void) {
+    const PortViewportRect canvas = {0, 0, 256, 192};
+    PortViewportScene s = {PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE |
+                           PORT_SCENE_TALL_MANAGER_FREE | PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY, 1024, 1024};
+    PortViewportRect w = Port_Viewport_ResolveWorldRect(canvas, s);
+    assert(w.width == 256 && w.height == 192 && w.x == 0 && w.y == 0);
+    s.roomHeight = 176;
+    w = Port_Viewport_ResolveWorldRect(canvas, s);
+    assert(w.height == 176 && w.y == 8);
+    s.roomHeight = 159;
+    w = Port_Viewport_ResolveWorldRect(canvas, s);
+    assert(w.height == 160 && w.y == 16);
+    s.roomHeight = 1024;
+    const unsigned gates[] = {PORT_SCENE_TALL_MANAGER_FREE, PORT_SCENE_TALL_VALIDATED, PORT_SCENE_TALL_ROWS_READY, PORT_SCENE_MAP_LIVE};
+    for (unsigned i = 0; i < sizeof(gates) / sizeof(gates[0]); ++i) {
+        s.capabilities &= ~gates[i];
+        w = Port_Viewport_ResolveWorldRect(canvas, s);
+        assert(w.height == 160 && w.y == 16);
+        s.capabilities |= gates[i];
+    }
+    const unsigned blockers[] = {PORT_SCENE_TALL_SHAKE_UNSAFE, PORT_SCENE_NATIVE_TRANSITION,
+                                 PORT_SCENE_NATIVE_CONTENT};
+    for (unsigned i = 0; i < sizeof(blockers) / sizeof(blockers[0]); ++i) {
+        s.capabilities |= blockers[i];
+        w = Port_Viewport_ResolveWorldRect(canvas, s);
+        assert(w.height == 160 && w.y == 16);
+        s.capabilities &= ~blockers[i];
+    }
+    s.roomWidth = 239;
+    w = Port_Viewport_ResolveWorldRect(canvas, s);
+    assert(w.height == 160 && w.width == 240);
+    PortViewportUpload upload = {0, 0, 0, 0, 0, false, false, false};
+    assert(!Port_Viewport_UploadRequest(&upload, 1, 2, 3, 192, 23));
+    assert(!upload.requested);
+    assert(!Port_Viewport_UploadRequest(&upload, 1, 2, 3, 192, 28));
+    Port_Viewport_UploadCompleted(&upload, 1, 2, 3, 28); /* no fill yet */
+    assert(!upload.uploaded);
+    Port_Viewport_UploadFilled(&upload, 1, 2, 3, 28);
+    Port_Viewport_UploadCompleted(&upload, 1, 2, 3, 28);
+    assert(Port_Viewport_UploadRequest(&upload, 1, 2, 3, 192, 28));
+    assert(!Port_Viewport_UploadRequest(&upload, 1, 2, 4, 192, 28));
+    Port_Viewport_UploadFilled(&upload, 1, 2, 4, 28);
+    Port_Viewport_UploadCompleted(&upload, 1, 2, 5, 28); /* camera changed */
+    assert(!upload.uploaded);
+    assert(!Port_Viewport_UploadRequest(&upload, 2, 2, 4, 192, 28)); /* room changed */
+    Port_Viewport_UploadFilled(&upload, 2, 2, 4, 28);
+    Port_Viewport_UploadCompleted(&upload, 2, 2, 4, 28);
+    assert(!Port_Viewport_UploadRequest(&upload, 2, 2, 4, 192, 29)); /* shake grew */
+    Port_Viewport_UploadReset(&upload);
+    assert(!upload.requested && !upload.uploaded);
+    PortViewportRect bad = {0, 0, 256, 193};
+    w = Port_Viewport_ResolveWorldRect(bad, s);
+    assert(w.height == 160 && w.width == 240 && w.x == 0 && w.y == 0);
+}
+
 static void CheckScenePublication(void) {
     PortViewportScene scene = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE, 1024, 1024 };
     assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
@@ -162,6 +217,7 @@ int main(void) {
     CheckProfiles();
     CheckPublication();
     CheckScenePublication();
+    CheckFutureRoomAperture();
     CheckSource(PORT_BACKGROUND_UNCLASSIFIED, PORT_BACKGROUND_SOURCE_NONE);
     CheckSource(PORT_BACKGROUND_LIVE_WORLD, PORT_BACKGROUND_SOURCE_NONE);
     CheckSource((PortBackgroundContext)-1, PORT_BACKGROUND_SOURCE_NONE);

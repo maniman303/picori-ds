@@ -90,3 +90,37 @@ fully resident; these tests are not regional tileset validation.
 The RG build, EU native parity gate and local wide field captures preserve
 existing output. Device measurements and additional regional/manager/effect
 fixtures remain open. No golden hashes or ROM-derived fixtures are changed.
+
+## Aperture publication and manager fallback (2026-10-27)
+
+The current runtime still selects native height. A future tall scene must
+explicitly pass the separate scene/entity/presentation gate, have a normal live
+map and no manager activity in the room, and have safe current and whole-sequence
+shake offsets. Every manager is conservatively unverified; creation marks the
+room unsafe even if that manager is removed before the next presentation. The
+room stays unsafe until a fresh room load. Special backgrounds, streaming
+managers and transitions therefore cannot silently expose unverified rows.
+
+For an approved prospective tall scene, map fill runs at the target height
+while the published aperture remains native. The fill and subsequent real VRAM
+upload must match room identity, camera tile origin and row count before the
+aperture expands. Stale fills restart staging. The PPU raster uses the world
+aperture, so a rejected room does not render extra rows. Shake setup computes
+the maximum footprint across all eight phases, refreshes backing rows when
+needed, and immediately republishes an unsafe fallback.
+
+Production-body tests inject a test-only tall profile and verify publication,
+fill/upload ordering, stale origins, pending resource queues, transient managers,
+unsafe shake and room changes. Manager tests execute the real village and town
+loaders using the PC immediate-copy implementation: all five EU village groups
+stream over eight updates; town/festival groups each replace two 0x1000-byte
+spans before return. Native versus taller region intersections can select
+different village groups, so a completed timer does not prove simultaneous
+residency. USA/JP manager control flow is tested with synthetic tables only.
+All managers remain gated; these tests do not approve taller manager scenes.
+
+PC village loading now handles a viewport with no matching region by retaining
+the current valid group, or waiting if none has been installed, instead of
+using an uninitialized/sentinel index. No non-PC manager code was changed.
+The production profile remains unavailable until the separate sprite, scene,
+effect and composition tasks are complete.

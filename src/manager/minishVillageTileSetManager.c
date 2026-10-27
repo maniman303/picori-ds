@@ -99,6 +99,12 @@ void MinishVillageTileSetManager_Main_EU(MinishVillageTileSetManager* this) {
         }
     }
 
+    /* A viewport may intersect no region. Continue the current group rather
+     * than indexing with an uninitialized temporary; before the first group
+     * there is no valid residency to upload. */
+    tmp = this->unk_20;
+    if (tmp > 4)
+        return;
     tmp2 = &gUnk_081080A4[tmp << 4];
     if (REGION_IS_EU)
         tmp2 = &gUnk_081080A4_eu[tmp << 4];
@@ -147,9 +153,11 @@ void MinishVillageTileSetManager_Main_USA(MinishVillageTileSetManager* this) {
     }
     if (gRoomControls.reload_flags)
         return;
-    if (!REGION_IS_JP) {
-        tmp = this->unk_20;
-    }
+    /* As in the EU path, a missing region retains the installed group and
+     * must not use an uninitialized or sentinel table index. */
+    tmp = this->unk_20;
+    if (tmp > 4)
+        return;
     tmp2 = &gUnk_081080A4[tmp << 4];
     if (REGION_IS_EU)
         tmp2 = &gUnk_081080A4_eu[tmp << 4];

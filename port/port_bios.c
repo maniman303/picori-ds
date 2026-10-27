@@ -14,6 +14,7 @@
 #include "port_imgui_menu.h"
 #include "port_ppu.h"
 #include "port_oam.h"
+#include "port_widescreen.h"
 #include "port_rom.h"
 #ifdef TMC_RA
 #include "port_ra.h"
@@ -737,6 +738,9 @@ static void Port_PresentOnce(bool firstOfTick) {
     /* LCD persistence accumulates once per tick (rho is defined per GBA
      * frame); repeat presents blend against the accumulator read-only. */
     Port_PPU_SetPresentIsFirstOfTick(firstOfTick);
+    /* Managers update after map fill: reject a newly unsafe aperture before
+     * rendering, and publish a staged aperture only after its VRAM upload. */
+    Port_Widescreen_BeforePresent();
     Port_PPU_PresentFrame();
     port_hdma_vblank_reset();
     end = SDL_GetTicksNS();

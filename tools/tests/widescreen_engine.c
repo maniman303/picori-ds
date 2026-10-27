@@ -15,21 +15,29 @@ typedef uint32_t u32;
 #define MODE1_GBA_BG_CLIP_X 240
 #define MODE1_WS_SHADOW_COLS 32
 #define MODE1_WS_SHADOW_ROWS 32
-static struct { int scroll_x, scroll_y, origin_x, origin_y, width, height, scrollAction, area, room; } gRoomControls;
+static struct { int scroll_x, scroll_y, origin_x, origin_y, width, height, scrollAction, area, room;
+                int aff_y, shake_duration, shake_magnitude, reload_flags; } gRoomControls;
 static struct { unsigned active, xPos, yPos, width, height; } gCurrentWindow;
 static int virtuappu_mode1_ws_shadow_base_tile[4];
 static u16* virtuappu_mode1_ws_shadow[4];
 static uint64_t sWsContentKey = UINT64_MAX;
-static int sWsContentPx;
+static int sWsContentPx, sWsStageHeight, sWsManagerDirty;
+static uint64_t sWsValidatedKey = UINT64_MAX;
+static PortViewportUpload sWsUpload;
+static u8 gShakeOffsets[256], gManagerCount, gUnk_03003DE0, gUpdateVisibleTiles;
+static int Port_Widescreen_MapTileX(void) { return (u16)(gRoomControls.scroll_x - gRoomControls.origin_x) >> 4; }
+static int Port_Widescreen_MapTileY(void) { return (u16)(gRoomControls.scroll_y - gRoomControls.origin_y) >> 4; }
+static unsigned Port_Widescreen_MapBufferSize(void) { return 27 * 64; }
+static void UpdateScrollVram(void) {}
 void Port_Widescreen_PublishScene(void);
 int Port_Widescreen_EffectiveViewWidth(void);
 /* Only unrelated task/HUD dependencies are stubbed; shadow publication runs
  * the production UpdateShadows body, including its area and BG gates. */
-enum { TASK_GAME = 2, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
+enum { TASK_GAME = 2, GAMETASK_MAIN = 2, GAMEMAIN_UPDATE = 2, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
        AREA_CAVE_OF_FLAMES = 0x60, MANAGER = 9, ENTER_ROOM_TEXTBOX_MANAGER = 1 };
 #define MODE1_GBA_BG_COUNT 4
 #define DISPCNT_BG3_ON 0x800
-static struct { int task; } gMain;
+static struct { int task, state, substate; } gMain;
 typedef struct { u32 control; int yOffset; } TestBg;
 static struct { TestBg bg0, bg1, bg2, bg3; struct { int displayControl; } lcd; } gScreen;
 static struct { TestBg* bgSettings; } gMapBottom, gMapTop;

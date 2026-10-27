@@ -868,8 +868,22 @@ MapLayer* GetLayerByIndex(u32 layerIndex) {
 }
 
 void InitScreenShake(u32 time, u32 magnitude) {
+#ifdef PC_PORT
+    int oldHeight = Port_Widescreen_EffectiveViewHeight();
+#endif
     gRoomControls.shake_duration = time;
     gRoomControls.shake_magnitude = magnitude & 7;
+#ifdef PC_PORT
+    /* A manager may request shake after this tick's normal map fill. Publish
+     * its whole-sequence gate immediately, then prepare the newly required
+     * padding before the next VRAM upload. Native paths remain unchanged. */
+    Port_Widescreen_BeforePresent();
+    if (gRoomControls.scrollAction == 1 &&
+        (oldHeight > DISPLAY_HEIGHT || Port_Widescreen_EffectiveViewHeight() > DISPLAY_HEIGHT)) {
+        gUpdateVisibleTiles = 1;
+        UpdateScrollVram();
+    }
+#endif
 }
 
 void sub_08080974(u32 arg0, u32 arg1) {
