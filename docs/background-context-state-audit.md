@@ -1716,3 +1716,139 @@ C/C++ agreement, engine/scroll and CPU PPU ASan/UBSan checks pass (LeakSanitizer
 disabled for the sandbox). The ARM64 incremental build and isolated EU startup
 reach `Port layer initialized. Entering AgbMain...`. Incoming build options,
 profile availability, artist artwork and approved goldens remain unchanged.
+
+## Remaining EU localization coverage (2026-10-27)
+
+C6 extends the retained English routes to French, German, Spanish and Italian.
+The matrix uses the existing native fixtures, input, error timing, source
+lifetime and independently ROM-decoded pixel checks. Figurine collection/prizes
+and standalone hints retain their already completed five-language evidence;
+they are not rerun or reopened by this group.
+
+| Route family | Cases across the four additional languages |
+| --- | ---: |
+| Pause screens, detail recipes and fusion-name layouts | 517 |
+| Fusion cancellation, mismatch and success handoffs | 72 |
+| Six dungeons, floors and map/compass/key fixtures | 552 |
+| Detail-map scrolling, clamps and returns | 264 |
+| Travel selection/cancel and enquiry/accepted travel | 324 |
+| Sleep confirmation, released-key sleep and wake | 60 |
+| Quest and inventory Save, refusal and device errors | 144 |
+| Game Over Save/refusal, errors, Continue and Quit | 44 |
+| Post-credits Save and file-commit/device/host errors | 52 |
+| **Canonical cases** | **2,029** |
+
+Each language also replays the original file-screen browsing/options/name-entry/
+language-selection flow. The 14 routes per language are `menus`,
+`fusion_actions`, `dungeons`, `detail_maps`, `travel`, `travel_actions`, `sleep`,
+`save`, `inventory_save`, `gameover`, `gameover_returns`, `ending_actions`,
+`files` and `file_errors`.
+
+### Observed language and reachable fusion widths
+
+Repro descriptors now record `language_slot` directly from the live save header.
+`--require-language-observation` rejects missing observations, configuration-only
+claims, an English fallback and language changes during installation or return.
+It checks initialized file/game/staff-roll frames and events; title startup can
+precede header initialization. EU resource slots are 3/4/5/6 for FR/DE/ES/IT,
+not the public language enum values 2/3/4/5. The additive observation preserves
+schema-v2 readers and old English trace compatibility.
+
+The previous NPC-only fixture discovery rejected Spanish before its first menu
+case: native names reached mask `0x7b`, missing layout 2 (57–64 pixels). The
+expanded discovery measures both native NPC and enemy tables with the real text
+renderer, retaining NPC-first representatives for English. The Spanish scan
+still reaches exactly `0x7b`. It records `fusion_layout_mask`, and explicitly
+emits `menu_case_unavailable` for canonical IDs 111, 118 and 125. It never
+manufactures a name, substitutes another layout or renumbers later cases.
+All other languages still require mask `0x7f`; any other availability gap fails.
+An independent ROM scan (`partner-table-verification.json`) checks all 124 NPC
+and three enemy records: the staged wildcard representatives resolve every
+record's actual name ID, so an earlier matching row does not hide a name from
+the width scan.
+
+Spanish therefore verifies 127 menu cases / 18 reachable fusion-layout/health
+combinations. French, German and Italian each verify 130 / 21. All four verify
+the 15 semantic family/health combinations, same-health transitions, heading
+poses and installed-decoration retention. The unavailable-case boundary must
+observe native gameplay restoration with no active fade; it cannot clear a
+still-installed fusion source merely because a case is skipped. Nine new
+failure-oriented checker tests cover these language and availability contracts.
+
+### Artifacts and reproduction
+
+Local evidence is retained under `.tmp/background-localization-audit/`.
+`run-matrix.py`, per-language command logs and `outcomes.json` files identify
+the enclosing capture commands. `verify-matrix.py` rechecks native lifecycle,
+actual resource slots and the hashes of decoded RGBA captures against the saved
+pixel-check summaries, then writes `verification.json`. Existing artist files,
+approved goldens and previous audit artifacts remain unchanged.
+
+The French sleep pilot is in `eu-fr-sleep/`. Spanish menu discovery failures are
+retained in `eu-es/menus/` (NPC-only) and `eu-es-partners/` (both tables).
+`eu-es-localized/menus/` contains the complete 127-case native run; its initial
+capture-command checker rejected the newly explicit unavailable-case return
+boundary. `spanish-menus-verification.json` is final offline validation of that
+unchanged complete trace and its captures. These command failures are not
+relabeled successful runs. The matrix's failed Spanish discovery command remains
+in its outcomes; the successful union uses the separately verified Spanish run
+and French sleep pilot.
+
+A fresh final Spanish menu command in `eu-es-native-final/` subsequently exits
+zero with the corrected checker. `spanish-final-verification.json` verifies its
+resource slot, 127 cases and all 254 native checkpoint pixels against the
+complete ARM64 Spanish run. The aggregate manifest retains both the historical
+offline recovery and this successful fresh command.
+
+`tmc_pc-verified` is the initial ARM64 observation binary; `tmc_pc-partners` and
+`tmc_pc-localized` identify the successive discovery/availability changes.
+`tmc_pc-native` is an isolated x86-64 verification build from the same source,
+using cached SDL 3.4.12/ImGui 1.92.7 sources and host PNG/zlib. It does not change
+the primary xmake configuration. `native-link-final.json`, build logs and the
+verification manifest identify its inputs and binaries. The matrix switched
+subsequent launches to that build after its English replay passed the retained
+218 family checkpoints. All 260 retained scale-1 pause/fusion checkpoints and
+all 260 checkpoints of a fresh ARM64 replay also match the native build exactly
+(`english-retained-130-verification.json` and
+`english-full-baseline-verification.json`). This is software-renderer evidence,
+not a physical RG performance or GPU acceptance result.
+
+Reproduce each language into a fresh output directory with a current
+repro-enabled binary (or a QEMU wrapper):
+
+```sh
+python3 tools/capture_background_audit.py --binary /path/to/tmc-repro \
+  --rom /path/to/EU.gba --language 2 --require-language-observation \
+  --scenario menus --scenario fusion_actions --scenario dungeons \
+  --scenario detail_maps --scenario travel --scenario travel_actions \
+  --scenario sleep --scenario save --scenario inventory_save \
+  --scenario gameover --scenario gameover_returns --scenario ending_actions \
+  --scenario files --scenario file_errors --output .tmp/localization-fr-new
+```
+
+Repeat with languages 3/4/5 and distinct directories. A fresh current-tool Spanish
+menu command passes directly; the retained offline recovery above describes
+the historical checker failure, not an instruction to accept failed new commands.
+
+Final verification passes all 56 routes: 2,029 canonical cases plus four
+file-browsing flows, 56,196 captured frames with checked decoded-RGBA hashes,
+native lifecycle/source checks and matching actual resource slots. All native
+processes used in this union complete successfully. The original matrix command
+exits 1 because its initial Spanish discovery command failed; its other 54
+commands pass, with the French sleep pilot and verified Spanish recovery filling
+the two separate union entries. No success is inferred for that failed enclosing
+command. `verification.json` records the complete union and the fresh Spanish
+command; `matrix-outcomes.json` and `verification.log` retain exact outcomes.
+
+The 185 audit tests (nine new), 11 exporter tests, catalog/profile C/C++
+agreement, engine/scroll and CPU PPU geometry checks pass. The PPU sanitizer run
+disables LeakSanitizer for the sandbox. The final ARM64 incremental build passes
+and an isolated EU/dummy-SDL startup reaches
+`Port layer initialized. Entering AgbMain...` (`final-startup.log`). C6 is closed;
+the broad context/state parent remains open for C7. The implementation list
+still has 29 unchecked parent items.
+
+USA/JP ROM rendering and interaction coverage remains C7, with no fixtures
+available here. Effect-target resolution, runtime adaptation/loading/composition,
+profile enablement, packaging and physical-device budgets retain their separate
+implementation tasks.

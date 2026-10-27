@@ -71,32 +71,49 @@ def menu_cases():
     return cases
 
 
+def menu_case_ids(events):
+    """Preserve canonical IDs; Spanish has no native name for layout two."""
+    masks = [r for r in events if r.get('event') == 'fusion_layout_mask']
+    missing = [r['value'] for r in events if r.get('event') == 'menu_case_unavailable']
+    spanish = any(r.get('language_slot') == 5 for r in events)
+    expected = [111, 118, 125] if spanish else []
+    if masks and (len(masks) != 1 or masks[0]['value'] != (0x7b if spanish else 0x7f)):
+        raise ValueError('unexpected native fusion layout availability')
+    if missing != expected or (spanish and not masks):
+        raise ValueError('incorrect unavailable menu cases or missing native layout discovery')
+    return [i for i in range(len(menu_cases())) if i not in expected]
+
+
 def validate_menus(events, frames):
-    cases = menu_cases()
+    ids = menu_case_ids(events)
+    catalog = menu_cases()
+    cases = [catalog[i] for i in ids]
     by_frame = {row['frame']: row for row in frames}
-    if [row['value'] for row in events if row['event'] == 'menus_complete'] != [len(cases)]:
+    if [row['value'] for row in events if row['event'] == 'menus_complete'] != [len(catalog)]:
         raise ValueError('incorrect menu completion count')
     if [row['value'] for row in events if row['event'] == 'pause_screen'] != [
             case['screen'] for case in cases if case['screen'] >= 0]:
         raise ValueError('incorrect native screen installation sequence')
     fusion = [row for row in events if row['event'] == 'fusion_screen']
-    if len(fusion) != 24:
+    layouts = [case['fusion_layout'] for case in cases if 'fusion_layout' in case]
+    if len(fusion) != 3 + len(layouts):
         raise ValueError('incomplete native fusion installations')
-    if [row['value'] for row in fusion[3:]] != list(range(7)) * 3:
+    if [row['value'] for row in fusion[3:]] != layouts:
         raise ValueError('incorrect native fusion layout installation sequence')
     openings = [row for row in events if row['event'] == 'menu_decoration']
     # Ordinary screen changes must not reinstall the decoration, even when
     # current health would select another variant on a fresh opening.
-    if [row['value'] for row in openings] != [0, 0, 1, 1, 2, 2, 2, 0, 1, 2, 0, 1, 2] + [i for i in range(3) for _ in range(7)]:
+    layout_cases = [case for case in cases if 'fusion_layout' in case]
+    if [row['value'] for row in openings] != [0, 0, 1, 1, 2, 2, 2, 0, 1, 2, 0, 1, 2] + [case['decoration'] for case in layout_cases]:
         raise ValueError('incorrect decoration selection or unexpected reinstallation')
     initial = [(24, 24), (16, 24), (15, 24), (9, 24), (8, 24), (1, 24), (8, 8),
                (24, 24), (15, 24), (8, 24), (24, 24), (15, 24), (8, 24)]
-    initial += [(health, 24) for health in (24, 15, 8) for _ in range(7)]
+    initial += [(case['health'], 24) for case in layout_cases]
     if [(row['health'], row['max_health']) for row in openings] != initial:
         raise ValueError('menu openings did not exercise the required health thresholds')
     for phase in ('menu_case_ready', 'menu_case_held'):
         checkpoints = [row for row in events if row['event'] == phase]
-        if [row['value'] for row in checkpoints] != list(range(len(cases))):
+        if [row['value'] for row in checkpoints] != ids:
             raise ValueError(f'{phase}: incomplete or unordered menu cases')
         for row, case in zip(checkpoints, cases):
             capture = by_frame.get(row['frame'])
@@ -144,7 +161,11 @@ def validate_family_timeline(rows):
     fusion_layouts = set()
     for row in rows:
         event = row.get('event')
-        if event == 'menus_complete' or (event == 'menu_case_request' and row['value'] in opening_cases):
+        if event == 'menu_case_unavailable':
+            if tuple(row.get(key) for key in ('nav_task', 'nav_substate', 'nav_ui', 'nav_fade')) != (2, 2, 0, 0):
+                raise ValueError('unavailable menu case did not restore native gameplay')
+            installed = 'unknown'
+        elif event == 'menus_complete' or (event == 'menu_case_request' and row['value'] in opening_cases):
             # The previous opening has restored gameplay before this request.
             installed = 'unknown'
         elif event == 'pause_screen':
@@ -179,8 +200,11 @@ def validate_family_timeline(rows):
                 raise ValueError('missing same-health family transition')
     if not {0, 16}.issubset(animated) or not any(0 < value < 16 for value in animated):
         raise ValueError('missing animated heading poses')
-    if fusion_layouts != {(health, layout) for health in range(3) for layout in range(7)}:
-        raise ValueError('incomplete 21 fusion layout/health combinations')
+    ids = menu_case_ids(rows)
+    expected_layouts = {(case['decoration'], case['fusion_layout']) for i, case in enumerate(menu_cases())
+                        if i in ids and 'fusion_layout' in case}
+    if fusion_layouts != expected_layouts:
+        raise ValueError('incomplete native fusion layout/health combinations')
     return dict(family_health_combinations=len(pairs),
                 fusion_layout_health_combinations=len(fusion_layouts),
                 same_health_switches=[list(value) for value in sorted(switches)],
@@ -275,6 +299,21 @@ def menu_reference_rows(rom, language):
         if len(reference_rows) == 3:
             break
     return reference_rows
+
+
+def validate_language(rows, code, language):
+    """Require native resource selection after file selection initializes.
+
+    Startup title frames may precede save-header initialization. Old traces
+    remain usable by other checkers, but cannot certify localization coverage.
+    """
+    expected = max(1, language) + 1 if code == 'BZMP' else 0 if code == 'BZMJ' else language
+    initialized = [row for row in rows if row.get('task', row.get('writes_task')) in (1, 2, 3)]
+    if not initialized:
+        raise ValueError('no initialized native language observations')
+    if any(row.get('language_slot') != expected for row in initialized):
+        raise ValueError(f'native language slot differs from requested slot {expected}')
+    return dict(language_slot=expected, observations=len(initialized))
 
 
 def validate_trace(rows, scenario):
@@ -494,7 +533,9 @@ def summarize(directory, scenario):
                     if image.convert('RGB').getbbox() is None:
                         raise ValueError(f'case {row["value"]}: neutral menu checkpoint is blank')
         result['semantic_coverage'] = validate_family_timeline(rows)
-        result['menu_cases'] = [dict(case, frame=row['frame']) for row, case in zip(checkpoints, menu_cases())]
+        catalog = menu_cases()
+        result['menu_cases'] = [dict(catalog[row['value']], case_id=row['value'], frame=row['frame']) for row in checkpoints]
+        result['unavailable_menu_cases'] = [row['value'] for row in events if row['event'] == 'menu_case_unavailable']
         # A separate neutral matrix is easier to review than the transition sheets.
         for offset in range(0, len(checkpoints), 36):
             batch = checkpoints[offset:offset + 36]
@@ -504,7 +545,7 @@ def summarize(directory, scenario):
                 x, y = (index % 4) * 240, (index // 4) * 184
                 with Image.open(directory / f"{row['frame']:06d}.png") as image:
                     sheet.paste(image, (x, y))
-                draw.text((x + 2, y + 160), menu_cases()[row['value']]['label'], fill='white')
+                draw.text((x + 2, y + 160), catalog[row['value']]['label'], fill='white')
             sheet.save(directory / f'menus-{offset // 36 + 1:02d}.png')
     return result
 
@@ -517,6 +558,8 @@ def main():
     parser.add_argument('--scenario', choices=['credits', 'prologue', 'intro', 'files', 'local_hint', 'menus', 'travel', 'figurines', 'hints', 'dungeons', 'travel_actions', 'figurine_actions', 'detail_maps', 'sleep', 'save', 'inventory_save', 'gameover', 'fusion_actions', 'ending_actions', 'file_writes', 'map_navigation', 'file_errors', 'gameover_returns'], action='append')
     parser.add_argument('--language', type=int, choices=range(6), default=1,
                         help='preferred game language: 0 Japanese, 1 English, 2 French, 3 German, 4 Spanish, 5 Italian')
+    parser.add_argument('--require-language-observation', action='store_true',
+                        help='require the live resource slot to match --language (needs current repro instrumentation)')
     parser.add_argument('--menu-baseline', type=Path, help='retained 106/109/130-case menus directory for pixel comparison')
     parser.add_argument('--figurine-start-case', type=int, choices=range(54), default=0,
                         help='start an independent figurine_actions suffix at this canonical case ID')
@@ -562,6 +605,9 @@ def main():
                                timeout=args.timeout if args.timeout is not None else (2400 if scenario in ('figurine_actions', 'detail_maps') else 1200),
                                check=True)
         summary['scenarios'][scenario] = summarize(directory, scenario)
+        if args.require_language_observation:
+            rows = [json.loads(line) for line in (directory / 'trace.jsonl').read_text().splitlines()]
+            summary['scenarios'][scenario]['native_language'] = validate_language(rows, code, args.language)
         if scenario == 'menus':
             if args.menu_baseline:
                 summary['scenarios'][scenario]['native_baseline'] = compare_menu_baseline(

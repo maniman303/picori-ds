@@ -57,6 +57,9 @@ void Port_ReproBackground_Heading(int style, int x, int y, int transition) {
 }
 
 static void WriteDescriptor(void) {
+    /* Observe the resource slot, not the requested config language. EU slots
+     * are offset from the public language enum; a fallback must fail the audit. */
+    fprintf(sTrace, ",\"language_slot\":%u", gSaveHeader->language);
     fprintf(sTrace, ",\"schema\":2,\"family\":\"%s\",\"heading_style\":%d,\"heading_x\":%d,"
                     "\"heading_y\":%d,\"heading_transition\":%d", sFamily, sHeading,
                     sHeadingX, sHeadingY, sHeadingTransition);

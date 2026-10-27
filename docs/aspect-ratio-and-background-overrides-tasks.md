@@ -132,6 +132,12 @@ additional automatically reopened tasks.
   blocked atomic-write path, full durable-file retention and successful recovery.
   Extend native Game Over with B/START error dismissal, retry refusal, recovery
   and Save-and-Quit; preserve historical failure evidence and GBA behavior.
+- [x] Close C6 EU localization: extend the 14 remaining menu/map/travel,
+  sleep/save/Game Over and ending/file routes to French/German/Spanish/Italian.
+  Verify live resource slots, 2,029 cases plus four file-browsing flows and
+  56,196 captures. Preserve canonical IDs and explicitly record the three
+  unavailable Spanish fusion-width cases; retain English and five-language
+  figurine/hint evidence. C7 still requires unavailable USA/JP ROM fixtures.
 - [x] Audit native fast-travel selection/cancel on EU/English: all eight
   destinations and a single-unlock mask at three health preload states.
   Verify group 93 replaces the health decoration with a fixed BG3 field;
@@ -1156,3 +1162,28 @@ and isolated EU startup checks pass. Original artwork, goldens and build options
 are preserved. The [closure checklist](background-context-closure-checklist.md)
 has five completed groups and only C6 localization / C7 regional fixtures left;
 the broad context/state parent is still one of 29 unchecked parent tasks.
+
+## Remaining EU localization closure (2026-10-27)
+
+Completed C6 with 14 native routes in French/German/Spanish/Italian: 2,029
+canonical cases plus four file-browsing flows and 56,196 checked captures.
+Live save-header resource slots certify the requested language through source
+installation and returns. Spanish's missing 57–64-pixel fusion-name width is
+recorded explicitly at three canonical IDs; the 127 reachable cases retain all
+15 family/health combinations. Other languages retain all 130 cases / 21 fusion
+layout/health combinations. No synthetic name or substitute layout is accepted.
+
+All 56 routes pass final lifecycle/language/hash verification. Initial Spanish
+discovery/checker failures remain recorded separately; a fresh final Spanish
+capture command passes and matches 254 ARM64 checkpoints. The native verification
+build also preserves all 260 retained English scale-1 checkpoints and matches
+a fresh ARM64 replay. The 185 audit tests, 11 exporter tests, catalog/profile,
+engine/scroll and CPU PPU checks, final ARM64 build and isolated EU startup pass.
+Exact command outcomes, binary/trace hashes, recovery evidence and reproduction
+are in the [localization audit](background-context-state-audit.md#remaining-eu-localization-coverage-2026-10-27).
+
+The closure checklist now has six completed groups and only C7 regional ROM
+fixtures outstanding. The broad context/state parent remains open, and the
+implementation list still has 29 unchecked parent items. Runtime adapter,
+composition, artwork loading, effect resolution and device acceptance retain
+their separate tasks.

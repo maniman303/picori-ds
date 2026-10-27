@@ -23,7 +23,7 @@ There are **29 unchecked implementation-list items** as of this revision:
 | Acceptance/budgets | 4 |
 | **Total** | **29** |
 
-The first item contains these seven coverage groups: **five completed, two
+The first item contains these seven coverage groups: **six completed, one
 remaining** (C7 currently lacks ROM fixtures). They are a breakdown of
 one parent item, not seven additional implementation-list items or an estimate
 of seven turns. Each group closes with checked native lifecycle/source evidence
@@ -58,11 +58,15 @@ cannot expand silently after every completed route.
   EEPROM failure and storage persistence tests are separate evidence. Completed
   with checked durable erasure, device/host error recovery and extended Game Over
   returns in the [C4/C5 completion](background-context-state-audit.md#native-map-navigation-and-remaining-error-paths-2026-10-26).
-- [ ] **C6 — Remaining EU localization coverage.** Extend pause/fusion, dungeon,
+- [x] **C6 — Remaining EU localization coverage.** Extend pause/fusion, dungeon,
   detail-map, travel, sleep, save, Game Over and ending/file interaction routes
   where translated layout/text is present to French/German/Spanish/Italian.
   Figurine collection/prizes and standalone hints already cover all five EU
   languages and must not be reopened for this group.
+  Completed by the [56-route localization audit](background-context-state-audit.md#remaining-eu-localization-coverage-2026-10-27):
+  2,029 canonical cases plus four file-browsing flows, observed native language
+  slots and checked capture hashes. Spanish's absent fusion-name width has
+  explicit unavailable IDs; no synthetic layout is counted as native coverage.
 - [ ] **C7 — Additional regional fixtures.** USA/JP source/layout and applicable
   interaction checks when verified ROMs are available. The workspace currently
   supplies only an EU ROM; retain this external coverage limitation explicitly.

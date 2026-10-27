@@ -35,6 +35,7 @@ typedef struct {
 } MenuCase;
 
 static int sCase = -1;
+static unsigned sUnavailableLayouts;
 
 int Port_ReproBackground_MenuCase(void) { return sCase; }
 
@@ -84,32 +85,42 @@ static Entity* FusionPartner(int layout) {
     if (!discovered) {
         unsigned found = 0;
         Entity candidate = {0};
-        candidate.kind = NPC;
-        const u32 table = gRomOffsets ? gRomOffsets->fuserNpcData : 0;
-        for (unsigned i = 1; i < 128 && table && gRomData && table <= gRomSize && (i + 1) * 6 <= gRomSize - table; ++i) {
-            const u8* entry = gRomData + table + i * 6;
-            if (!entry[0])
-                break;
-            candidate.id = entry[0];
-            candidate.type = entry[1] == 0xff ? 0 : entry[1];
-            candidate.type2 = entry[2] == 0xff ? 0 : entry[2];
-            u32 pixels[0x300 / sizeof(u32)] = {0};
-            WStruct text = {0};
-            text.unk00 = 1;
-            text.bgColor = 5;
-            text.unk4 = 0x60;
-            text.unk8 = pixels;
-            const u32 textId = Port_GetEntityFuserData(NPC, candidate.id, candidate.type, candidate.type2) >> 32;
-            const unsigned width = sub_0805F76C(textId, &text);
-            const int variant = min(max((int)((width + 7) / 8) - 6, 0), 6);
-            if (!(found & (1u << variant))) {
-                partners[variant] = candidate;
-                found |= 1u << variant;
-                fprintf(stderr, "[background-audit] fusion layout %d: NPC %u/%u/%u name width %u\n",
-                        variant, candidate.id, candidate.type, candidate.type2, width);
+        /* Include both native name tables before declaring a width unavailable.
+         * Keep NPC-first discovery so retained English fixtures stay stable. */
+        for (unsigned kind = 0; kind < 2; ++kind) {
+            candidate.kind = kind ? ENEMY : NPC;
+            const u32 table = !gRomOffsets ? 0 :
+                              kind ? gRomOffsets->fuserEnemyData : gRomOffsets->fuserNpcData;
+            for (unsigned i = 1; i < 128 && table && gRomData && table <= gRomSize && (i + 1) * 6 <= gRomSize - table; ++i) {
+                const u8* entry = gRomData + table + i * 6;
+                if (!entry[0])
+                    break;
+                candidate.id = entry[0];
+                candidate.type = entry[1] == 0xff ? 0 : entry[1];
+                candidate.type2 = entry[2] == 0xff ? 0 : entry[2];
+                u32 pixels[0x300 / sizeof(u32)] = {0};
+                WStruct text = {0};
+                text.unk00 = 1;
+                text.bgColor = 5;
+                text.unk4 = 0x60;
+                text.unk8 = pixels;
+                const u32 textId = Port_GetEntityFuserData(candidate.kind, candidate.id, candidate.type, candidate.type2) >> 32;
+                const unsigned width = sub_0805F76C(textId, &text);
+                const int variant = min(max((int)((width + 7) / 8) - 6, 0), 6);
+                if (!(found & (1u << variant))) {
+                    partners[variant] = candidate;
+                    found |= 1u << variant;
+                    fprintf(stderr, "[background-audit] fusion layout %d: kind %u entity %u/%u/%u name width %u\n",
+                            variant, candidate.kind, candidate.id, candidate.type, candidate.type2, width);
+                }
             }
         }
-        if (found != 0x7f) {
+        Port_ReproBackground_Event("fusion_layout_mask", found);
+        /* Spanish has no partner name in the 57..64-pixel bucket. Do not
+         * manufacture a name or substitute a different layout for those IDs. */
+        if (REGION_IS_EU && gSaveHeader->language == LANGUAGE_ES + 1 && found == 0x7b) {
+            sUnavailableLayouts = 1u << 2;
+        } else if (found != 0x7f) {
             fprintf(stderr, "[background-audit] native partner names cover layout mask 0x%x, expected 0x7f\n", found);
             exit(2);
         }
@@ -134,8 +145,13 @@ int Port_ReproBackground_MenusTick(unsigned int frame, int decoration, int scree
             gMain.substate != GAMEMAIN_UPDATE || gFadeControl.active)
             return 0;
         if (sCase < 0) {
-            FusionPartner(0); /* Fail early if this language cannot cover every layout. */
+            FusionPartner(0); /* Discover native widths before staging any case. */
             sCase = 0;
+        }
+        while (sCase < CASES && GetCase(sCase).fusionLayout >= 0 &&
+               (sUnavailableLayouts & (1u << GetCase(sCase).fusionLayout))) {
+            Port_ReproBackground_Event("menu_case_unavailable", sCase);
+            ++sCase;
         }
         if (sCase == CASES) {
             Port_ReproBackground_Event("menus_complete", CASES);

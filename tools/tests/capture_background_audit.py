@@ -9,7 +9,7 @@ import unittest
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from capture_background_audit import (menu_cases, summarize, validate_trace, validate_inventory_pixels,
+from capture_background_audit import (menu_cases, menu_case_ids, summarize, validate_trace, validate_language, validate_inventory_pixels,
                                       validate_panel_pixels, compare_menu_baseline, travel_cases, validate_travel_pixels)
 
 
@@ -398,6 +398,82 @@ class AuditCoverage(unittest.TestCase):
             image.save(path / '000001.png')
             with self.assertRaisesRegex(ValueError, 'solid field'):
                 summarize(path, 'local_hint')
+
+
+class NativeLanguageTests(unittest.TestCase):
+    def test_complete_spanish_menu_trace_keeps_all_other_contracts(self):
+        rows = []
+        opening = fusion = 0
+        for original in menu_trace():
+            row = dict(original, language_slot=5)
+            if row.get('event') == 'menu_decoration':
+                opening += 1
+                if opening in (16, 23, 30):
+                    continue
+            if row.get('event') == 'fusion_screen':
+                fusion += 1
+                if fusion in (6, 13, 20):
+                    continue
+            if row.get('case') in (111, 118, 125):
+                continue
+            rows.append(row)
+        discovery = dict(schema=2, family='unknown', language_slot=5,
+                         nav_task=2, nav_substate=2, nav_ui=0, nav_fade=0)
+        rows[:0] = [dict(discovery, event='fusion_layout_mask', value=0x7b)] + [
+            dict(discovery, event='menu_case_unavailable', value=i) for i in (111, 118, 125)]
+        validate_trace(rows, 'menus')
+        skipped = next(r for r in rows if r.get('event') == 'menu_case_unavailable')
+        skipped['nav_substate'] = 7
+        with self.assertRaisesRegex(ValueError, 'did not restore native gameplay'):
+            validate_trace(rows, 'menus')
+        skipped['nav_substate'] = 2
+        # A gap in a reachable layout still fails, even with valid discovery.
+        rows = [r for r in rows if r.get('case') != 112]
+        with self.assertRaises(ValueError):
+            validate_trace(rows, 'menus')
+
+    def test_spanish_unavailable_width_has_explicit_canonical_gaps(self):
+        rows = [dict(event='fusion_layout_mask', value=0x7b, language_slot=5)]
+        rows += [dict(event='menu_case_unavailable', value=i, language_slot=5) for i in (111, 118, 125)]
+        ids = menu_case_ids(rows)
+        self.assertEqual(len(ids), 127)
+        self.assertEqual(set(range(130)) - set(ids), {111, 118, 125})
+
+    def test_layout_gaps_cannot_be_inferred_or_applied_to_another_language(self):
+        for rows in ([dict(language_slot=5)],
+                     [dict(event='fusion_layout_mask', value=0x7b, language_slot=3)],
+                     [dict(event='menu_case_unavailable', value=111)],
+                     [dict(event='fusion_layout_mask', value=0x7f, language_slot=5)]):
+            with self.assertRaises(ValueError):
+                menu_case_ids(rows)
+
+    def test_eu_resource_slots(self):
+        for language in range(1, 6):
+            rows = [dict(task=0, language_slot=0), dict(task=1, language_slot=language + 1),
+                    dict(writes_task=2, language_slot=language + 1)]
+            self.assertEqual(validate_language(rows, 'BZMP', language),
+                             dict(language_slot=language + 1, observations=2))
+
+    def test_eu_japanese_preference_falls_back_to_english(self):
+        self.assertEqual(validate_language([dict(task=1, language_slot=2)], 'BZMP', 0)['language_slot'], 2)
+
+    def test_usa_and_japan_slots(self):
+        for code, language, slot in (('BZME', 1, 1), ('BZMJ', 1, 0)):
+            self.assertEqual(validate_language([dict(task=1, language_slot=slot)], code, language)['language_slot'], slot)
+
+    def test_requested_language_is_not_native_evidence(self):
+        for row in (dict(task=1), dict(task=1, language_slot=2), dict(task=2, language_slot=4)):
+            with self.assertRaisesRegex(ValueError, 'native language slot'):
+                validate_language([row], 'BZMP', 2)
+
+    def test_language_must_survive_return_and_events(self):
+        rows = [dict(task=1, language_slot=3), dict(writes_task=2, language_slot=2)]
+        with self.assertRaisesRegex(ValueError, 'native language slot'):
+            validate_language(rows, 'BZMP', 2)
+
+    def test_startup_alone_cannot_certify_language(self):
+        with self.assertRaisesRegex(ValueError, 'no initialized'):
+            validate_language([dict(task=0, language_slot=3)], 'BZMP', 2)
 
 
 if __name__ == '__main__':
