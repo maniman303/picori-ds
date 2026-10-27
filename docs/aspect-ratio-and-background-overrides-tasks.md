@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 26 unchecked
+[the closure checklist](background-context-closure-checklist.md): 25 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -241,7 +241,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Separate the original hardware register sequence from bounded rendered
   rows. Guard HDMA against extra/negative callback lines; stable-state scenes
   can render extra rows and continue affine references without extra IO copies.
-- [ ] Classify HDMA continuations and implement full-canvas effect geometry.
+- [x] Classify HDMA continuations and implement full-canvas effect geometry.
   Unclassified or varying callbacks cap the effective aperture at 160; the
   verified fixed-brightness case can extend. Static unclassified windows also
   cap height. This is an interim safety gate while 4:3 remains disabled, not
@@ -249,9 +249,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Classify the current HDMA destinations and fail closed for unsupported
   continuations. Extend only verified fixed-source BLDY without windows; retain
   160 hardware callbacks and snapshot storage. Add bounded full-canvas iris
-  spans checked against the native circle; publication, radius policy and other
-  raster/window continuations remain open in the
-  [HDMA audit](background-effect-target-audit.md#hdma-classification-and-geometry).
+  spans checked against the native circle. The later follow-up below publishes
+  fade-iris geometry; other raster/window continuations remain native-height
+  fallbacks in the [HDMA audit](background-effect-target-audit.md#hdma-classification-and-geometry).
 - [x] Add a shared two-axis camera-rest formula and connect port camera snaps,
   initialization, expanded-height follow and script completion. Preserve native
   vertical pacing and fix small-room clamp agreement.
@@ -1323,3 +1323,33 @@ scanning disabled for the sandbox), as does catalog/profile publication. The
 ARM64 repro build succeeds, EU logo/title PPU parity matches the retained
 byte-exact goldens, and an isolated EU dummy-SDL smoke reaches AgbMain. The
 release xmake configuration is restored after capture verification.
+
+## HDMA and scene-wide iris geometry completion (2026-10-27)
+
+The continuation classifier retains 160 hardware callbacks and rejects varying
+or unsupported channels. Only a verified fixed-source halfword write to BLDY
+with windows disabled may continue to additional rows; static or unclassified
+windows remain native-height. These are interim safety gates, not 4:3 enablement.
+
+The native scene-wide fade-iris producer now publishes a bounded descriptor.
+Its full-canvas margin spans use the native midpoint circle and a radius that
+scales from zero to the minimum discrete radius covering the canvas as the
+native radius advances from 0 to 150. A consumer must clip the spans to added
+margins; the native 240 × 160 window and its pixels stay authoritative. Local
+lights, portal windows, triangles, ellipses, unsupported window controls and
+offscreen centers do not publish this scene-wide policy. Their render aperture
+continues to fail closed.
+
+Pending ownership is replaced whenever native window DMA is replaced and is
+latched with the actual VBlank DMA snapshot, so repeated presents see the same
+shape as the current native window. DMA cancellation, fade initialization and
+quicksave restore clear host-only state. The descriptor is ready for the
+separately tracked margin compositor; no PNG margin drawing, additional raster
+continuation, or 4:3/32:9 availability is claimed here.
+
+The native fade/DMA lifecycle regression tests opening, closing, held-closed,
+replacement, cancellation and the VBlank publication boundary. Native circle
+agreement covers all five profiles and edge centers; independent ASan/UBSan
+checks exercise all 151 radii across profile edges. PPU geometry, catalog,
+world-view and persistence regressions, the ARM64 build, EU byte-exact logo/title
+parity and EU dummy-SDL startup pass.

@@ -23,6 +23,21 @@ bool Port_Effect_BuildIrisRows(int canvas_width, int canvas_height, int native_x
                                int center_x, int center_y, unsigned radius,
                                PortEffectSpan* rows, size_t row_capacity);
 
+/* Scene-wide fade iris state is published only by the native fade producer.
+ * Any replacement or cancellation of its window DMA clears it. The returned
+ * spans describe a full-canvas shape for use only in added margins: native
+ * pixels must use native window IO.
+ * A closed radius of zero gives no margin coverage; radius 150 covers the
+ * complete canvas. Invalid inputs fail closed and leave output untouched. */
+void Port_Effect_PublishFadeIris(int center_x, int center_y, int native_radius,
+                                unsigned inside_control, unsigned outside_control);
+void Port_Effect_ClearFadeIris(void);
+/* Invalidate only pending DMA ownership; commit at the native VBlank latch. */
+void Port_Effect_ClearPendingFadeIris(void);
+void Port_Effect_CommitFadeIris(void);
+bool Port_Effect_ResolveFadeIris(int canvas_width, int canvas_height, int native_x, int native_y,
+                                PortEffectSpan* rows, size_t row_capacity);
+
 #ifdef __cplusplus
 }
 #endif

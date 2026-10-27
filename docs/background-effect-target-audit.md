@@ -91,10 +91,16 @@ the native midpoint algorithm and one translation of the 240×160 rectangle.
 The regression links the game's actual `sub_0801E24C`/`sub_0801E290` code:
 all radii 0–150, twelve centers and all five profile geometries agree inside
 the native rectangle, including clipped edge centers. Added-row/column and
-capacity cases are checked separately. The helper is not yet connected to a
-scene-wide iris publisher or compositor, and it does not choose how the native
-radius maps to the wider canvas. Triangle/ellipse and scene-effect policies
-remain unimplemented; the HDMA/full-canvas parent task stays open.
+capacity cases are checked separately. The native fade producer now publishes
+scene-wide iris state at the VBlank DMA latch. The margin radius scales linearly
+from native 0–150 to the minimum midpoint-circle radius that covers the canvas;
+the original native rectangle always keeps its actual window pixels. Invalid
+centers or controls, local lights and non-fade producers do not publish. A DMA
+replacement invalidates pending ownership, while cancellation or quickload
+clears it entirely. The margin compositor must clip the resolved span to added
+margins. This implements the interim geometry contract without enabling taller
+rasterization for windows or implementing the later compositor. Triangle/ellipse
+continuations retain the native-height fallback.
 
 ## Verification and remaining work
 
@@ -116,7 +122,7 @@ claim intermediate screenshot acceptance for masked credits pixels or all
 fast-travel transitions. Region-specific effect acceptance, scene-wide
 windows/iris and full compositor publication remain separate tasks. The
 compositor must consume the ownership data and publish effects before any
-image-margin behavior is claimed. The full HDMA task also
-remains open until the classified fallback cases and iris publication are
-implemented and tested. Physical RG budgets and 4:3/32:9 enablement are
-separate outstanding tasks.
+image-margin behavior is claimed. The HDMA/geometry interim task is complete: unsupported effects remain on the
+classified native-height fallback and fade-iris geometry is published for the
+future compositor. Physical RG budgets and 4:3/32:9 enablement are separate
+outstanding tasks.

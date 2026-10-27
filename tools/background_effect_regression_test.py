@@ -27,14 +27,18 @@ def main():
         subprocess.run([str(binary)], cwd=ROOT, check=True)
         engine = Path(directory) / 'fade.o'
         staffroll = Path(directory) / 'staffroll.o'
+        native_common = Path(directory) / 'common.o'
+        native_main = Path(directory) / 'main.o'
         common = compiler + ['-std=gnu11', '-O1', '-ffunction-sections', '-fdata-sections',
                              '-funsigned-char', '-DPC_PORT', '-DNON_MATCHING', '-DUSE_HDMA',
                              '-DUSA', '-DENGLISH', '-DMULTI_REGION', '-include', 'region.h',
                              '-Iinclude', '-Ilibs', '-Iport', '-I.', '-Ibuild/USA', '-Iport/ppu/include']
         subprocess.run(common + ['-w', '-c', 'src/fade.c', '-o', str(engine)], cwd=ROOT, check=True)
         subprocess.run(common + ['-w', '-c', 'src/staffroll.c', '-o', str(staffroll)], cwd=ROOT, check=True)
-        subprocess.run(common + ['tools/tests/background_effect_engine.c', 'port/port_background_effect.c',
-                                 str(engine), str(staffroll), '-Wl,--gc-sections', '-lm', '-o', str(binary)], cwd=ROOT, check=True)
+        subprocess.run(common + ['-w', '-c', 'src/common.c', '-o', str(native_common)], cwd=ROOT, check=True)
+        subprocess.run(common + ['-w', '-c', 'src/main.c', '-o', str(native_main)], cwd=ROOT, check=True)
+        subprocess.run(common + ['tools/tests/background_effect_engine.c', 'port/port_background_effect.c', 'port/port_effect_geometry.c', 'port/port_hdma.c',
+                                 str(engine), str(staffroll), str(native_common), str(native_main), '-Wl,--gc-sections', '-lm', '-o', str(binary)], cwd=ROOT, check=True)
         subprocess.run([str(binary)], cwd=ROOT, check=True)
 
 

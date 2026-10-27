@@ -29,6 +29,16 @@ def main():
                               '-Wl,--gc-sections', '-lm', '-o', str(binary)]
         subprocess.run(command, cwd=ROOT, check=True)
         subprocess.run([str(binary)], cwd=ROOT, check=True)
+        # Isolate the port helper from the full engine object so sanitizer
+        # instrumentation does not retain unrelated decompilation sections.
+        subprocess.run(compiler + ['-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
+                                   '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-Iport',
+                                   'tools/tests/effect_geometry_sanitize.c', 'port/port_effect_geometry.c',
+                                   '-o', str(binary)], cwd=ROOT, check=True)
+        env = os.environ.copy()
+        env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')
+        subprocess.run([str(binary)], cwd=ROOT, env=env, check=True)
+        print('Full-canvas iris bounds under ASan/UBSan: PASS')
 
 
 if __name__ == '__main__':

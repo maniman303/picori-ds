@@ -16,6 +16,7 @@
 #include "ui.h"
 #ifdef PC_PORT
 #include "port_widescreen.h"
+#include "port_effect_geometry.h"
 #include "port_oam.h"
 #endif
 
@@ -64,6 +65,10 @@ void VBlankIntr(void) {
     if (gMain.interruptFlag == 0) {
         DispCtrlSet();
         DmaCopy32(0, &gScreen.vBlankDMA, &gVBlankDMA, sizeof(VBlankDMA));
+#ifdef PC_PORT
+        /* Presentations before this latch still use the previous DMA table. */
+        Port_Effect_CommitFadeIris();
+#endif
         gMain.interruptFlag = 1;
     }
     PerformVBlankDMA();

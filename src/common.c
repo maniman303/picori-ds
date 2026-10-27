@@ -2,6 +2,7 @@
 
 #ifdef PC_PORT
 #include <string.h>
+#include "port_effect_geometry.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1110,6 +1111,7 @@ void sub_0801E104(void) {
        whole class of sub_0801E104-only teardowns: lightManager (dark-room end),
        whiteTriangleEffect (screen wipe), vaatiAppearingManager Evaporate. */
     port_hdma_unregister(0);
+    Port_Effect_ClearFadeIris();
 #endif
 }
 

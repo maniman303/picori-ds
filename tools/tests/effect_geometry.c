@@ -55,6 +55,50 @@ int main(void) {
     assert(!Port_Effect_BuildIrisRows(256, 192, 8, 16, 240, 80, 20, rows, 192));
     assert(!Port_Effect_BuildIrisRows(256, 192, 8, 16, 120, 80, 20, NULL, 192));
     assert(rows[0].left == 0xa5a5 && rows[191].right == 0xa5a5);
+    /* Scene-wide margin policy: zero is closed, 150 reaches every edge;
+     * clipping to margins leaves native rendering to the original window. */
+    const int profiles[][4] = {{240,160,0,0}, {256,192,8,16}, {285,160,22,0},
+                               {374,160,67,0}, {569,160,164,0}};
+    for (unsigned p = 0; p < sizeof(profiles) / sizeof(profiles[0]); ++p) {
+        for (unsigned x = 0; x < sizeof(centers_x) / sizeof(*centers_x); ++x)
+            for (unsigned y = 0; y < sizeof(centers_y) / sizeof(*centers_y); ++y) {
+                Port_Effect_PublishFadeIris(centers_x[x], centers_y[y], 0, 0x3f3f, 0);
+                Port_Effect_CommitFadeIris();
+                assert(Port_Effect_ResolveFadeIris(profiles[p][0], profiles[p][1],
+                                                   profiles[p][2], profiles[p][3], rows, 192));
+                for (int line = 0; line < profiles[p][1]; ++line)
+                    assert(rows[line].left == 0 && rows[line].right == 0);
+                Port_Effect_PublishFadeIris(centers_x[x], centers_y[y], 150, 0x3f3f, 0);
+                Port_Effect_CommitFadeIris();
+                assert(Port_Effect_ResolveFadeIris(profiles[p][0], profiles[p][1],
+                                                   profiles[p][2], profiles[p][3], rows, 192));
+                for (int line = 0; line < profiles[p][1]; ++line)
+                    assert(rows[line].left == 0 && rows[line].right == profiles[p][0]);
+            }
+    }
+    Port_Effect_PublishFadeIris(120, 80, 75, 0x3f3f, 0);
+    Port_Effect_CommitFadeIris();
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    assert(rows[96].left < 128 && rows[96].right > 128);
+    memset(rows, 0xa5, sizeof(rows));
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 191));
+    assert(rows[0].left == 0xa5a5 && rows[191].right == 0xa5a5);
+    Port_Effect_PublishFadeIris(120, 80, 75, 0x3f37, 0); /* local window */
+    Port_Effect_CommitFadeIris();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    Port_Effect_PublishFadeIris(120, 80, 75, 0x3f3f, 1);
+    Port_Effect_CommitFadeIris();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    Port_Effect_PublishFadeIris(-1, 80, 75, 0x3f3f, 0);
+    Port_Effect_CommitFadeIris();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    Port_Effect_PublishFadeIris(120, 80, 151, 0x3f3f, 0);
+    Port_Effect_CommitFadeIris();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    Port_Effect_PublishFadeIris(120, 80, 75, 0x3f3f, 0);
+    Port_Effect_CommitFadeIris();
+    Port_Effect_ClearFadeIris();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
     puts("Full-canvas iris geometry agrees with native circle: PASS");
     return 0;
 }

@@ -33,6 +33,8 @@ static int TestRename(const char* from, const char* to) {
 #undef fclose
 #undef rename
 #include <assert.h>
+static unsigned sEffectClears;
+void Port_Effect_ClearFadeIris(void) { ++sEffectClears; }
 u8 gEwram[0x40000], gIwram[0x8000], gVram[0x18000], gIoMem[0x400];
 u32 gRand;
 u64 gPracticeFrame;
@@ -111,6 +113,7 @@ int main(void) {
     memset(gEntityListsBackup, 0, sizeof(gEntityListsBackup));
     memset(gActiveItems, 0, sizeof(gActiveItems));
     assert(Snapshot_Restore(&s));
+    assert(sEffectClears == 1);
     assert(gEntityLists[0].first == saved && gEntityLists[0].last == saved);
     assert(saved->next == (Entity*)&gEntityLists[0] && saved->prev == (Entity*)&gEntityLists[0]);
     assert(gEntCount == 1 && gManagerCount == 2);

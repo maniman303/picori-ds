@@ -15,6 +15,7 @@
 #include "fade.h"
 #ifdef PC_PORT
 #include "port_hdma.h"
+#include "port_effect_geometry.h"
 #include "port_repro.h"
 #include "port_widescreen.h"
 #include <setjmp.h>
@@ -279,6 +280,11 @@ void InitSaveHeader(void) {
 }
 
 void InitDMA(void) {
+#ifdef PC_PORT
+    /* The saved DMA configuration may be resumed, but its host-only effect
+     * descriptor is not part of the hardware backup; fail closed. */
+    Port_Effect_ClearFadeIris();
+#endif
     SoundReq(SONG_VSYNC_OFF);
     gScreen.vBlankDMA.readyBackup = gScreen.vBlankDMA.ready;
     gScreen.vBlankDMA.ready = FALSE;
@@ -298,6 +304,9 @@ void InitVBlankDMA(void) {
 }
 
 void SetVBlankDMA(u16* src, u16* dest, u32 size) {
+#ifdef PC_PORT
+    Port_Effect_ClearPendingFadeIris(); /* a new owner supersedes pending fade DMA */
+#endif
     gScreen.vBlankDMA.src = src;
     gScreen.vBlankDMA.dest = dest;
     gScreen.vBlankDMA.size = size;
@@ -309,6 +318,7 @@ void DisableVBlankDMA(void) {
     gScreen.vBlankDMA.ready = FALSE;
 #ifdef PC_PORT
     port_hdma_unregister(0);
+    Port_Effect_ClearFadeIris();
 #endif
 }
 

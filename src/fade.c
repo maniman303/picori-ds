@@ -6,6 +6,7 @@
 
 #ifdef PC_PORT
 #include "port_gba_mem.h"
+#include "port_effect_geometry.h"
 #include "port_rom.h"
 #include <stdio.h>
 #endif
@@ -157,6 +158,9 @@ void FadeVBlank(void) {
 }
 
 void InitFade(void) {
+#ifdef PC_PORT
+    Port_Effect_ClearFadeIris();
+#endif
     MemClear(&gFadeControl, sizeof(gFadeControl));
     MemClear(&gUnk_020354C0, sizeof(gUnk_020354C0));
     gFadeControl.mask = 0xffffffff;
@@ -206,6 +210,10 @@ void SetFade(u32 type, u32 speed) {
     if (type & FADE_IRIS) {
         sub_0801E1B8(gFadeControl.win_inside_cnt, gFadeControl.win_outside_cnt);
         sub_0801E1EC(gFadeControl.iris_x, gFadeControl.iris_y, gFadeControl.iris_size);
+#ifdef PC_PORT
+        Port_Effect_PublishFadeIris(gFadeControl.iris_x, gFadeControl.iris_y, gFadeControl.iris_size,
+                                    gFadeControl.win_inside_cnt, gFadeControl.win_outside_cnt);
+#endif
         if ((type & FADE_IN_OUT) == 0) {
             gFadeControl.type &= ~FADE_INSTANT;
             ResetFadeMask();
@@ -331,11 +339,19 @@ static u32 sub_080502A4(FadeControl* ctl) {
         if (delta << 16 <= 0)
             gFadeControl.iris_size = 0;
         sub_0801E1EC(gFadeControl.iris_x, gFadeControl.iris_y, gFadeControl.iris_size);
+#ifdef PC_PORT
+        Port_Effect_PublishFadeIris(gFadeControl.iris_x, gFadeControl.iris_y, gFadeControl.iris_size,
+                                    gFadeControl.win_inside_cnt, gFadeControl.win_outside_cnt);
+#endif
         if (!gFadeControl.iris_size)
             return 0;
     } else {
         gFadeControl.iris_size += gFadeControl.speed;
         sub_0801E1EC(gFadeControl.iris_x, gFadeControl.iris_y, gFadeControl.iris_size);
+#ifdef PC_PORT
+        Port_Effect_PublishFadeIris(gFadeControl.iris_x, gFadeControl.iris_y, gFadeControl.iris_size,
+                                    gFadeControl.win_inside_cnt, gFadeControl.win_outside_cnt);
+#endif
         if (gFadeControl.iris_size > 150) {
             sub_0801E104();
             return 0;

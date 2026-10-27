@@ -7,6 +7,7 @@
 #include "structures.h"
 #include "menu.h"
 #include "port_background_effect.h"
+#include "port_effect_geometry.h"
 #undef static_assert
 #include <assert.h>
 
@@ -24,15 +25,17 @@ static u16 live_palette[512];
 u8 _gMenuSharedStorage[0x40] __attribute__((aligned(8)));
 
 void StaffrollTask_State1MenuType4(void);
-void MemClear(void* dest, u32 size) { memset(dest, 0, size); }
 void Port_LogFadeCall(const char* name, u32 a, u32 b, u32 c, u32 d, u32 e) {
     (void)name; (void)a; (void)b; (void)c; (void)d; (void)e;
 }
-void sub_0801E1B8(u32 inside, u32 outside) { (void)inside; (void)outside; abort(); }
+u16 gUnk_02017AA0[0xa00];
+s16 gUnk_02018EE0[0x800];
+u8 gUnk_03003DE4[0xc];
 
 void* port_resolve_addr(uintptr_t address) {
-    assert(address >= 0x05000000u && address < 0x05000400u);
-    return (u8*)live_palette + (address - 0x05000000u);
+    if (address >= 0x05000000u && address < 0x05000400u)
+        return (u8*)live_palette + (address - 0x05000000u);
+    return (void*)address;
 }
 
 static void install_identity_brightness_tables(void) {
@@ -45,8 +48,8 @@ static void install_identity_brightness_tables(void) {
         }
 }
 
-void sub_0801E104(void) { abort(); }
-void sub_0801E1EC(u32 x, u32 y, u32 radius) { (void)x; (void)y; (void)radius; abort(); }
+extern void SetVBlankDMA(u16*, u16*, u32);
+extern void DisableVBlankDMA(void);
 
 static PortPaletteFadeResult resolve(uint16_t mask, PortPaletteFade* result) {
     PortPaletteFade banks[16];
@@ -103,6 +106,42 @@ int main(void) {
     gPaletteBuffer[0] = gPaletteBuffer[95] = 0x475f;
     FadeVBlank(); /* Real palette upload into the live PAL RAM shim. */
     assert(live_palette[0] == 0x475f && live_palette[95] == 0x7fff);
+    /* Drive real fade lifecycle through the producer, including held-closed
+     * state, reopening, invalid window ownership and teardown. */
+    PortEffectSpan rows[192];
+    SetFadeIris(120, 80, FADE_IRIS | FADE_IN_OUT, 50);
+    Port_Effect_CommitFadeIris();
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    assert(rows[0].left == 0 && rows[0].right == 256);
+    FadeMain();
+    /* Before the VBlank latch, repeat presents still see the old DMA shape. */
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    assert(rows[0].right == 256);
+    Port_Effect_CommitFadeIris();
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    assert(rows[96].right > rows[96].left && rows[0].right < 256);
+    FadeMain(); FadeMain();
+    Port_Effect_CommitFadeIris();
+    assert(!gFadeControl.active && gFadeControl.iris_size == 0);
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    assert(rows[96].left == rows[96].right);
+    SetFadeIris(120, 80, FADE_IRIS, 50);
+    FadeMain(); FadeMain(); FadeMain();
+    Port_Effect_CommitFadeIris();
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    assert(rows[0].right == 256);
+    FadeMain();
+    assert(!gFadeControl.active);
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    SetFadeIris(120, 80, FADE_IRIS | FADE_IN_OUT, 50);
+    Port_Effect_CommitFadeIris();
+    SetVBlankDMA(NULL, NULL, 1); /* another DMA owner */
+    assert(Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    Port_Effect_CommitFadeIris();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
+    SetFadeIris(120, 80, FADE_IRIS, 50);
+    DisableVBlankDMA();
+    assert(!Port_Effect_ResolveFadeIris(256, 192, 8, 16, rows, 192));
     puts("Native masked FadeMain and source-bank resolution: PASS");
     return 0;
 }
