@@ -2,6 +2,8 @@
 #include "global.h"
 #include "main.h"
 #include "player.h"
+#include "room.h"
+#include "screen.h"
 #include "scroll.h"
 #include "script.h"
 #include "port_widescreen.h"
@@ -15,15 +17,19 @@
 RoomControls gRoomControls;
 PlayerEntity gPlayerEntity;
 PlayerState gPlayerState;
+RoomTransition gRoomTransition;
+Screen gScreen;
 ActiveScriptInfo gActiveScriptInfo;
 u8 gUpdateVisibleTiles;
 u8 gShakeOffsets[256];
 static int viewWidth = 240, viewHeight = 160;
 static int loads, shakes, shakeFills;
+static int priorityClears;
 #if MODE1_GBA_WIDTH > 240
 static int sWsStageHeight;
 #endif
 void UpdateScrollVram(void) { ++shakeFills; }
+void ClearEventPriority(void) { ++priorityClears; }
 void MemFill32(u32 value, void* dest, u32 size) {
     u32* words = dest;
     for (u32 i = 0; i < size / sizeof(*words); ++i) words[i] = value;
@@ -196,29 +202,89 @@ static void check_cameras(void) {
 }
 
 static void check_scroll_transition_completion(void) {
-    for (int direction = 0; direction < 4; ++direction) {
+    for (int scenario = 0; scenario < (MODE1_GBA_WIDTH > 240 ? 2 : 1); ++scenario) {
+        for (int direction = 0; direction < 4; ++direction) {
+            memset(&gRoomControls, 0, sizeof(gRoomControls));
+            memset(&gPlayerState, 0, sizeof(gPlayerState));
+            memset(&gPlayerEntity, 0, sizeof(gPlayerEntity));
+            gRoomControls.origin_x = 100;
+            gRoomControls.origin_y = 200;
+            gRoomControls.width = 1024;
+            gRoomControls.height = 768;
+            gRoomControls.scrollAction = 2;
+            gRoomControls.scroll_direction = direction;
+            gRoomControls.camera_target = &gPlayerEntity.base;
+            gPlayerEntity.base.x.HALF.HI = 500;
+            gPlayerEntity.base.y.HALF.HI = 600;
+            viewWidth = MODE1_GBA_WIDTH > 240 && scenario == 0 ? 285 : 240;
+            viewHeight = scenario == 1 ? 192 : 160;
+            const int frames = direction % 2 ? 60 : 40;
+            for (int frame = 0; frame < frames; ++frame) {
+                Scroll2Sub2(&gRoomControls);
+                assert(gRoomControls.scrollAction == (frame + 1 == frames ? 0 : 2));
+            }
+            assert(gPlayerState.startPosX == gPlayerEntity.base.x.HALF.HI);
+            assert(gPlayerState.startPosY == gPlayerEntity.base.y.HALF.HI);
+            if (viewWidth > 240 || viewHeight > 160) {
+                assert(gRoomControls.scroll_x == Port_Widescreen_CameraRestX(gPlayerEntity.base.x.HALF.HI));
+                assert(gRoomControls.scroll_y == Port_Widescreen_CameraRestY(gPlayerEntity.base.y.HALF.HI));
+                assert(gUpdateVisibleTiles == 1);
+            }
+        }
+    }
+}
+
+static void check_scroll4_transition_completion(void) {
+    for (int scenario = 0; scenario < (MODE1_GBA_WIDTH > 240 ? 2 : 1); ++scenario) {
         memset(&gRoomControls, 0, sizeof(gRoomControls));
-        memset(&gPlayerState, 0, sizeof(gPlayerState));
         memset(&gPlayerEntity, 0, sizeof(gPlayerEntity));
         gRoomControls.origin_x = 100;
         gRoomControls.origin_y = 200;
         gRoomControls.width = 1024;
         gRoomControls.height = 768;
-        gRoomControls.scrollAction = 2;
-        gRoomControls.scroll_direction = direction;
+        gRoomControls.scrollAction = 4;
         gRoomControls.camera_target = &gPlayerEntity.base;
         gPlayerEntity.base.x.HALF.HI = 500;
         gPlayerEntity.base.y.HALF.HI = 600;
-        viewWidth = MODE1_GBA_WIDTH > 240 ? 285 : 240;
-        viewHeight = 160;
-        const int frames = direction % 2 ? 60 : 40;
-        for (int frame = 0; frame < frames; ++frame) {
-            Scroll2Sub2(&gRoomControls);
-            assert(gRoomControls.scrollAction == (frame + 1 == frames ? 0 : 2));
+        viewWidth = MODE1_GBA_WIDTH > 240 && scenario == 0 ? 285 : 240;
+        viewHeight = scenario == 1 ? 192 : 160;
+        priorityClears = 0;
+        for (int frame = 0; frame < 40; ++frame) {
+            gRoomTransition.frameCount = frame;
+            Scroll4Sub1(&gRoomControls);
+            assert(gRoomControls.scrollAction == (frame >= 38 ? 0 : 4));
+            assert(priorityClears == (frame >= 38 ? 1 : 0));
+            if (frame == 38) break;
         }
-        assert(gPlayerState.startPosX == gPlayerEntity.base.x.HALF.HI);
-        assert(gPlayerState.startPosY == gPlayerEntity.base.y.HALF.HI);
-        if (viewWidth > 240) {
+        if (viewWidth > 240 || viewHeight > 160) {
+            assert(gRoomControls.scroll_x == Port_Widescreen_CameraRestX(gPlayerEntity.base.x.HALF.HI));
+            assert(gRoomControls.scroll_y == Port_Widescreen_CameraRestY(gPlayerEntity.base.y.HALF.HI));
+            assert(gUpdateVisibleTiles == 1);
+        }
+    }
+}
+
+static void check_scroll5_transition_completion(void) {
+    for (int scenario = 0; scenario < (MODE1_GBA_WIDTH > 240 ? 2 : 1); ++scenario) {
+        memset(&gRoomControls, 0, sizeof(gRoomControls));
+        memset(&gPlayerEntity, 0, sizeof(gPlayerEntity));
+        memset(&gScreen, 0, sizeof(gScreen));
+        gRoomControls.origin_x = 100;
+        gRoomControls.origin_y = 200;
+        gRoomControls.width = 1024;
+        gRoomControls.height = 768;
+        gRoomControls.scrollAction = 5;
+        gRoomControls.camera_target = &gPlayerEntity.base;
+        gPlayerEntity.base.x.HALF.HI = 500;
+        gPlayerEntity.base.y.HALF.HI = 600;
+        gScreen.lcd.displayControl = DISPCNT_WIN1_ON;
+        viewWidth = MODE1_GBA_WIDTH > 240 && scenario == 0 ? 285 : 240;
+        viewHeight = scenario == 1 ? 192 : 160;
+        priorityClears = 0;
+        Scroll5Sub5(&gRoomControls);
+        assert(gRoomControls.scrollAction == 0 && priorityClears == 1);
+        assert(!(gScreen.lcd.displayControl & DISPCNT_WIN1_ON));
+        if (viewWidth > 240 || viewHeight > 160) {
             assert(gRoomControls.scroll_x == Port_Widescreen_CameraRestX(gPlayerEntity.base.x.HALF.HI));
             assert(gRoomControls.scroll_y == Port_Widescreen_CameraRestY(gPlayerEntity.base.y.HALF.HI));
             assert(gUpdateVisibleTiles == 1);
@@ -342,6 +408,8 @@ int main(void) {
     check_shake_start();
     check_cameras();
     check_scroll_transition_completion();
+    check_scroll4_transition_completion();
+    check_scroll5_transition_completion();
     check_regions();
     check_map_fill();
     check_world_pixels();

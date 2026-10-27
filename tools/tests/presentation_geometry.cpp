@@ -152,6 +152,27 @@ static void check_presentation_layout(void) {
         assert(sx == item.sx && sy == item.sy && sw == item.sw && sh == item.sh);
         assert(fx == item.fx && fy == item.fy && fw == item.fw && fh == item.fh);
     }
+    struct NativeCanvasCase { PortAspectMode mode; int width, height, x, y; };
+    const NativeCanvasCase nativeCases[] = {
+        {PORT_ASPECT_DS_4_3, 256, 192, 8, 16},
+        {PORT_ASPECT_WIDESCREEN_16_9, 285, 160, 22, 0},
+        {PORT_ASPECT_ULTRAWIDE_21_9, 374, 160, 67, 0},
+        {PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 160, 164, 0},
+    };
+    for (const auto& item : nativeCases) {
+        geometry.effectiveAspect = item.mode;
+        geometry.scene.capabilities = PORT_SCENE_FIXED_SCREEN;
+        geometry.canvas = {0, 0, item.width, item.height};
+        geometry.nativeContent = {item.x, item.y, 240, 160};
+        for (int scale : {1, 4}) {
+            int sx, sy, sw, sh, fx, fy, fw, fh;
+            Port_PPU_ComputeViewportRects(item.width * 4, item.height * 4, 240 * scale, 160 * scale,
+                                          &sx, &sy, &sw, &sh, &fx, &fy, &fw, &fh);
+            assert(sx == 0 && sy == 0 && sw == item.width * 4 && sh == item.height * 4);
+            assert(fx == item.x * 4 && fy == item.y * 4 && fw == 240 * 4 && fh == 160 * 4);
+        }
+    }
+    geometry.scene.capabilities = 0;
 }
 
 static void check_menu_family_storage_and_budgets(void) {

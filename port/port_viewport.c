@@ -134,6 +134,8 @@ const PortViewportGeometry* Port_Viewport_Get(void) {
 int Port_Viewport_RasterHeight(const PortViewportGeometry* geometry) {
     if (!geometry || geometry->canvas.height < 160 || geometry->canvas.height > 192)
         return 160;
+    if (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN)
+        return 160;
     if ((geometry->scene.capabilities & PORT_SCENE_WORLD) &&
         geometry->world.height >= 160 && geometry->world.height <= geometry->canvas.height)
         return geometry->world.height;

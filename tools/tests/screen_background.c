@@ -112,6 +112,10 @@ static void CheckPublication(void) {
 
 static void CheckFutureRoomAperture(void) {
     const PortViewportRect canvas = {0, 0, 256, 192};
+    PortViewportGeometry fixed = *Port_Viewport_Get();
+    fixed.canvas = canvas;
+    fixed.scene.capabilities = PORT_SCENE_FIXED_SCREEN;
+    assert(Port_Viewport_RasterHeight(&fixed) == 160);
     PortViewportScene s = {PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE |
                            PORT_SCENE_TALL_MANAGER_FREE | PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY |
                            PORT_SCENE_TALL_ENTITIES_EMPTY | PORT_SCENE_TALL_OAM_VERIFIED, 1024, 1024};

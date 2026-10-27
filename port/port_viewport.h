@@ -73,7 +73,9 @@ enum {
     PORT_SCENE_TALL_VALIDATED = 1u << 7,
     PORT_SCENE_TALL_ROWS_READY = 1u << 8,
     PORT_SCENE_TALL_ENTITIES_EMPTY = 1u << 9,
-    PORT_SCENE_TALL_OAM_VERIFIED = 1u << 10
+    PORT_SCENE_TALL_OAM_VERIFIED = 1u << 10,
+    /* Complete native screen rendered as a single 240x160 composition. */
+    PORT_SCENE_FIXED_SCREEN = 1u << 11
 };
 
 typedef struct {

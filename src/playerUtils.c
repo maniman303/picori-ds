@@ -3906,14 +3906,16 @@ bool32 sub_0807BD14(Entity* this, u32 scrollDirection) {
     if (room != 0xff) {
 #if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
         extern int Port_Widescreen_EffectiveViewWidth(void);
-        const int wasWide = Port_Widescreen_EffectiveViewWidth() > 240;
+        extern int Port_Widescreen_EffectiveViewHeight(void);
+        const int wasExpanded = Port_Widescreen_EffectiveViewWidth() > 240 ||
+                                Port_Widescreen_EffectiveViewHeight() > 160;
 #endif
         gRoomControls.scrollAction = 2;
 #if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
-        /* Rolling VRAM transitions carry only 240 pixels. Reframe against
+        /* Rolling VRAM transitions carry only 240x160 pixels. Reframe against
          * the departing room before its bounds/map are replaced below.
          * Scroll2Sub0 then fills the native outgoing tilemap. */
-        if (wasWide) {
+        if (wasExpanded) {
             sub_080809D4();
         }
 #endif

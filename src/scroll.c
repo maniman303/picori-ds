@@ -307,10 +307,10 @@ void sub_0807FEC8(RoomControls* controls) {
     controls->scrollAction = 0;
 #if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
     /* The last rolling update still contains outgoing-room tiles. Restore
-     * the wide camera and fully refill VRAM before revealing the sides. */
+     * the expanded camera and refill VRAM before revealing the margins. */
     {
         Port_Widescreen_PublishScene();
-        if (Port_Widescreen_EffectiveViewWidth() > 240) {
+        if (Port_Widescreen_EffectiveViewWidth() > 240 || Port_Widescreen_EffectiveViewHeight() > 160) {
             sub_080809D4();
         }
     }
@@ -342,7 +342,7 @@ void Scroll4Sub1(RoomControls* controls) {
 #if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
             {
                 Port_Widescreen_PublishScene();
-                if (Port_Widescreen_EffectiveViewWidth() > 240) {
+                if (Port_Widescreen_EffectiveViewWidth() > 240 || Port_Widescreen_EffectiveViewHeight() > 160) {
                     sub_080809D4();
                 }
             }
@@ -494,11 +494,11 @@ void Scroll5Sub5(RoomControls* controls) {
         gScreen.controls.windowInsideControl &= 0xff;
         gScreen.controls.windowOutsideControl &= 0xff00;
 #if defined(PC_PORT) && MODE1_GBA_WIDTH > 240
-        /* The iris rendered at native width. Restore the wide camera and
+        /* The iris rendered at native size. Restore the expanded camera and
          * request native tilemap refresh before this frame is presented. */
         {
             Port_Widescreen_PublishScene();
-            if (Port_Widescreen_EffectiveViewWidth() > 240) {
+            if (Port_Widescreen_EffectiveViewWidth() > 240 || Port_Widescreen_EffectiveViewHeight() > 160) {
                 sub_080809D4();
             }
         }

@@ -155,6 +155,8 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
     }
     /* Presentation, including paused repeats, consumes only published policy. */
     const PortViewportGeometry* geometry = Port_Viewport_Get();
+    if (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN)
+        return 240;
     if (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE)
         return geometry->world.width;
     return 240;
@@ -297,6 +299,31 @@ extern "C" void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int f
                                           int* stageH, int* frameX, int* frameY, int* frameW, int* frameH) {
     const int FW = fbW;
     const int FH = fbH;
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    const PortViewportRect canvas = geometry->canvas;
+    const PortViewportRect native = geometry->nativeContent;
+    /* A native raster represents one complete composition. Position it by
+     * the published logical pixel rectangle, including the intentional odd
+     * margin, rather than fitting 3:2 inside an idealized aspect ratio.
+     * GPU upscalers pass a scaled raster, so recognize its ratio as well. */
+    const bool nativeCanvas = (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+        geometry->effectiveAspect != PORT_ASPECT_NATIVE_3_2 &&
+        FW > 0 && FH > 0 && (int64_t)FW * 160 == (int64_t)FH * 240 &&
+        canvas.width >= 240 && canvas.height >= 160 &&
+        native.width == 240 && native.height == 160 && native.x >= 0 && native.y >= 0 &&
+        native.x <= canvas.width - 240 && native.y <= canvas.height - 160;
+
+    if (nativeCanvas) {
+        Port_PPU_FitAspectRect(outW, outH, canvas.width, canvas.height,
+                               stageX, stageY, stageW, stageH);
+        const int x0 = (int)((int64_t)*stageW * native.x / canvas.width);
+        const int y0 = (int)((int64_t)*stageH * native.y / canvas.height);
+        const int x1 = (int)((int64_t)*stageW * (native.x + native.width) / canvas.width);
+        const int y1 = (int)((int64_t)*stageH * (native.y + native.height) / canvas.height);
+        *frameX = *stageX + x0; *frameY = *stageY + y0;
+        *frameW = x1 - x0; *frameH = y1 - y0;
+        return;
+    }
 
     int aspW = FW;
     int aspH = FH;
@@ -523,7 +550,9 @@ static void Port_PPU_PresentSurfaceFrame(void) {
     }
 
     const int frameW = virtuappu_mode1_frame_width();
-    Port_PPU_FitAspectRect(windowSurface->w, windowSurface->h, frameW, virtuappu_mode1_frame_height(), &x, &y, &w, &h);
+    int sx, sy, sw, sh;
+    Port_PPU_ComputeViewportRects(windowSurface->w, windowSurface->h, frameW, virtuappu_mode1_frame_height(),
+                                  &sx, &sy, &sw, &sh, &x, &y, &w, &h);
     srcRect = { 0, 0, frameW, virtuappu_mode1_frame_height() };
     dstRect = { x, y, w, h };
     SDL_FillSurfaceRect(windowSurface, nullptr, 0);

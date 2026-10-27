@@ -16,13 +16,20 @@ Area gArea;
 u8 gUpdateVisibleTiles;
 static RoomResInfo nextRoom;
 static int wide = 1;
+static int tall;
 static int fills;
 static int filledX;
 static int filledRoom;
 int Port_Widescreen_EffectiveViewWidth(void) {
     return wide && gRoomControls.scrollAction != 2 && gRoomControls.scrollAction != 4 ? 384 : 240;
 }
-int Port_Widescreen_CameraRestY(int y) { return Port_Viewport_CameraRest(y, gRoomControls.origin_y, gRoomControls.height, 160); }
+int Port_Widescreen_EffectiveViewHeight(void) {
+    return tall && gRoomControls.scrollAction != 2 && gRoomControls.scrollAction != 4 ? 192 : 160;
+}
+int Port_Widescreen_CameraRestY(int y) {
+    return Port_Viewport_CameraRest(y, gRoomControls.origin_y, gRoomControls.height,
+                                    Port_Widescreen_EffectiveViewHeight());
+}
 int Port_Widescreen_CameraRestX(int x) {
     int width = Port_Widescreen_EffectiveViewWidth();
     int rest = x - width / 2;
@@ -82,5 +89,19 @@ int main(void) {
     Scroll4Sub1(&gRoomControls);
     assert(gRoomControls.scrollAction == 0 && gUpdateVisibleTiles == 1);
     assert(gRoomControls.scroll_x == 1408);
+    /* A 240-wide tall room must still snap to its native outgoing view before
+     * the destination replaces the room's bounds and map. */
+    wide = 0;
+    tall = 1;
+    gRoomControls.origin_x = gRoomControls.origin_y = 0;
+    gRoomControls.width = 240;
+    gRoomControls.height = 512;
+    gRoomControls.scrollAction = 1;
+    gRoomControls.scroll_y = 320;
+    gPlayerEntity.base.y.HALF.HI = 500;
+    assert(sub_0807BD14(&gPlayerEntity.base, 2));
+    assert(gRoomControls.scroll_y == 352);
+    Scroll2Sub0(&gRoomControls);
+    assert(gUpdateVisibleTiles == 0);
     puts("Widescreen scrolling entry, rolling frames and completion: PASS");
 }

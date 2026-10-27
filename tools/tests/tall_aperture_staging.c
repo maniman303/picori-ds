@@ -5,6 +5,8 @@
 #include "room.h"
 #include "map.h"
 #include "screen.h"
+#include "menu.h"
+#include "subtask.h"
 #include "tileMap.h"
 #include "vram.h"
 #include "port_widescreen.h"
@@ -16,6 +18,8 @@
 #include <string.h>
 
 Main gMain;
+UI gUI;
+u8 _gMenuSharedStorage[0x40] __attribute__((aligned(8)));
 RoomControls gRoomControls;
 MapLayer gMapBottom, gMapTop;
 Screen gScreen;

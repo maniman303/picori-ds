@@ -30,6 +30,7 @@
 #include "script.h"
 #include "sound.h"
 #include "structures.h"
+#include "subtask.h"
 
 #include "port_entity_ctx.h"
 #include "port_oam.h"
@@ -1270,6 +1271,33 @@ void Port_Widescreen_PublishScene(void) {
     PortViewportScene scene = { 0, gRoomControls.width, gRoomControls.height };
     if (gMain.task == TASK_GAME) {
         scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
+        /* These subtasks replace the world with a complete native screen.
+         * Phase 0 is still the departing world and phase 4 has already
+         * restored it, so classify only the installed screen lifetime. */
+        if (gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_SUBTASK &&
+            gUI.nextToLoad >= 2 && gUI.nextToLoad <= 3) {
+            switch (gUI.lastState) {
+                case SUBTASK_PAUSEMENU:
+                case SUBTASK_MAPHINT:
+                case SUBTASK_KINSTONEMENU:
+                case SUBTASK_FIGURINEMENU:
+                case SUBTASK_FASTTRAVEL:
+                case SUBTASK_LOCALMAPHINT:
+                    scene.capabilities |= PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_FIXED_SCREEN;
+                    break;
+                case SUBTASK_AUXCUTSCENE:
+                    /* Story pages temporarily replace the auxiliary room;
+                     * their map pointers are cleared at page initialization
+                     * and restored when the cutscene returns to the world. */
+                    if (gMenu.menuType == 1 && gMenu.field_0x0 == 1 &&
+                        (gMenu.field_0x3 == 0 || gMenu.field_0x3 == 2) &&
+                        gMapBottom.bgSettings == NULL && gMapTop.bgSettings == NULL)
+                        scene.capabilities |= PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_FIXED_SCREEN;
+                    break;
+                default:
+                    break;
+            }
+        }
         /* Check the whole sequence before any camera or map copy sees it. */
         if (!Port_Viewport_MapTileRowsWithShake(192, gRoomControls.aff_y) ||
             (gRoomControls.shake_duration &&
@@ -1314,6 +1342,9 @@ void Port_Widescreen_PublishScene(void) {
               Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control) >= 0)))
             scene.capabilities |= PORT_SCENE_TALL_MANAGER_FREE;
     } else {
+        if (gMain.task == TASK_TITLE || gMain.task == TASK_FILE_SELECT ||
+            gMain.task == TASK_GAMEOVER || gMain.task == TASK_STAFFROLL)
+            scene.capabilities |= PORT_SCENE_FIXED_SCREEN;
         /* Re-entering the same room after a non-game task reloads its maps. */
         sWsContentKey = UINT64_MAX;
     }

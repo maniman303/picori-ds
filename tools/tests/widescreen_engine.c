@@ -36,11 +36,17 @@ void Port_Widescreen_PublishScene(void);
 int Port_Widescreen_EffectiveViewWidth(void);
 /* Only unrelated task/HUD dependencies are stubbed; shadow publication runs
  * the production UpdateShadows body, including its area and BG gates. */
-enum { TASK_GAME = 2, GAMETASK_MAIN = 2, GAMEMAIN_UPDATE = 2, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
+enum { TASK_TITLE = 0, TASK_FILE_SELECT = 1, TASK_GAME = 2, TASK_GAMEOVER = 3, TASK_STAFFROLL = 4,
+       GAMETASK_MAIN = 2, GAMEMAIN_UPDATE = 2, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
        AREA_CAVE_OF_FLAMES = 0x60, MANAGER = 9, ENTER_ROOM_TEXTBOX_MANAGER = 1 };
+enum { GAMEMAIN_SUBTASK = 7, SUBTASK_PAUSEMENU = 1, SUBTASK_MAPHINT = 3, SUBTASK_KINSTONEMENU = 4,
+       SUBTASK_AUXCUTSCENE = 5,
+       SUBTASK_FIGURINEMENU = 7, SUBTASK_FASTTRAVEL = 9, SUBTASK_LOCALMAPHINT = 10 };
 #define MODE1_GBA_BG_COUNT 4
 #define DISPCNT_BG3_ON 0x800
 static struct { int task, state, substate; } gMain;
+static struct { int nextToLoad, lastState; } gUI;
+static struct { int menuType, field_0x0, field_0x3; } gMenu;
 typedef struct { u32 control; int yOffset; } TestBg;
 static struct { TestBg bg0, bg1, bg2, bg3; struct { int displayControl; } lcd; } gScreen;
 static struct { TestBg* bgSettings; } gMapBottom, gMapTop;
@@ -187,6 +193,7 @@ int main(void) {
     CHECK(geometry->generation == generation);
     Port_Widescreen_PublishScene();
     CHECK(Port_PPU_VisibleFrameWidth() == 240 && geometry->world.width == 240);
+    CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
     CHECK(geometry->canvas.width == 374 && geometry->generation != generation);
 
     /* Painted-width classification is held for the room. Loading it again
@@ -208,6 +215,37 @@ int main(void) {
     CHECK(geometry->world.width == 374 && Port_PPU_VisibleFrameWidth() == 240);
     CHECK(!(geometry->scene.capabilities & PORT_SCENE_MAP_LIVE));
     gMapBottom.bgSettings = &gScreen.bg1;
+    /* An installed fixed-screen subtask must not inherit a map-backed wide
+     * raster merely because its BG controls happen to match the old room. */
+    const int fixedSubtasks[] = {SUBTASK_PAUSEMENU, SUBTASK_MAPHINT, SUBTASK_KINSTONEMENU,
+                                 SUBTASK_FIGURINEMENU, SUBTASK_FASTTRAVEL, SUBTASK_LOCALMAPHINT};
+    gMain.state = GAMETASK_MAIN;
+    gMain.substate = GAMEMAIN_SUBTASK;
+    for (unsigned i = 0; i < sizeof(fixedSubtasks) / sizeof(fixedSubtasks[0]); ++i) {
+        gUI.lastState = fixedSubtasks[i];
+        for (int phase = 0; phase <= 4; ++phase) {
+            gUI.nextToLoad = phase;
+            Port_Widescreen_PublishScene();
+            CHECK(geometry->world.width == ((phase == 2 || phase == 3) ? 240 : 374));
+            CHECK(Port_PPU_VisibleFrameWidth() == ((phase == 2 || phase == 3) ? 240 : 374));
+            CHECK(!!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) == (phase == 2 || phase == 3));
+        }
+    }
+    gUI.lastState = SUBTASK_AUXCUTSCENE;
+    gUI.nextToLoad = 2;
+    gMenu.menuType = gMenu.field_0x0 = 1;
+    gMenu.field_0x3 = 0;
+    gMapBottom.bgSettings = NULL;
+    Port_Widescreen_PublishScene();
+    CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
+    gMenu.field_0x3 = 2;
+    Port_Widescreen_PublishScene();
+    CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
+    gMapBottom.bgSettings = &gScreen.bg1;
+    Port_Widescreen_PublishScene();
+    CHECK(!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN));
+    gMain.substate = GAMEMAIN_UPDATE;
+    gUI.nextToLoad = 0;
     for (int action = 2; action <= 5; ++action) {
         if (action == 3) continue;
         gRoomControls.scrollAction = action;

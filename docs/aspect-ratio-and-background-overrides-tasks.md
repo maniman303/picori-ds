@@ -280,12 +280,21 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Extend transitions one validated case at a time; test camera completion.
   The rolling-scroll completion regression covers all four directions and
   verifies the existing wide-camera snap and tile refresh after the native
-  transition. It does not validate an extended transition aperture.
+  transition. The separate timed Scroll4 and iris Scroll5 completion paths are
+  also checked, including camera snap and refresh with injected wide and tall
+  apertures. Completion now restores the camera for height-only expansion too.
+  Rolling entry also reframes a height-only expanded view before replacing its
+  room. These checks do not validate an extended transition aperture.
 
 ## 4. Layout
 
 - [ ] Translate each complete fixed-screen composition once using the native
   content rectangle; include HD text and any hit testing.
+  The shared SDL/GPU/surface viewport now projects the published native
+  rectangle exactly, including odd margins, and the HD text overlay follows
+  that viewport. Installed menu and story-page scenes are held to native raster
+  dimensions. Full canvas composition, remaining scene lifetimes and visual
+  acceptance remain open.
 - [ ] Implement top-left title-frame completion strictly in added margins,
   preserving native pixels and label placement. Verify native OBJ source/mask,
   local effects and animated heading pose; missing PNGs must not leave the cut
