@@ -1206,6 +1206,9 @@ static int Port_WidescreenRepeatingOverlayLive(void) {
         (gScreen.lcd.displayControl & DISPCNT_BG3_ON);
 }
 
+/* The game indexes eight XY pairs by the three-bit shake magnitude. */
+extern u8 gShakeOffsets[256];
+
 /* Classify only on the simulation side. Content width is sampled once at
  * room entry, after map loading and before camera setup, and held throughout
  * the room. Late tile animation/streaming must not change camera framing. */
@@ -1213,6 +1216,10 @@ void Port_Widescreen_PublishScene(void) {
     PortViewportScene scene = { 0, gRoomControls.width, gRoomControls.height };
     if (gMain.task == TASK_GAME) {
         scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
+        /* Check the whole sequence before any camera or map copy sees it. */
+        if (gRoomControls.shake_duration &&
+            !Port_Viewport_ShakeSequenceFits(192, &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16]))
+            scene.capabilities |= PORT_SCENE_TALL_SHAKE_UNSAFE;
         uint64_t key = Port_WidescreenRoomKey();
         if (key != sWsContentKey) {
             sWsContentKey = key;

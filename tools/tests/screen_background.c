@@ -120,6 +120,16 @@ static void CheckScenePublication(void) {
     uint32_t generation = geometry->generation;
     Port_Viewport_PublishScene(scene);
     assert(geometry->generation == generation);
+    /* Unsafe vertical shake is published without narrowing the current
+     * native-height horizontal aperture or changing the selected profile. */
+    scene.capabilities |= PORT_SCENE_TALL_SHAKE_UNSAFE;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->scene.capabilities & PORT_SCENE_TALL_SHAKE_UNSAFE);
+    assert(geometry->world.width == 285 && geometry->world.height == 160);
+    generation = geometry->generation;
+    Port_Viewport_PublishScene(scene);
+    assert(geometry->generation == generation);
+    scene.capabilities &= ~PORT_SCENE_TALL_SHAKE_UNSAFE;
     scene.roomWidth = 256;
     Port_Viewport_PublishScene(scene);
     assert(geometry->world.width == 256 && geometry->world.x == 14);

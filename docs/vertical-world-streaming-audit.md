@@ -44,6 +44,11 @@ taller backing-copy wrapper pads supported positive shake and bounds an invalid
 case to a full 32-row copy, never a zero-length DMA. That bound protects memory;
 it does **not** approve the invalid camera/effect mapping. Scene-aperture
 publication must reject unsupported coverage before taller rendering is enabled.
+The PC scene adapter now publishes `PORT_SCENE_TALL_SHAKE_UNSAFE` when any
+of the active magnitude’s eight XY pairs fails the 192-row envelope; checking
+the full sequence before camera work prevents a later phase from invalidating
+a previously accepted aperture. This flag is informational while world height
+is fixed at 160; a future tall-scene policy must consume it before enablement.
 Native-height fill/upload still uses 23 rows even during shake.
 
 The normal copy uses the original linear map-span bounds. It does not establish

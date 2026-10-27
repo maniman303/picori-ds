@@ -151,3 +151,17 @@ int Port_Viewport_MapTileRowsWithShake(int viewHeight, int shakeY) {
     const int64_t rows = ((int64_t)viewHeight + 22 + (shakeY > 0 ? shakeY : 0)) / 8 + 1;
     return rows <= 32 ? (int)rows : 0;
 }
+
+/* Whole-sequence classification prevents a later negative/positive phase
+ * from invalidating a tall aperture after camera and map-fill work. */
+bool Port_Viewport_ShakeSequenceFits(int viewHeight, const uint8_t* xyPairs) {
+    if (!xyPairs)
+        return false;
+    for (int i = 0; i < 8; ++i) {
+        unsigned value = xyPairs[2 * i + 1];
+        int y = value < 128 ? (int)value : (int)value - 256;
+        if (!Port_Viewport_MapTileRowsWithShake(viewHeight, y))
+            return false;
+    }
+    return true;
+}

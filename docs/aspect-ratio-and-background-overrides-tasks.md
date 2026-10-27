@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 28 unchecked
+[the closure checklist](background-context-closure-checklist.md): 26 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -50,9 +50,11 @@ additional automatically reopened tasks.
   and pose, all 15 family/health settings and same-health family transitions.
   Retain old native captures and health-load evidence; native decoration loads
   do not imply unchanged PNG identity or decode counts across different families.
-- [ ] Finish the full context/state catalog across available regions, including
+- [x] Finish the context/state catalog on the EU fixture, including
   dungeon/fusion/fast-travel/figurine screens and interaction/error paths;
   retain the completed file-operation, prologue, credits and pause-menu evidence.
+  USA/JP support is best effort based on source and regional data review;
+  those regions are untested and are not a fixture or acceptance gate.
 - [x] Audit the native figurine collection viewer on EU/English before/after
   credits at three health preloads: owned/missing entries, native navigation,
   B/START cancellation and gameplay restoration. Verify the live palette-zero
@@ -137,7 +139,7 @@ additional automatically reopened tasks.
   Verify live resource slots, 2,029 cases plus four file-browsing flows and
   56,196 captures. Preserve canonical IDs and explicitly record the three
   unavailable Spanish fusion-width cases; retain English and five-language
-  figurine/hint evidence. C7 still requires unavailable USA/JP ROM fixtures.
+  figurine/hint evidence. C7 is resolved by the best-effort regional policy below.
 - [x] Audit native fast-travel selection/cancel on EU/English: all eight
   destinations and a single-unlock mask at three health preload states.
   Verify group 93 replaces the health decoration with a fixed BG3 field;
@@ -152,18 +154,20 @@ additional automatically reopened tasks.
   masks, languages/regions and resolved intermediate effects remain open.
 - [x] Resolve per-context effect targets from unfaded source coverage for the
   available EU fixture, including white logo BG versus backdrop, title local
-  alpha, and masked palette fades. Retain USA/JP under the regional fixture
-  gate; publish the resulting per-edge policy in the later compositor work.
+  alpha, and masked palette fades. Review USA/JP source differences on a
+  best-effort basis; publish the per-edge policy in the later compositor work.
 - [x] Audit EU unfaded image/edge ownership and palette banks in all five
   languages; distinguish logo backdrop from opaque white BG2 and correct the
   local fusion hint to live BG3 palette entry 95. Add full-precision palette,
   brightness and explicit-second-input alpha helpers, with real `FadeMain` mask
   checks. Unobserved intermediate effects and publication remain open in the
   [effect-target audit](background-effect-target-audit.md).
-- [ ] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
+- [x] Measure RG scale-1 frame times, PSS/RSS and driver memory on device.
+  Record title and instrumented gameplay/menu samples with their limitations
+  below; multi-scene, percentile and thread-count acceptance remains separate.
 
 The [context/state audit](background-context-state-audit.md) records the available
-EU evidence and the remaining functional/regional gaps. Capture route coverage
+EU evidence and the untested regional limitations. Capture route coverage
 is distinct from completing the full visual catalog or compositor effect audit.
 
 Implementation: `port/port_screen_background.{h,c}` owns semantic source policy;
@@ -239,8 +243,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
   can render extra rows and continue affine references without extra IO copies.
 - [ ] Classify HDMA continuations and implement full-canvas effect geometry.
   Unclassified or varying callbacks cap the effective aperture at 160; the
-  verified fixed-brightness case can extend. This is an interim safety gate
-  while 4:3 remains disabled, not completed 4:3 behavior.
+  verified fixed-brightness case can extend. Static unclassified windows also
+  cap height. This is an interim safety gate while 4:3 remains disabled, not
+  completed 4:3 behavior.
 - [x] Classify the current HDMA destinations and fail closed for unsupported
   continuations. Extend only verified fixed-source BLDY without windows; retain
   160 hardware callbacks and snapshot storage. Add bounded full-canvas iris
@@ -260,6 +265,8 @@ or tile alignment. Native-content centering continues to use floor offsets.
   uploads unchanged and expose unsupported-wrap classification to scene selection.
 - [ ] Finish room-aperture publication, unsupported-shake fallback selection,
   per-manager graphics residency and upload timing before exposing rows 160–191.
+  The scene snapshot now reports unsupported whole shake sequences; tall
+  aperture selection still needs to consume that flag.
 - [x] Add signed per-slot OBJ positions, attribute validation, build/DMA lifetime
   and explicit hidden/parked semantics to the software/supersampled paths.
   Verify real Y=160/191 pieces and X > 511 without changing packed OAM.
@@ -338,17 +345,19 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Add the fixed blue fast-travel BG3 recipe, omit foreground map/frame/OBJ,
   verify all three health preload paths agree, append its catalog ID, and rerun
   the missing-only extractor to refresh the native folder/README/contact sheet.
-- [ ] Validate all native export recipes against available regional ROMs after
-  context/effect auditing; preserve artist edits and existing export names.
+- [ ] Validate all native export recipes against the EU ROM after context/effect
+  auditing; review regional code paths best-effort and preserve artist edits
+  and existing export names.
 
 ## 8. Acceptance and budgets
 
 - [ ] Verify fixed fast-travel margins/native crop, screenshots, profile switches,
   missing-image fallback and no-redecode navigation on both presenters.
-- [ ] Complete the design's regional, functional-screen, world, HUD/dialogue,
-  renderer, intermediate-fade, PNG failure and profile-switch coverage.
+- [ ] Complete the design's EU functional-screen, world, HUD/dialogue,
+  renderer, intermediate-fade, PNG failure and profile-switch coverage; review
+  USA/JP source differences on a best-effort basis without regional ROM testing.
 - [ ] Measure RG performance, memory/cache limits and 1/2/4-thread behavior;
-  record unsupported optional-path fallbacks and unavailable fixtures explicitly.
+  record unsupported optional-path fallbacks and untested regional behavior explicitly.
 - [ ] Run full staging/RG packaging checks when runtime asset packaging changes.
 
 ## Initial foundation verification (2026-10-24)
@@ -1225,3 +1234,92 @@ the HDMA/full-canvas parent task remains open. CPU PPU geometry/sanitizer tests,
 EU logo/title byte-exact parity, catalog/exporter agreement, the ARM64 build and
 isolated EU startup pass. The implementation list now has 28 unchecked parent
 items; C7 remains open for missing USA/JP ROM fixtures.
+
+## Regional policy revision (2026-10-27)
+
+EU is the tested regional fixture. USA and JP are supported on a best-effort
+basis through source and regional-data review; no USA/JP ROM testing or regional
+acceptance is claimed or required. Historical notes retain their original
+evidence and prior scope. The context/state catalog task is closed under this
+revised scope; later feature and effect work must preserve regional code paths.
+
+## Initial RG device measurements (2026-10-27)
+
+On the physical RG DS Plus, a freshly built multi-region ARM64 release
+(`repro_harness=n`, width capacity 569; SHA256
+`776155a7a9409fb484f36a600fadb79f7e141ad000d8612161f5a2c0e31b4edd`)
+ran against the installed EU ROM and assets from an isolated temporary directory.
+The configuration used native 3:2, nearest internal scale 1, four OpenMP threads,
+legacy pacing, no FPS cap and disabled configured VSync. SDL used the Wayland
+`opengles2` renderer. It reached AgbMain; the initial title sequence produced
+six 120-frame profiler windows. Game averages were 0.498–0.598 ms, presentation
+15.987–16.121 ms, and rasterization 1.784–3.883 ms per frame. The compositor
+appears to pace presentation near 60 Hz despite the uncapped configuration;
+these are not uncapped throughput figures or frame-time percentiles.
+
+Samples from `/proc/<pid>/smaps_rollup` at seconds 8–15 peaked at 123,672 kB
+RSS and 106,591 kB PSS. The Mali `gpu_memory` debug counter reported a total
+of 1,848 and three context values 1,413, 430 and 5, with a game-PID context
+present in debugfs. Units and correspondence between the opaque counter entries
+and contexts were not established; these values must not be interpreted as
+bytes or attributed to the game. They omit any driver allocations not exposed
+by that counter. An earlier repro-enabled run covered the title and file-select
+transition, with observed peaks of 124,876 kB RSS and 107,795 kB PSS; its
+stripped executable SHA256 was
+`70cf16719dd90cd397bda8958d983174ddd0ddcc6c62c8558662f19834624490`.
+The frontend was restored, and the installed package and saves were preserved.
+
+These initial title measurements are supplemented by the gameplay fixture and
+process-specific allocation measurement below. Frame-time distributions and
+multi-scene, profile and thread-count acceptance remain separate.
+
+## RG baseline follow-up (2026-10-27)
+
+A repro-enabled ARM64 build (stripped SHA256
+`70cf16719dd90cd397bda8958d983174ddd0ddcc6c62c8558662f19834624490`)
+ran the existing EU synthetic menu-audit bootstrap on the physical device at
+native 3:2, nearest internal scale 1, four OpenMP threads and Wayland/OpenGL ES.
+It entered `TASK_GAME` at frame 515 and captured a mode-0 PPU snapshot after
+300 game ticks. The audit writes traces and PNGs, so game times include
+instrumentation and this is not an uninstrumented gameplay benchmark. After
+entry, 120-frame windows averaged 2.093–5.729 ms game, 11.316–14.526 ms
+present and 2.989–3.347 ms rasterization, excluding the transition window
+(which had a 697.19 ms game maximum). Presentation is compositor-paced near
+60 Hz; these are averages, not p50/p95/p99 or uncapped throughput. Sampled
+RSS/PSS peaked at 136,784 / 119,699 kB over seconds 8–30.
+
+The game-PID Mali `mem_allocs` table at second 15 reported 5,730,304 bytes
+of native committed allocations and 9,584,640 bytes of imported UMM
+allocations. These figures can overlap other memory accounting and must not
+be summed with PSS. The corresponding device-wide `gpu_memory` sample was
+1,844 units; a Mali driver implementation with the same output format reports
+[used pages](https://chromium.googlesource.com/chromiumos/third_party/kernel/+/2316e798a647ceff30fcd9b014fafa931b33555b/drivers/gpu/arm/bifrost/mali_kbase_gpu_memory_debugfs.c),
+which suggests 7.20 MiB at the device's 4 KiB page size, but the exact running
+driver source was not verified. The per-context allocation table is the
+process-specific evidence; opaque context labels alone do not establish PID
+attribution. Full multi-scene and percentile acceptance remains in section 8.
+
+Raw logs and the device-side sampling script are retained locally under
+`.tmp/rg-device-baseline-2026-10-27/`. A separate attempt to load the device's
+older copied quicksave reported restore and then segfaulted; it is excluded from
+the baseline. The synthetic fixture succeeded and the frontend was restored.
+
+## Static-window and shake safety follow-up (2026-10-27)
+
+Static WIN0, WIN1 and OBJWIN now fail closed to a 160-row raster when
+requesting a taller frame, even if no HDMA callback is installed. This preserves
+the existing native output and does not supply extended window geometry.
+
+The wide-scene adapter publishes a tall-shake-unsafe capability if any of the
+active shake magnitude’s eight XY phases exceeds the 192-row tile-window
+envelope. The complete sequence is checked before camera work so a later phase
+cannot surprise the eventual aperture selector. The current world remains at
+160 rows; the selector has not yet been extended to consume this flag. Manager
+graphics residency, upload timing, full-canvas iris policy/publication and
+other unclassified effects remain open.
+
+The height/window and world-view regressions pass with ASan/UBSan (leak
+scanning disabled for the sandbox), as does catalog/profile publication. The
+ARM64 repro build succeeds, EU logo/title PPU parity matches the retained
+byte-exact goldens, and an isolated EU dummy-SDL smoke reaches AgbMain. The
+release xmake configuration is restored after capture verification.

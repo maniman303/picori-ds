@@ -34,6 +34,13 @@ measurements. Source inspection, rather than older design notes, establishes
 current behavior. No claim of an exhaustive visually verified image catalog or
 on-device performance is made yet.
 
+**Regional policy (2026-10-27):** EU is the tested fixture and acceptance
+baseline. Support USA and JP on a best-effort basis by reviewing regional source,
+data and existing fallbacks when implementing features. USA/JP ROM testing is
+not required or planned; their rendering and interactions remain unverified.
+Do not infer regional equivalence or claim tested support. Historical evidence
+remains unchanged.
+
 ## 1. Findings in the current tree
 
 This table records the source audit **before implementation**. The linked task
@@ -430,8 +437,9 @@ Keep the task/subtask/pause-state audit above as the coverage checklist. The
 current regional export verifies the menu setting, prologue pictures, and nine
 credits/ending illustrations. Add a context only when a distinct functional
 setting is demonstrated. Regional/area/save-state differences in original UI
-do not create new override names. Regional ROM fixtures validate native
-rendering and context classification, not palette compatibility of artist PNGs.
+do not create new override names. EU ROM evidence validates native rendering and context classification, not
+palette compatibility of artist PNGs. Review USA/JP regional paths best-effort
+without treating them as tested or equivalent.
 
 File stems are short lowercase ASCII `a-z0-9_`, avoid Windows reserved names,
 and describe the setting. A single code catalog supplies the context-to-file
@@ -793,7 +801,8 @@ content-width scanning are measurement candidates, but optimize only with data.
 7. **Shared native export:** keep the hardcoded exporter synchronized with the
    runtime names; verify the consolidated `32` folder, README and contact sheet.
    No JSON, native UI screenshots, or redundant ratio metadata is generated.
-8. **QA and budgets:** finish all regional/background/effect coverage, run device
+8. **QA and budgets:** finish EU background/effect coverage, review regional
+   source paths best-effort, run device
    profiling and staging checks, document supported sizes and artist workflow.
 
 Keep these independently reviewable. Most new code should live under `port/`
@@ -886,9 +895,9 @@ Implementation verification must include:
 - Nearest, internal scale, xBRZ, color correction, persistence, filter/preset,
   screenshots, HD dialogue, voxel mode, and ImGui-hidden behavior. Either full
   support or a documented safe renderer fallback for each optional path.
-- USA/EU/JP and any other enabled region validated against available local
-  ROMs. Record unavailable fixtures as gaps; the context catalog must not silently
-  infer equivalence from USA or asset-backed loading alone.
+- Validate EU against the local ROM. Review USA/JP regional source and data
+  best-effort; do not require ROM tests or infer equivalence from EU or
+  asset-backed loading. Record USA/JP behavior as unverified.
 - Device memory and frame-time targets, no per-frame override I/O/allocation,
   bounded cache growth over a long scene-switch run, and room for future views.
 
@@ -906,7 +915,7 @@ six-page retelling have separate capture routes. The pause-menu matrix covers
 health boundaries, installed-decoration retention through health and screen
 changes, both save-entry palettes, and all 22 native detail-map recipes on EU.
 Neutral inventory borders match independently decoded ROM artwork. These checks
-do not complete the full regional/functional-screen audit or resolve compositor
+do not complete the full EU functional-screen audit or resolve compositor
 effect targets.
 
 

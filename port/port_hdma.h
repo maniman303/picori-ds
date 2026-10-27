@@ -32,7 +32,8 @@ enum {
     PORT_HDMA_INCREMENTING_SOURCE = 1u << 7
 };
 /* Classify the entire 160-transfer destination footprint, not only its first
- * row. Unknown/out-of-IO writes remain OTHER. Source flags describe pointer
+ * row. Unknown modes and out-of-IO writes remain OTHER; unsupported decrement
+ * modes are not classified as incrementing. Source flags describe pointer
  * mode; they do not by themselves authorize a continuation. */
 uint32_t port_hdma_classify(const void* io, size_t io_size);
 /* A fixed halfword source written to BLDY can be continued without consuming

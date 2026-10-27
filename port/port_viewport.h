@@ -64,7 +64,9 @@ enum {
     PORT_SCENE_WIDE_WORLD = 1u << 1,
     PORT_SCENE_MAP_LIVE = 1u << 2,
     PORT_SCENE_NATIVE_TRANSITION = 1u << 3,
-    PORT_SCENE_NATIVE_CONTENT = 1u << 4
+    PORT_SCENE_NATIVE_CONTENT = 1u << 4,
+    /* The active shake sequence cannot cover a 192-row map window. */
+    PORT_SCENE_TALL_SHAKE_UNSAFE = 1u << 5
 };
 
 typedef struct {
@@ -117,6 +119,8 @@ int Port_Viewport_MapTileRows(int viewHeight);
  * Zero means the visible interval can wrap outside one 32-row screenblock and
  * requires a native aperture or an explicit remapping policy. */
 int Port_Viewport_MapTileRowsWithShake(int viewHeight, int shakeY);
+/* Classify all eight XY pairs of a shake sequence before its first frame. */
+bool Port_Viewport_ShakeSequenceFits(int viewHeight, const uint8_t* xyPairs);
 
 #ifdef __cplusplus
 }

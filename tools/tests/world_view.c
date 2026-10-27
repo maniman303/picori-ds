@@ -59,6 +59,17 @@ static void check_helpers(void) {
     assert(Port_Viewport_MapTileRowsWithShake(192, 42) == 0);
     assert(Port_Viewport_MapTileRowsWithShake(192, INT_MIN) == 0);
     assert(Port_Viewport_MapTileRowsWithShake(192, INT_MAX) == 0);
+    uint8_t shake[16] = {0};
+    assert(Port_Viewport_ShakeSequenceFits(192, shake));
+    shake[15] = (uint8_t)-8;
+    assert(Port_Viewport_ShakeSequenceFits(192, shake));
+    shake[15] = (uint8_t)-9;
+    assert(!Port_Viewport_ShakeSequenceFits(192, shake));
+    shake[15] = 41;
+    assert(Port_Viewport_ShakeSequenceFits(192, shake));
+    shake[15] = 42;
+    assert(!Port_Viewport_ShakeSequenceFits(192, shake));
+    assert(!Port_Viewport_ShakeSequenceFits(192, NULL));
 }
 
 static void check_cameras(void) {

@@ -136,8 +136,11 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
         height = MODE1_MAX_RENDER_HEIGHT;
     /* No HDMA continuation is implied by extra framebuffer storage. Keep
      * unknown raster effects in a native-height aperture until classified. */
-    if (virtuappu_mode1_pre_line_callback != NULL && !virtuappu_mode1_continue_constant_hdma &&
-        height > MODE1_GBA_HEIGHT)
+    if (height > MODE1_GBA_HEIGHT &&
+        ((virtuappu_mode1_pre_line_callback != NULL && !virtuappu_mode1_continue_constant_hdma) ||
+         /* Static WIN0/WIN1/OBJWIN geometry is native too. The absence of an
+          * HDMA callback does not establish a full-canvas window policy. */
+         (mode1_memory.io_mem[MODE1_IO_DISPCNT + 1] & 0xe0u) != 0u))
         height = MODE1_GBA_HEIGHT;
 
     if (ppu != NULL && ppu->frame_width != 0u) {

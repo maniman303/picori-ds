@@ -9,11 +9,11 @@ health value, unlock mask or quest flag. A new variant belongs in this gate
 when it exercises an unverified installation, source lifetime, foreground layout
 or functional/error return path. Exhaustive products remain acceptance work.
 
-There are **28 unchecked implementation-list items** as of this revision:
+There are **26 unchecked implementation-list items** as of this revision:
 
 | Section | Unchecked items |
 | --- | ---: |
-| Catalog/baseline | 2 |
+| Catalog/baseline | 0 |
 | Geometry/settings | 0 |
 | World rendering | 4 |
 | Layout | 5 |
@@ -21,14 +21,11 @@ There are **28 unchecked implementation-list items** as of this revision:
 | Artwork loading | 5 |
 | Export synchronization | 1 |
 | Acceptance/budgets | 4 |
-| **Total** | **28** |
+| **Total** | **26** |
 
-The first item contains these seven coverage groups: **six completed, one
-remaining** (C7 currently lacks ROM fixtures). They are a breakdown of
-one parent item, not seven additional implementation-list items or an estimate
-of seven turns. Each group closes with checked native lifecycle/source evidence
-and documented fixture limits. The list is deliberately explicit so the audit
-cannot expand silently after every completed route.
+The completed catalog item contains seven resolved groups. C1–C6 have native
+lifecycle/source evidence; C7 records the revised regional policy rather than
+test evidence. These are a breakdown of one parent item, not additional tasks.
 
 - [x] **C1 — Fusion interaction lifecycle.** Native B/START/L cancellation,
   mismatched-piece recovery, successful consumption/ownership update, direct
@@ -67,14 +64,13 @@ cannot expand silently after every completed route.
   2,029 canonical cases plus four file-browsing flows, observed native language
   slots and checked capture hashes. Spanish's absent fusion-name width has
   explicit unavailable IDs; no synthetic layout is counted as native coverage.
-- [ ] **C7 — Additional regional fixtures.** USA/JP source/layout and applicable
-  interaction checks when verified ROMs are available. The workspace currently
-  supplies only an EU ROM; retain this external coverage limitation explicitly.
-  Unavailable fixtures are not evidence of regional acceptance.
+- [x] **C7 — Regional policy.** EU is the tested fixture. Support USA/JP on a
+  best-effort basis using source and regional-data review, without ROM testing.
+  Their visual, effect and interaction behavior is unverified; this is not
+  regional acceptance or evidence of equivalence.
 
-Regional effect acceptance, top-left title-frame completion, compositor/PNG work,
+EU effect acceptance, top-left title-frame completion, compositor/PNG work,
 profile enablement, packaging, GPU acceptance and physical RG measurements have
 their own unchecked parent tasks. They do not generate further context-audit
-subtasks by implication. The first parent task stays open until its applicable
-coverage groups are resolved; deferred unavailable-region work must be named
-explicitly instead of silently treated as passed.
+subtasks by implication. The first parent task is complete under the revised EU-tested scope; USA/JP
+remain explicitly untested and are not an acceptance gate.

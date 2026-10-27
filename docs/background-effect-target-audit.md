@@ -65,7 +65,10 @@ palette field must bypass the palette-fade helper.
 
 All current `SetVBlankDMA` call sites use incrementing sources. The classifier
 in `port_hdma` identifies the destination footprint and source mode; a class is
-not itself permission to extrapolate a table.
+not itself permission to extrapolate a table. Source or destination decrement
+modes are marked OTHER rather than mislabeled as incrementing; the host does not
+model those modes and they cannot authorize a continuation. Existing retail
+call sites use incrementing sources and do not rely on decrement behavior.
 
 | Native producer / destination | Current policy |
 | --- | --- |
@@ -79,7 +82,9 @@ The software PPU still executes the callback exactly 160 times and retains its
 existing 160-row IO snapshot pool. For the verified fixed-brightness case, it
 reuses the final snapshot for extra rows and the GPU-raster path falls back to
 software for taller frames. All other active channels continue to cap the
-effective height at 160. Hardware timing and VBlank behavior are unchanged.
+effective height at 160. Static WIN0, WIN1 and OBJWIN are also capped at
+160, even without an HDMA callback, until their full-canvas behavior is
+classified. Hardware timing and VBlank behavior are unchanged.
 
 `Port_Effect_BuildIrisRows` computes bounded, full-canvas circle spans using
 the native midpoint algorithm and one translation of the 240×160 rectangle.

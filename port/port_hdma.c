@@ -33,6 +33,7 @@ typedef struct {
     uint8_t unit;   // 2 or 4 bytes
     uint8_t src_fixed;
     uint8_t src_mode_invalid;
+    uint8_t dest_mode_invalid;
     uint8_t dest_mode; // HdmaDestMode
 } HdmaChannel;
 
@@ -52,7 +53,10 @@ void port_hdma_register(int channel, const void* src, void* dest, uint16_t cnt_h
     c->count = count ? count : 1;
     c->unit = (cnt_h & DMA_CNT_32BIT) ? 4 : 2;
     c->src_fixed = (cnt_h & DMA_CNT_SRC_FIXED) ? 1 : 0;
-    c->src_mode_invalid = (cnt_h & 0x0180) == 0x0180;
+    /* Decrement and prohibited source modes are not modeled by the host.
+     * Never classify them as incrementing or allow a continuation. */
+    c->src_mode_invalid = (cnt_h & 0x0180) == 0x0080 || (cnt_h & 0x0180) == 0x0180;
+    c->dest_mode_invalid = (cnt_h & DMA_CNT_DEST_MASK) == 0x0020;
     dm = cnt_h & DMA_CNT_DEST_MASK;
     if (dm == DMA_CNT_DEST_FIXED) {
         c->dest_mode = DEST_FIXED;
@@ -91,9 +95,15 @@ uint32_t port_hdma_classify(const void* io, size_t io_size) {
         const HdmaChannel* c = &s_channels[ch];
         if (!c->active)
             continue;
-        result |= c->src_fixed ? PORT_HDMA_FIXED_SOURCE : PORT_HDMA_INCREMENTING_SOURCE;
         if (c->src_mode_invalid)
             result |= PORT_HDMA_OTHER;
+        else
+            result |= c->src_fixed ? PORT_HDMA_FIXED_SOURCE : PORT_HDMA_INCREMENTING_SOURCE;
+        /* The decrementing destination footprint is not modeled. */
+        if (c->dest_mode_invalid) {
+            result |= PORT_HDMA_OTHER;
+            continue;
+        }
         uintptr_t dest = (uintptr_t)c->dest_orig;
         size_t span = c->dest_mode == DEST_FIXED ? c->unit : (size_t)c->unit * c->count;
         if (c->dest_mode == DEST_INC) span *= 160;
@@ -127,7 +137,7 @@ int port_hdma_can_continue_brightness(const void* io, size_t io_size) {
         if (!c->active)
             continue;
         active = 1;
-        if (!c->src_orig || !c->src_fixed || c->src_mode_invalid || c->unit != 2 || c->count != 1 ||
+        if (!c->src_orig || !c->src_fixed || c->src_mode_invalid || c->dest_mode_invalid || c->unit != 2 || c->count != 1 ||
             c->dest_mode == DEST_INC || (uintptr_t)c->dest_orig != base + 0x54)
             return 0;
         /* Repeated DMA writes may mutate another channel's source. */

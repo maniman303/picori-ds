@@ -105,6 +105,23 @@ static void check_stripes(bool affine) {
     untouched(192);
 }
 
+/* A static window is just as unclassified as an HDMA-driven one. */
+static void check_static_window_fallback(void) {
+    reset();
+    stripes(false);
+    PPUMemory p = geometry(192, 1);
+    for (int window = 0x20; window <= 0x80; window <<= 1) {
+        io[1] |= (uint8_t)window;
+        virtuappu_mode1_render_frame(&p);
+        assert(virtuappu_mode1_frame_height() == 160);
+        untouched(160);
+        io[1] &= (uint8_t)~window;
+    }
+    virtuappu_mode1_render_frame(&p);
+    assert(virtuappu_mode1_frame_height() == 192);
+    untouched(192);
+}
+
 static int callbacks;
 static uint16_t hardware_table[160];
 static void scanline(int line) {
@@ -176,6 +193,12 @@ static void check_constant_brightness(void) {
     port_hdma_register(0, &brightness, io + 0x54, 0x1e0, 1); /* prohibited source mode */
     assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
     assert(port_hdma_classify(io, sizeof(io)) & PORT_HDMA_OTHER);
+    port_hdma_register(0, &brightness, io + 0x54, 0x0e0, 1); /* decrement source */
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_BLEND | PORT_HDMA_OTHER));
+    port_hdma_register(0, &brightness, io + 0x54, 0x120, 1); /* decrement destination */
+    assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
+    assert(port_hdma_classify(io, sizeof(io)) == (PORT_HDMA_FIXED_SOURCE | PORT_HDMA_OTHER));
     port_hdma_register(0, &brightness, io + 0x54, 0x160, 2);
     assert(!port_hdma_can_continue_brightness(io, sizeof(io)));
     port_hdma_register(0, &brightness, io + 0x54, 0x560, 1);
@@ -345,6 +368,7 @@ int main(void) {
     check_stripes(false);
     check_stripes(true);
     check_raster();
+    check_static_window_fallback();
     check_constant_brightness();
     check_white_bg_vs_backdrop();
     check_snapshot();
