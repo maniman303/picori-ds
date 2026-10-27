@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 24 unchecked
+[the closure checklist](background-context-closure-checklist.md): 23 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -273,8 +273,10 @@ or tile alignment. Native-content centering continues to use floor offsets.
   Verify real Y=160/191 pieces and X > 511 without changing packed OAM.
 - [x] Migrate generic entity/rectangle culling and piece clipping to effective
   world height. Record the [sprite visibility audit](sprite-coordinate-audit.md).
-- [ ] Complete individual entity/AI/parking and special-effect audits; verify
+- [x] Complete individual entity/AI/parking and special-effect audits; verify
   all direct OAM consumers and scene capability decisions before enablement.
+  Unreviewed dynamic entities and effects are explicitly denied tall-scene
+  admission; this is not a claim that their 4:3 behavior has been validated.
 - [ ] Extend transitions one validated case at a time; test camera completion.
 
 ## 4. Layout
@@ -1387,3 +1389,21 @@ Production-body staging, native/tall world pixel, manager upload, widescreen
 engine and catalog regressions pass; staging and manager tests run under
 ASan/UBSan. ARM64 build, EU logo/title PPU parity and EU dummy-SDL startup pass.
 The test-only tall profile used for staging does not change release availability.
+
+## Entity and OAM consumer safety gate (2026-10-27)
+
+Updated identified guard, Dampé, Cucco and Gyorg screen-edge behavior to use
+the effective world aperture, retaining native thresholds and spawn positions.
+Special-window and fixed-table effects remain on native fallbacks. The
+[entity/OAM audit](sprite-coordinate-audit.md#entity-effects-and-oam-consumer-gate-2026-10-27)
+records the source-level decisions and deliberately denies unreviewed dynamic
+entities, auxiliary entities and transient creations from tall-scene admission.
+Signed metadata is now invalidated on raw attr0/attr1 writes, and all visible
+OAM slots must be tagged before a prospective tall scene can be approved.
+
+PPU2 perfcap refuses to serialize a frame with signed OBJ metadata. The
+shared-framebuffer publisher marks raw OAM unavailable in that case, and its
+in-tree Vulkan-RT consumer falls back to the composite image. These guards do
+not add 4:3 support or certify out-of-tree OAM readers. Entity-boundary, OAM
+write, shared-framebuffer, snapshot, staging, presentation and signed-OBJ
+regressions pass, alongside the ARM64 build, EU native PPU parity and startup.

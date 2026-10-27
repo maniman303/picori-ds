@@ -213,6 +213,12 @@ const uint8_t* ShmFrameSource::currentFrame(uint32_t* outFrameSeq) const {
     return (const uint8_t*)mBase + kShmHeader;
 }
 
+int ShmFrameSource::oamCount() const {
+    if (!mBase || mVersion < 2) return 0;
+    const uint32_t count = static_cast<const uint32_t*>(mBase)[5];
+    return count <= 128 ? static_cast<int>(count) : 0;
+}
+
 const uint16_t* ShmFrameSource::currentOam() const {
     if (!mBase || mVersion < 2) return nullptr;
     const size_t pixelsBytes = (size_t)mWidth * mHeight * 4;

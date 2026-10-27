@@ -32,6 +32,7 @@
 #include "structures.h"
 
 #include "port_entity_ctx.h"
+#include "port_oam.h"
 #include "port_gba_mem.h"
 #include "port_rom.h"
 #include "port_runtime_config.h"
@@ -998,6 +999,7 @@ static s32 sWsContentPx = 0;
 static PortViewportUpload sWsUpload;
 static int sWsStageHeight;
 static int sWsManagerDirty;
+static int sWsEntityDirty;
 static uint64_t sWsValidatedKey = UINT64_MAX;
 
 /* Key identifying the room the content cache belongs to. Checked by
@@ -1223,6 +1225,16 @@ static int Port_Widescreen_MapTileY(void) {
     return (u16)(gRoomControls.scroll_y - gRoomControls.origin_y) >> 4;
 }
 
+static int Port_Widescreen_HasDynamicEntities(void) {
+    for (int i = 0; i < MAX_ENTITIES; ++i)
+        if (gEntities[i].base.next != NULL) return 1;
+    for (int i = 0; i < MAX_AUX_PLAYER_ENTITIES; ++i)
+        if (gAuxPlayerEntities[i].base.next != NULL) return 1;
+    return 0;
+}
+
+void Port_Widescreen_EntityCreated(void) { sWsEntityDirty = 1; }
+
 void Port_Widescreen_ManagerCreated(void) {
     /* A transient manager can upload graphics and disappear before the next
      * snapshot. Keep the room blocked until a fresh room load. */
@@ -1287,6 +1299,12 @@ void Port_Widescreen_PublishScene(void) {
          * fill, so timer==complete alone cannot certify a wider view. */
         if (gManagerCount != 0)
             sWsManagerDirty = 1;
+        if (sWsValidatedKey == Port_WidescreenRoomKey() && Port_Widescreen_HasDynamicEntities())
+            sWsEntityDirty = 1;
+        if (!sWsEntityDirty)
+            scene.capabilities |= PORT_SCENE_TALL_ENTITIES_EMPTY;
+        if (sWsValidatedKey == Port_WidescreenRoomKey() && Port_Oam_VisibleSlotsTagged(gOamMem))
+            scene.capabilities |= PORT_SCENE_TALL_OAM_VERIFIED;
         if (!sWsManagerDirty && gManagerCount == 0 && gUnk_03003DE0 == 0 &&
             gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_UPDATE &&
             !gRoomControls.reload_flags && gRoomControls.scrollAction == 1 &&
@@ -1338,6 +1356,7 @@ void Port_Widescreen_BeforePresent(void) {
 
 void Port_Widescreen_RoomLoaded(void) {
     sWsManagerDirty = gManagerCount != 0;
+    sWsEntityDirty = Port_Widescreen_HasDynamicEntities();
     sWsValidatedKey = UINT64_MAX;
     sWsStageHeight = 0;
     Port_Viewport_UploadReset(&sWsUpload);
@@ -1421,6 +1440,7 @@ void Port_Widescreen_UpdateShadows(void) {
 #else
 void Port_Widescreen_SetTallValidated(int validated) { (void)validated; }
 void Port_Widescreen_ManagerCreated(void) {}
+void Port_Widescreen_EntityCreated(void) {}
 void Port_Widescreen_BeforePresent(void) {}
 void Port_Widescreen_MapFilled(unsigned mode) { (void)mode; }
 void Port_Widescreen_MapUploaded(void) {}

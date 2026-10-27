@@ -70,6 +70,7 @@ void Port_Widescreen_MapFilled(unsigned mode);
 void Port_Widescreen_MapUploaded(void);
 void Port_Widescreen_BeforePresent(void);
 void Port_Widescreen_ManagerCreated(void);
+void Port_Widescreen_EntityCreated(void);
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
 int Port_Widescreen_EffectiveViewWidth(void);

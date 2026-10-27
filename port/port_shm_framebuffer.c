@@ -14,7 +14,8 @@
  *     offset 8..11    uint32_t width
  *     offset 12..15   uint32_t height
  *     offset 16..19   uint32_t frameCount  (monotonic; consumers poll)
- *     offset 20..23   uint32_t oamCount    = 128
+ *     offset 20..23   uint32_t oamCount    = 128, or 0 when signed OBJ
+ *                                           coordinates are not representable
  *     offset 24..PIX  uint8_t  pixels[width * height * 4]  (RGBA8)
  *     offset PIX..PIX+1023  uint16_t oam[512]  (raw GBA OAM:
  *                            128 sprites × 4 halfwords each =
@@ -36,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "cpu/mode1.h"
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #  include <errno.h>
@@ -162,6 +164,9 @@ void Port_Shm_PublishFramebuffer(const uint32_t* pixels, int width, int height) 
      * two blocks are coherent for the consumer's frameCount check. */
     extern uint16_t gOamMem[];
     memcpy(sShmBase + TMC_SHM_HEADER + payload, gOamMem, TMC_SHM_OAM_BYTES);
+    /* The raw table has no signed-coordinate metadata. Consumers must use
+     * the composite plane, not reconstruct misleading sprite quads. */
+    h[5] = virtuappu_mode1_has_obj_positions() ? 0u : 128u;
 
     /* Increment the monotonic counter LAST so consumers polling the
      * frame counter only see complete frames. Single-writer/single-

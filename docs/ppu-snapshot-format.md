@@ -39,7 +39,9 @@ cannot reproduce effects or extended-world content that depend on those inputs.
 The live Tier B hash and named scene captures cover separate runtime behavior.
 Version 2 adds geometry; it does not claim complete frame replay. In particular,
 live [signed OBJ metadata](sprite-coordinate-audit.md) remains outside this
-format; use live rendering/PNG captures to check those positions.
+format; use live rendering/PNG captures to check those positions. The live
+perfcap writer now rejects capture while signed OBJ metadata is bound, before
+touching the output path, rather than producing an incomplete PPU2 snapshot.
 
 The software PPU keeps the hardware line constant at 160. `PPUMemory.frame_height`
 is a separate requested render extent: zero defaults to 160, PC rendering is

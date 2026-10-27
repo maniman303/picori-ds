@@ -5,6 +5,13 @@
  * @brief Dampe NPC
  */
 #include "entity.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#endif
+
 #include "flags.h"
 #include "item.h"
 #include "map.h"
@@ -124,7 +131,7 @@ void sub_0806BEFC(void) {
 void sub_0806BF44(Entity* this, ScriptExecutionContext* context) {
     context->condition = 0;
     if (((this->x.HALF.HI - gRoomControls.scroll_x) + 0x10U < WS_VIEW_W + 0x20U) &&
-        ((this->y.HALF.HI - gRoomControls.scroll_y) + 0x18U < 0xD0)) {
+        ((this->y.HALF.HI - gRoomControls.scroll_y) + 0x18U < (u32)WORLD_VIEW_H + 0x30U)) {
         context->condition = 1;
     }
 }

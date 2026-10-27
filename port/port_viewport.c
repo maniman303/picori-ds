@@ -23,7 +23,8 @@ PortViewportRect Port_Viewport_ResolveWorldRect(PortViewportRect canvas, PortVie
     PortViewportRect world = { 0, 0, 240, 160 };
     const uint32_t wide = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
     const uint32_t tall = PORT_SCENE_WORLD | PORT_SCENE_MAP_LIVE | PORT_SCENE_TALL_MANAGER_FREE |
-                          PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY;
+                          PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY |
+                          PORT_SCENE_TALL_ENTITIES_EMPTY | PORT_SCENE_TALL_OAM_VERIFIED;
     const uint32_t native = PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT;
     if (canvas.x != 0 || canvas.y != 0 || canvas.width < 240 || canvas.width > 569 ||
         canvas.height < 160 || canvas.height > 192)

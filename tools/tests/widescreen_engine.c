@@ -21,7 +21,10 @@ static struct { unsigned active, xPos, yPos, width, height; } gCurrentWindow;
 static int virtuappu_mode1_ws_shadow_base_tile[4];
 static u16* virtuappu_mode1_ws_shadow[4];
 static uint64_t sWsContentKey = UINT64_MAX;
-static int sWsContentPx, sWsStageHeight, sWsManagerDirty;
+static int sWsContentPx, sWsStageHeight, sWsManagerDirty, sWsEntityDirty;
+static u16 gOamMem[512];
+static int Port_Widescreen_HasDynamicEntities(void) { return 0; }
+static bool Port_Oam_VisibleSlotsTagged(const u16* p) { (void)p; return true; }
 static uint64_t sWsValidatedKey = UINT64_MAX;
 static PortViewportUpload sWsUpload;
 static u8 gShakeOffsets[256], gManagerCount, gUnk_03003DE0, gUpdateVisibleTiles;

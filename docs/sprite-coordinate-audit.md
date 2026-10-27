@@ -76,3 +76,53 @@ UBSan at capacities 384/640, covering:
 The RG build, original EU native parity scenes, and local 16:9/21:9 field captures
 preserve existing output. GPU shader execution, complete entity-specific
 coverage, other regional ROM fixtures and device timing remain open.
+
+## Entity, effects and OAM consumer gate (2026-10-27)
+
+The admission policy is intentionally conservative. A taller world requires a
+room-specific scene approval, no active or previously created manager, no
+dynamic entity or auxiliary player entity since room load, and signed metadata
+matching every visible OAM entry. A non-player entity created and deleted
+between presentation boundaries still blocks the room until reload. This is
+an exhaustive default-deny decision for entity kinds, not a claim that all
+individual AI or effect behavior has been adapted. No production scene
+currently grants the separate validation bit; 4:3 remains disabled.
+
+The source-level screen-relative cases resolve as follows:
+
+| Consumer | Decision |
+| --- | --- |
+| Guard line-of-sight projectile / guard, Dampé, Cucco | Viewport-edge culling now uses effective world dimensions. Cucco's bottom spawn and side distribution follow height; native positions and thresholds remain identical. |
+| Gyorg child, Gyorg boss spawn, Gyorg male and enemy 64 | Bottom entry, departure and draw bounds follow the world height; Gyorg's right entry uses world width. Native values are unchanged. |
+| Projectile utility | `IsProjectileOffScreen` checks the room, not a 160-row screen, and is retained. Generic `CheckOnScreen` / rectangle users use the height-aware helpers already tested. |
+| Barrel spiderweb | The native 160-row range indexes a ten-row affine table. It must not simply be extended: the table has no entries for rows 160–191. Its entity/manager scene remains barred. |
+| Mazaal particles, rainfall, cutscene random placement and parallax-room centering | Native distribution, timing and parallax semantics are retained. Their dynamic entity or manager scenes are barred until separately validated. |
+| Big Goron, light door/ray, portal closeup, Temple of Droplets and other window effects | Native window bounds/HDMA stay intact; unclassified windows cap the raster at 160. Dynamic entities/managers also bar taller world admission. |
+| Other entity types and special effects | The default entity-pool/creation gate denies taller admission, including unreviewed and transient actors. This is a fallback, not behavioral verification for these entities. |
+
+The direct OAM consumers have these explicit contracts:
+
+- The common emitter records signed coordinates; FlushSprites and OAM DMA
+  maintain separate build/latched lifetimes. ClearOAM, reset and disabled slots
+  retain native hiding. Tile-only and affine-matrix updates do not invalidate
+  location; raw 16/32-bit writes touching attr0/attr1 now invalidate the affected
+  latched slot even if the value is byte-identical. Untagged or stale visible
+  slots prevent tall-scene approval.
+- The software and supersampled renderers use the checked position table. The
+  GPU rasterizer and voxel presenter keep their tested software/2D fallbacks
+  when signed metadata or unsupported geometry is active. Raw OAM inspectors
+  and debugging tools continue to show hardware bytes, not logical positions.
+- PPU2 does not serialize the side table. Live perfcap now rejects such a
+  capture before touching the output file; use a live framebuffer screenshot.
+  Existing native PPU1/PPU2 captures remain compatible.
+- The optional shared-framebuffer publisher sets OAM count to zero when signed
+  metadata is bound. Its in-tree Vulkan-RT consumer then skips raw sprite quads
+  and uses the composite frame. Older/out-of-tree readers that ignore the
+  count are not certified for extended coordinates.
+
+Production-body entity tests exercise native/tall boundaries and Cucco spawns;
+separate ASan/UBSan checks cover raw writes, signed/parked OBJ, upload staging,
+shared-framebuffer fallback and presentation backend gates. The ARM64 build,
+EU logo/title PPU parity and EU dummy-SDL startup pass. The remaining 4:3 scene,
+entity/effect implementation, transition and compositor acceptance tasks must
+not interpret the default-deny audit as visual gameplay acceptance.

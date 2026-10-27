@@ -5,6 +5,13 @@
  * @brief Cucco Aggr enemy
  */
 #include "enemy.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#endif
+
 #include "sound.h"
 #include "effects.h"
 #include "flags.h"
@@ -309,7 +316,7 @@ void sub_08039140(CuccoAggrEntity* this) {
 bool32 CuccoAggr_IsOutsideScroll(CuccoAggrEntity* this) {
     if ((u32)super->x.HALF.HI - 0xc - gRoomControls.scroll_x > WS_VIEW_W + 0x18)
         return 1;
-    if ((u32)super->y.HALF.HI - 0xc - gRoomControls.scroll_y > 0xb8)
+    if ((u32)super->y.HALF.HI - 0xc - gRoomControls.scroll_y > (u32)WORLD_VIEW_H + 0x18)
         return 1;
 
     return 0;
@@ -332,6 +339,13 @@ void sub_080391B4(CuccoAggrEntity* this) {
                 } else if (rand >= 19) {
                     entity->x.HALF.HI = gRoomControls.scroll_x + WS_VIEW_W + 8;
                 }
+                /* Keep the bottom and side spawn ring beyond/along the live
+                 * aperture. At height 160 these equal the original positions. */
+                if (rand >= 7 && rand < 14)
+                    entity->y.HALF.HI = gRoomControls.scroll_y + WORLD_VIEW_H + 8;
+                else if (rand >= 14 && rand < 24)
+                    entity->y.HALF.HI = gRoomControls.scroll_y + 16 +
+                                         ((rand - (rand < 19 ? 14 : 19)) * (WORLD_VIEW_H - 32)) / 4;
 #endif
                 entity->collisionLayer = super->collisionLayer;
             }

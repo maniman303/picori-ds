@@ -881,6 +881,10 @@ void AppendEntityToList(Entity* entity, u32 listIndex) {
     if (entity->kind != MANAGER) {
         entity->spritePriority.b0 = 4;
         gEntCount++;
+#ifdef PC_PORT
+        if (entity != (Entity*)&gPlayerEntity)
+            Port_Widescreen_EntityCreated();
+#endif
     } else {
         gManagerCount++;
 #ifdef PC_PORT

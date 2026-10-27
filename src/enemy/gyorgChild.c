@@ -5,6 +5,13 @@
  * @brief Gyorg Child enemy
  */
 #include "asm.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#endif
+
 #include "enemy/gyorg.h"
 #include "room.h"
 #include "player.h"
@@ -140,7 +147,7 @@ void GyorgChild_Action1(GyorgChildEntity* this) {
             }
             break;
         case 2:
-            if (super->y.HALF.HI < gRoomControls.scroll_y + 0xb8) {
+            if (super->y.HALF.HI < gRoomControls.scroll_y + WORLD_VIEW_H + 0x18) {
                 return;
             }
             break;
@@ -201,7 +208,7 @@ void GyorgChild_Action3(GyorgChildEntity* this) {
             }
             break;
         case 2:
-            if (super->y.HALF.HI < gRoomControls.scroll_y + 0xc8) {
+            if (super->y.HALF.HI < gRoomControls.scroll_y + WORLD_VIEW_H + 0x28) {
                 return;
             }
             break;

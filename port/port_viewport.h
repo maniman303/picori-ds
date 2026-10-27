@@ -71,7 +71,9 @@ enum {
      * entity, special-BG or compositor/layout work is complete. */
     PORT_SCENE_TALL_MANAGER_FREE = 1u << 6,
     PORT_SCENE_TALL_VALIDATED = 1u << 7,
-    PORT_SCENE_TALL_ROWS_READY = 1u << 8
+    PORT_SCENE_TALL_ROWS_READY = 1u << 8,
+    PORT_SCENE_TALL_ENTITIES_EMPTY = 1u << 9,
+    PORT_SCENE_TALL_OAM_VERIFIED = 1u << 10
 };
 
 typedef struct {

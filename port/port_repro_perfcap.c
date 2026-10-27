@@ -33,6 +33,7 @@
 #include "room.h"         /* gRoomControls, gRoomVars.properties[] */
 #include "port_debug_actions.h"
 #include "ppu_snapshot.h"
+#include "cpu/mode1.h"
 #include "virtuappu.h" /* virtuappu_frame_buffer, virtuappu_registers (Tier B hash) */
 
 extern int Port_CaptureBaseFramebufferPNG(const char* path); /* shim in port_bugreport.cpp */
@@ -63,11 +64,17 @@ static uint64_t perfcap_frame_hash(void) {
 #define A_BUTTON 0x0001
 #define START_BUTTON 0x0008
 
-static void perfcap_dump(const char* path) {
+static int perfcap_dump(const char* path) {
+    /* PPU2 does not serialize signed OBJ side metadata. A seemingly valid
+     * file would replay a different frame, so fail before touching the path. */
+    if (virtuappu_mode1_has_obj_positions()) {
+        fprintf(stderr, "[perfcap] PPU2 cannot capture signed OBJ metadata; use a live screenshot\n");
+        return 0;
+    }
     FILE* f = fopen(path, "wb");
     if (!f) {
         fprintf(stderr, "[perfcap] dump open failed: %s\n", path);
-        return;
+        return 0;
     }
     VirtuaPPUMode1GbaMemory memory = { gIoMem, gVram, gBgPltt, gObjPltt, gOamMem };
     int ok = virtuappu_snapshot_write(f, &memory, &virtuappu_registers);
@@ -75,7 +82,7 @@ static void perfcap_dump(const char* path) {
     if (!ok) {
         remove(path);
         fprintf(stderr, "[perfcap] snapshot write failed: %s\n", path);
-        return;
+        return 0;
     }
     if (getenv("TMC_PAL_TRACE")) {
         extern uint16_t gPaletteBuffer[];
@@ -99,6 +106,7 @@ static void perfcap_dump(const char* path) {
         /* Tier B end-to-end parity oracle (see perfcap_frame_hash). */
         fprintf(stderr, "[perfcap] frame_hash=0x%016llx\n", (unsigned long long)perfcap_frame_hash());
     }
+    return 1;
 }
 
 void Port_ReproPerfcap_Tick(unsigned int frame) {
@@ -148,7 +156,7 @@ void Port_ReproPerfcap_Tick(unsigned int frame) {
             if (!out || !*out)
                 out = "/tmp/tmc_ppu_snapshot.bin";
             dumped = 1;
-            perfcap_dump(out);
+            if (!perfcap_dump(out)) { fflush(stderr); _Exit(2); }
             Port_CaptureBaseFramebufferPNG("/tmp/tmc_perfcap_scene.png");
             if (!getenv("TMC_PROFILE")) {
                 fflush(stderr);
@@ -200,7 +208,7 @@ void Port_ReproPerfcap_Tick(unsigned int frame) {
         if (!out || !*out)
             out = "/tmp/tmc_ppu_snapshot.bin";
         dumped = 1;
-        perfcap_dump(out);
+        if (!perfcap_dump(out)) { fflush(stderr); _Exit(2); }
         Port_CaptureBaseFramebufferPNG("/tmp/tmc_perfcap_scene.png");
         fprintf(stderr, "[perfcap] room area=0x%02x room=0x%02x  prop0=%p prop1=%p prop5(statechange)=%p prop7=%p\n",
                 gRoomControls.area, gRoomControls.room, gRoomVars.properties[0], gRoomVars.properties[1],

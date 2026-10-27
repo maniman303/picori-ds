@@ -13,6 +13,11 @@ void Port_Oam_BeginFrame(void);
 void Port_Oam_Record(unsigned slot, uint16_t attr0, uint16_t attr1, int x, int y, bool hidden);
 void Port_Oam_Latch(unsigned count);
 void Port_Oam_Invalidate(void);
+/* Raw hardware writes cannot retain stale signed coordinates, even when the
+ * packed attributes happen to match the previous slot. */
+void Port_Oam_InvalidateLatchedRange(unsigned offset, unsigned length);
+/* A tall scene may use only visible slots with matching signed metadata. */
+bool Port_Oam_VisibleSlotsTagged(const uint16_t* oam);
 const VirtuaPPUObjPosition* Port_Oam_Positions(void);
 
 #ifdef __cplusplus

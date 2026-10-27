@@ -1,5 +1,6 @@
 #include "gba/io_reg.h"
 #include "port_gba_mem.h"
+#include "port_oam.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -90,6 +91,7 @@ void gba_write16(uint32_t addr, uint16_t v) {
     }
     // OAM
     if (addr >= 0x07000000u && addr < 0x070003FFu) {
+        Port_Oam_InvalidateLatchedRange(addr - 0x07000000u, 2);
         gOamMem[(addr - 0x07000000u) >> 1] = v;
         return;
     }
@@ -160,6 +162,7 @@ void gba_write32(uint32_t addr, uint32_t v) {
         return;
     }
     if (addr >= 0x07000000u && addr < 0x070003FDu) {
+        Port_Oam_InvalidateLatchedRange(addr - 0x07000000u, 4);
         gOamMem[(addr - 0x07000000u) >> 1] = v & 0xFFFF;
         gOamMem[(addr - 0x07000000u + 2) >> 1] = (v >> 16) & 0xFFFF;
         return;

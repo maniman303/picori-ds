@@ -41,3 +41,27 @@ void Port_Oam_Invalidate(void) {
 const VirtuaPPUObjPosition* Port_Oam_Positions(void) {
     return sLatched;
 }
+
+void Port_Oam_InvalidateLatchedRange(unsigned offset, unsigned length) {
+    if (offset >= MODE1_GBA_OAM_COUNT * 8u || !length) return;
+    unsigned end = length > MODE1_GBA_OAM_COUNT * 8u - offset
+                       ? MODE1_GBA_OAM_COUNT * 8u : offset + length;
+    for (unsigned slot = offset / 8; slot < MODE1_GBA_OAM_COUNT && slot * 8 < end; ++slot) {
+        unsigned base = slot * 8;
+        if (offset < base + 4 && end > base)
+            sLatched[slot].flags = 0;
+    }
+}
+
+bool Port_Oam_VisibleSlotsTagged(const uint16_t* oam) {
+    if (!oam) return false;
+    for (unsigned i = 0; i < MODE1_GBA_OAM_COUNT; ++i) {
+        uint16_t a0 = oam[i * 4], a1 = oam[i * 4 + 1];
+        if (!(a0 & 0x100) && (a0 & 0x200)) continue; /* hardware disabled */
+        if ((a0 >> 14) == 3) continue; /* prohibited shape */
+        const VirtuaPPUObjPosition* p = &sLatched[i];
+        if (!(p->flags & VIRTUAPPU_OBJ_POSITION_VALID) || p->attr0 != a0 || p->attr1 != a1)
+            return false;
+    }
+    return true;
+}

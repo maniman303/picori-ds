@@ -5,6 +5,13 @@
  * @brief Enemy64 enemy
  */
 #include "enemy.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#endif
+
 #include "sound.h"
 #include "effects.h"
 #include "flags.h"
@@ -93,7 +100,7 @@ void Enemy64(Enemy64Entity* this) {
     super->animationState = -(this->unk_78 >> 8);
     sub_080499F0(this);
     this->unk_7d = super->spriteSettings.draw;
-    if (((super->spriteSettings.draw == 1) && (0x100 < (super->y.HALF.HI - gRoomControls.scroll_y) + 0x30U))) {
+    if (((super->spriteSettings.draw == 1) && ((u32)WORLD_VIEW_H + 0x60 < (super->y.HALF.HI - gRoomControls.scroll_y) + 0x30U))) {
         super->spriteSettings.draw = 0;
     }
 }

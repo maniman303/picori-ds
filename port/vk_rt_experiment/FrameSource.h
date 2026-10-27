@@ -111,7 +111,9 @@ public:
      * attr0, attr1, attr2, affine). Decoded by ParsedOam below.
      * nullptr if version < 2 / region too small. */
     const uint16_t* currentOam() const;
-    int oamCount() const { return 128; }
+    /* Zero means raw OAM cannot represent the current signed coordinates;
+     * keep the composite framebuffer instead of emitting sprite quads. */
+    int oamCount() const;
 
     /* Per-BG-layer rendered planes (shm v3+). Each is a width×height
      * RGBA8 buffer rendered separately from the BG1 / BG2 layer (the

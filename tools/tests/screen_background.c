@@ -113,7 +113,8 @@ static void CheckPublication(void) {
 static void CheckFutureRoomAperture(void) {
     const PortViewportRect canvas = {0, 0, 256, 192};
     PortViewportScene s = {PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE |
-                           PORT_SCENE_TALL_MANAGER_FREE | PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY, 1024, 1024};
+                           PORT_SCENE_TALL_MANAGER_FREE | PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY |
+                           PORT_SCENE_TALL_ENTITIES_EMPTY | PORT_SCENE_TALL_OAM_VERIFIED, 1024, 1024};
     PortViewportRect w = Port_Viewport_ResolveWorldRect(canvas, s);
     assert(w.width == 256 && w.height == 192 && w.x == 0 && w.y == 0);
     s.roomHeight = 176;
@@ -123,7 +124,7 @@ static void CheckFutureRoomAperture(void) {
     w = Port_Viewport_ResolveWorldRect(canvas, s);
     assert(w.height == 160 && w.y == 16);
     s.roomHeight = 1024;
-    const unsigned gates[] = {PORT_SCENE_TALL_MANAGER_FREE, PORT_SCENE_TALL_VALIDATED, PORT_SCENE_TALL_ROWS_READY, PORT_SCENE_MAP_LIVE};
+    const unsigned gates[] = {PORT_SCENE_TALL_MANAGER_FREE, PORT_SCENE_TALL_VALIDATED, PORT_SCENE_TALL_ROWS_READY, PORT_SCENE_TALL_ENTITIES_EMPTY, PORT_SCENE_TALL_OAM_VERIFIED, PORT_SCENE_MAP_LIVE};
     for (unsigned i = 0; i < sizeof(gates) / sizeof(gates[0]); ++i) {
         s.capabilities &= ~gates[i];
         w = Port_Viewport_ResolveWorldRect(canvas, s);

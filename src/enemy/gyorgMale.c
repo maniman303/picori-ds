@@ -5,6 +5,13 @@
  * @brief Gyorg Male enemy
  */
 #include "effects.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#endif
+
 #include "enemy.h"
 #include "sound.h"
 #include "projectile.h"
@@ -111,7 +118,7 @@ void GyorgMale(GyorgMaleEntity* this) {
     super->animationState = -(this->unk_78 >> 8);
     sub_08048004(this);
     this->unk_7d = super->spriteSettings.draw;
-    if (super->spriteSettings.draw == 1 && (super->y.HALF.HI - gRoomControls.scroll_y + 0x30) > 0x100u) {
+    if (super->spriteSettings.draw == 1 && (super->y.HALF.HI - gRoomControls.scroll_y + 0x30) > (u32)WORLD_VIEW_H + 0x60u) {
         super->spriteSettings.draw = 0;
     }
     this->unk_84 = gPlayerEntity.base.x.HALF.HI;

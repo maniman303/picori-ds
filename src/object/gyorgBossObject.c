@@ -5,6 +5,15 @@
  * @brief Gyorg Boss object
  */
 #include "enemy/gyorg.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#define WORLD_VIEW_W ((s32)Port_Widescreen_EffectiveViewWidth())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#define WORLD_VIEW_W DISPLAY_WIDTH
+#endif
+
 #include "entity.h"
 #include "object.h"
 #include "asm.h"
@@ -497,12 +506,12 @@ void GyorgBossObject_SpawnChildren(u32 unk0, bool32 fromBlue, u32 animationState
                     tmp->attackOffsetY = -p->offsetY;
                     break;
                 case 1:
-                    tmp->attackOffsetX = p->offsetY + DISPLAY_WIDTH;
+                    tmp->attackOffsetX = p->offsetY + WORLD_VIEW_W;
                     tmp->attackOffsetY = p->offsetX;
                     break;
                 case 2:
                     tmp->attackOffsetX = p->offsetX;
-                    tmp->attackOffsetY = p->offsetY + DISPLAY_HEIGHT;
+                    tmp->attackOffsetY = p->offsetY + WORLD_VIEW_H;
                     break;
                 case 3:
                     tmp->attackOffsetX = -p->offsetY;

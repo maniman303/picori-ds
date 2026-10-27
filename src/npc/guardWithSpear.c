@@ -5,6 +5,15 @@
  * @brief Guard with Spear NPC
  */
 #include "entity.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#define WORLD_VIEW_H ((s32)Port_Widescreen_EffectiveViewHeight())
+#define WORLD_VIEW_W ((s32)Port_Widescreen_EffectiveViewWidth())
+#else
+#define WORLD_VIEW_H DISPLAY_HEIGHT
+#define WORLD_VIEW_W DISPLAY_WIDTH
+#endif
+
 #include "item.h"
 #include "npc.h"
 #include "object.h"
@@ -291,11 +300,11 @@ void CheckLastSwordMove(Entity* this, ScriptExecutionContext* context) {
 u32 sub_080644C8(GuardWithSpearEntity* this) {
     if (super->x.HALF.HI - gRoomControls.scroll_x + 8 < 0)
         return 0;
-    if (super->x.HALF.HI - gRoomControls.scroll_x - 8 > DISPLAY_WIDTH)
+    if (super->x.HALF.HI - gRoomControls.scroll_x - 8 > WORLD_VIEW_W)
         return 0;
     if (super->y.HALF.HI - gRoomControls.scroll_y < 0)
         return 0;
-    if (super->y.HALF.HI - gRoomControls.scroll_y - 0x18 > DISPLAY_HEIGHT)
+    if (super->y.HALF.HI - gRoomControls.scroll_y - 0x18 > WORLD_VIEW_H)
         return 0;
     return 1;
 }
