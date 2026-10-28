@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 16 unchecked
+[the closure checklist](background-context-closure-checklist.md): 15 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -410,9 +410,10 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [x] Add the fixed blue fast-travel BG3 recipe, omit foreground map/frame/OBJ,
   verify all three health preload paths agree, append its catalog ID, and rerun
   the missing-only extractor to refresh the native folder/README/contact sheet.
-- [ ] Validate all native export recipes against the EU ROM after context/effect
+- [x] Validate all native export recipes against the EU ROM after context/effect
   auditing; review regional code paths best-effort and preserve artist edits
-  and existing export names.
+  and existing export names. The 2026-10-28 check below compares all 33 artwork
+  recipes with exposed native capture pixels and corrects four credits offsets.
 
 ## 8. Acceptance and budgets
 
@@ -424,6 +425,36 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Measure RG performance, memory/cache limits and 1/2/4-thread behavior;
   record unsupported optional-path fallbacks and untested regional behavior explicitly.
 - [ ] Run full staging/RG packaging checks when runtime asset packaging changes.
+
+## Native export recipe validation (2026-10-28)
+
+`tools/validate_native_background_recipes.py --rom build/pc/baserom.gba`
+checks all 33 artwork recipes against retained EU/English captures: 634,096
+pixels in total. All nine credits images match full native frames; story pages
+match rows 0–95, above text and page-six's wipe; the title matches rows 120–159.
+The 15 menu/fusion settings and fast travel use exposed static panel or bottom
+rows; file selection uses 16 exposed pixels against a coherent animated palette
+frame. Titled-menu lettering is deliberately omitted and its blank plate is an
+alignment reference, not a native screenshot. Earlier family, fusion, travel
+and file audits provide additional checkpoints and coverage. These masks do not
+claim validation of covered foreground or intermediate effects.
+
+The comparison found that credits 2, 3, 6 and 7 use BG2 offset -120 in the
+native staff-roll command stream. The exporter now reads each offset from the
+region/language-selected command table rather than exporting the zero-offset
+crop. All three EU command tables agree, and recomputed effect-source masks and
+edges agree across five EU languages. Historical edge JSON for those four
+zero-offset crops is superseded; see the effect audit. The exporter retains its
+existing names and overwrite policy; the fresh 34-PNG export was made only in
+`/tmp/picori-recipe-validation/`, leaving existing artwork untouched.
+
+Source review: the USA exporter selects the English staff-roll table and its
+USA ROM tables/stubs, while EU maps the public language to its native resource
+slot. Staff-roll, prologue and pause installation code is shared; regional
+assets and file-select code have distinct paths. JP title layer composition
+differs and the exporter explicitly rejects JP ROMs. No USA/JP ROM pixels are
+claimed. The EU capture audit requires ImageMagick and the retained local audit
+directories; exporter unit tests and catalog/ABI agreement also pass.
 
 ## Initial foundation verification (2026-10-24)
 

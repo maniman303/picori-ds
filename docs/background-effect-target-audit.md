@@ -29,7 +29,7 @@ reference recipes. Twenty recipes use more than one BG palette bank.
 | Fast travel | BG3, bank 5 | Group 93 supplies one fixed source regardless of health. Retained interaction traces include `0x3648`/`0x0f01`, where BG3 is a first alpha target and backdrop is an eligible second target, as well as `0x2f40` and neutral states. The actual second input and confirmation/scene-handoff publication remain their separate task. |
 | Prologue page 1 | BG2, banks 11–14 | Native `0x2244` makes BG2 an alpha first target; BG1 and backdrop are eligible second targets. Resolve the actual second input and per-bank fade state. |
 | Prologue pages 2–6 | BG2, banks 7–14 | The same `0x2244` policy applies; a single representative pixel does not describe the image. |
-| Credits 1–8, ending card | BG2, banks 7–14 | Credits `0x2442` uses BG1 as alpha first target and BG2 as second target beneath text. A mask excluding bank 15 does not exclude these image banks. |
+| Credits 1–8, ending card | BG2, banks 7–14; backdrop bank 0 at transparent pixels | Credits `0x2442` uses BG1 as alpha first target and BG2 as second target beneath text. A mask excluding bank 15 does not exclude these image banks. |
 | Game Over, cleared credits, ending Save | Generated black field / backdrop, bank 0 | Game Over's observed `0xffff0001`, `0x0000ffff` and `0xffffffff` masks all include bank zero. Follow applicable backdrop effects; a screen made black by a fade is not evidence that an image is absent. |
 | Standalone map hint, figurines | Live palette-zero backdrop, bank 0 | Map hint disables BG3 and copies entry 81 into zero. The figurine initializer clears BG3 and copies entry 251 into zero. Its prize flash uses `0x00bf` to brighten the backdrop; read the already-faded live field, skip palette fade and apply the relevant later effect once. |
 | Local fusion map hint | Opaque BG3, palette index 95 / bank 5 | The filled `0x5001` tile is index 15 at every pixel for all three health preloads in the EU screen-6 recipe. Read live palette entry 95 and use BG3 effects. Equal unfaded palette-zero and entry-95 colors do not imply equal masked-fade behavior. |
@@ -44,6 +44,13 @@ checks through the real `FadeVBlank` upload (using synthetic identity brightness
 LUTs) that local-hint banks 0 and 5 can diverge. The actual retained credits
 trace does not exercise the `0xffff7fff` state; it is not claimed as native
 captured-pixel evidence for that branch.
+
+The 2026-10-28 export validation corrected the native horizontal scroll of
+credits 2, 3, 6 and 7. Their previously retained edge-coverage JSON describes
+the old zero-offset recipes and must not be used for those edges. Recomputing
+all 33 recipes after the correction gives identical masks and edges across all
+five EU languages; the corrected four also expose backdrop bank 0. Any future
+compositor must use the corrected edge ownership and actual effect registers.
 
 `tools/background_effect_trace_audit.py` checks retained EU traces against the
 decoded source layers. The title ray, pieces tab transition, fusion flash,

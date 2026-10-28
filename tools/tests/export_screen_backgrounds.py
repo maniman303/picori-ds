@@ -12,10 +12,25 @@ import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from export_screen_backgrounds import (IMAGE_CONTEXTS, MENU_CONTEXTS, MENU_HEALTH_VARIANTS, SOLID_CONTEXTS, TITLED_MENU_CONTEXTS,
-                                       Rom, Scene, main, menu_recipes, fast_travel_recipe, png_bytes, solid_bottom_center_reference)
+                                       Rom, Scene, main, menu_recipes, fast_travel_recipe, png_bytes, solid_bottom_center_reference, staffroll_offsets)
 
 
 class ExportFormats(unittest.TestCase):
+    def test_staffroll_offsets_follow_language_and_command_records(self):
+        commands = bytearray(36)
+        commands[0] = 1
+        struct.pack_into('<HH', commands, 6, 2, 0xff88)
+        commands[12] = 2  # Text commands must not be treated as installations.
+        struct.pack_into('<HH', commands, 18, 2, 123)
+        commands[24] = 1
+        struct.pack_into('<HH', commands, 30, 8, 0)
+        for language, symbol in ((0, 'gUnk_081272F0'), (1, 'gUnk_08127644'), (2, 'gUnk_08127998')):
+            rom = SimpleNamespace(language=language, symbol=lambda name: bytes(commands) if name == symbol else None)
+            self.assertEqual(staffroll_offsets(rom), {2: 0xff88, 8: 0})
+        struct.pack_into('<HH', commands, 30, 2, 1)
+        with self.assertRaises(ValueError):
+            staffroll_offsets(SimpleNamespace(language=1, symbol=lambda _: bytes(commands)))
+
     def test_fast_travel_does_not_alias_plain_health_art(self):
         self.assertNotIn('fast_travel_map', MENU_CONTEXTS)
         self.assertEqual(IMAGE_CONTEXTS['fast_travel_background'], ('fast_travel_map',))

@@ -350,6 +350,23 @@ def fast_travel_recipe(rom):
     return value, [(3, 0x1e0b, 0, 0)], None
 
 
+def staffroll_offsets(rom):
+    # Match StaffrollTask_State0's language-dependent command stream. Commands
+    # are 12 bytes; type 1 carries the illustration index and BG2 X offset.
+    symbol = ('gUnk_08127998' if rom.language >= 2 else
+              'gUnk_08127644' if rom.language == 1 else 'gUnk_081272F0')
+    commands = rom.symbol(symbol)
+    offsets = {}
+    for pos in range(0, len(commands) - 11, 12):
+        if commands[pos] != 1:
+            continue
+        index, offset = struct.unpack_from('<HH', commands, pos + 6)
+        if index in offsets and offsets[index] != offset:
+            raise ValueError(f'{symbol}: conflicting offsets for illustration {index}')
+        offsets[index] = offset
+    return offsets
+
+
 def recipes(rom):
     def scene(groups, palettes):
         value = Scene(rom)
@@ -384,13 +401,18 @@ def recipes(rom):
         yield f'prologue_{page+1:02d}', value, [(2, 0x1dc1, 0, 0)], 0
 
     table = rom.symbol('gUnk_08127CEC')
+    offsets = staffroll_offsets(rom)
     for index in range(len(table)//2):
         palette, group = table[index*2:index*2+2]
         if not group:
             continue
         value = scene([group], [11, 12, palette])
         name = 'ending_screen' if index == 8 else f'credits_{index+1:02d}'
-        yield name, value, [(2, 0x1dc3, 0, 0)], 0
+        # BG2 is 512 pixels wide and wraps its unsigned hardware offset.
+        if index not in offsets:
+            raise ValueError(f'staff roll has no installation for illustration {index}')
+        offset = offsets[index]
+        yield name, value, [(2, 0x1dc3, offset, 0)], 0
 
 
 def main():

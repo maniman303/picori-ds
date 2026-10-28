@@ -58,6 +58,20 @@ int main(void) {
         if (profiles[i][2] > 0)
             assert(canvas[profiles[i][2] - 1] != before[profiles[i][2] - 1] || profiles[i][3] > 0);
     }
+    /* Extreme animation poses may clip against either canvas edge.  They
+     * must never touch row padding, rows below the canvas, or native pixels. */
+    for (unsigned i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
+        int w = profiles[i][0], h = profiles[i][1], nx = profiles[i][2], ny = profiles[i][3];
+        for (int hy = -64; hy <= 80; ++hy) {
+            reset();
+            assert(draw(w, h, nx, ny, hy));
+            native_untouched(nx, ny);
+            for (int y = 0; y < 192; ++y)
+                for (int x = 0; x < 569; ++x)
+                    if (x >= w || y >= h)
+                        assert(canvas[y * 569 + x] == before[y * 569 + x]);
+        }
+    }
     reset(); assert(draw(285,160,22,0,16)); native_untouched(22,0);
     assert(canvas[22 - 8] == 0xff0000f8 && canvas[22 - 9] == before[22 - 9]);
     assert(canvas[31 * 569 + 21] == 0xff0000f8 && canvas[32 * 569 + 21] == before[32 * 569 + 21]);
