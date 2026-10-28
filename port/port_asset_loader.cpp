@@ -1191,7 +1191,12 @@ bool EnsureAssetGroupCache() {
         return false;
     }
 
-    Port_BackgroundRuntime_Init(gAssetGroupCache.assetsRoot.string().c_str());
+    /* Artwork overrides are shared across regions at assets/override, while
+     * the manifest and packed game assets live under assets/<region>. */
+    const std::filesystem::path artworkRoot = gAssetGroupCache.assetsRoot.filename() == RegionAssetSubdir()
+                                                   ? gAssetGroupCache.assetsRoot.parent_path()
+                                                   : gAssetGroupCache.assetsRoot;
+    Port_BackgroundRuntime_Init(artworkRoot.string().c_str());
     gAssetGroupCache.ready = true;
     return true;
 }

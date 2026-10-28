@@ -374,12 +374,39 @@ static void check_snapshot(void) {
     }
 }
 
+static void check_below_bg_edges(void) {
+    reset();
+    io16(0, 0x0e00); /* BG1, BG2, BG3 */
+    io16(0x0a, (17 << 8) | 3); /* BG1 priority 3 */
+    io16(0x0c, 1);              /* source BG2 priority 1 */
+    io16(0x0e, (16 << 8) | 2); /* BG3 priority 2 */
+    memset(vram + 32, 0x11, 32);
+    memset(vram + 64, 0x22, 32);
+    for (int row = 0; row < 32; ++row) for (int col = 0; col < 32; ++col) {
+        vram[0x8000 + 2 * (row * 32 + col)] = col == 0 ? 1 : 0;
+        vram[0x8800 + 2 * (row * 32 + col)] = 2;
+    }
+    PPUMemory p = geometry(160, 1);
+    virtuappu_mode1_render_frame(&p);
+    unsigned layer = 99; uint32_t color = 0;
+    assert(virtuappu_mode1_sample_below_bg(0, 0, 2, &layer, &color));
+    assert(layer == 3 && color == 0xff0000f8);
+    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, &layer, &color));
+    assert(layer == 1 && color == 0xff00f800);
+    io16(0x0a, (17 << 8)); /* BG1 is now above BG2 */
+    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, &layer, &color));
+    assert(layer == 5 && color == 0xff000000);
+    io16(0, 0x0e01);
+    assert(!virtuappu_mode1_sample_below_bg(0, 0, 2, &layer, &color));
+}
+
 int main(void) {
     VirtuaPPUMode1GbaMemory mem = { io, vram, bgpal, objpal, oam };
     virtuappu_mode1_bind_gba_memory(&mem);
     // Exercise the full future width/height allocation envelope without
     // enabling any runtime profile. Smaller builds retain padded-pitch cases.
     width = MODE1_GBA_WIDTH >= 569 ? 569 : MODE1_GBA_WIDTH >= 256 ? 256 : 240;
+    check_below_bg_edges();
     reset();
     PPUMemory p = geometry(0, 1);
     virtuappu_mode1_set_frame_geometry(&p);

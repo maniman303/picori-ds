@@ -63,6 +63,8 @@ static PortPaletteFadeResult resolve(uint16_t mask, PortPaletteFade* result) {
 int main(void) {
     PortPaletteFade result;
     install_identity_brightness_tables();
+    Port_Background_InvalidatePaletteFades();
+    assert(Port_Background_ValidPaletteFades() == 0);
     /* Run the real staff-roll menu command, including its mask assignment,
      * SetFade, progress setup and script advance, before the VBlank stages. */
     static u16 script_words[6];
@@ -106,6 +108,27 @@ int main(void) {
     gPaletteBuffer[0] = gPaletteBuffer[95] = 0x475f;
     FadeVBlank(); /* Real palette upload into the live PAL RAM shim. */
     assert(live_palette[0] == 0x475f && live_palette[95] == 0x7fff);
+    assert(Port_Background_ValidPaletteFades() == 0xffff);
+    const PortPaletteFade* committed = Port_Background_CommittedPaletteFades();
+    assert(committed[0].intensity == 0 && committed[5].intensity == 256 && committed[5].color == 248);
+    /* Changing engine state is not an upload; untouched banks retain their
+     * actually displayed values even when another bank is uploaded. */
+    gUnk_020354C0[0].unk2 = 64; gUnk_020354C0[0].unk1 = 248;
+    gUnk_020354C0[5].unk2 = 128;
+    gUsedPalettes = 1u;
+    assert(committed[0].intensity == 0 && committed[5].intensity == 256);
+    FadeVBlank();
+    assert(committed[0].intensity == 64 && committed[5].intensity == 256);
+    Port_Background_InvalidatePaletteFades();
+    assert(!Port_Background_ValidPaletteFades());
+    gUsedPalettes = 1u << 5; FadeVBlank();
+    assert(Port_Background_ValidPaletteFades() == (1u << 5));
+    assert(committed[5].intensity == 128);
+    assert(Port_Background_ResolveCommittedPaletteFade(1u << 5, &result) == PORT_PALETTE_FADE_UNIFORM);
+    assert(result.intensity == 128);
+    assert(Port_Background_ResolveCommittedPaletteFade(1u, &result) == PORT_PALETTE_FADE_INVALID);
+    Port_Background_RecordPaletteFade(5, (PortPaletteFade){257, 0}, 1);
+    assert(!Port_Background_ValidPaletteFades());
     /* Drive real fade lifecycle through the producer, including held-closed
      * state, reopening, invalid window ownership and teardown. */
     PortEffectSpan rows[192];

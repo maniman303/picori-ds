@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "port_effect_geometry.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +28,13 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
                         const uint8_t* vram, size_t vram_size,
                         const uint16_t* obj_palette, const uint8_t* io, unsigned background_layer,
                         const uint8_t* (*io_for_line)(int));
+/* As above, with a verified scene-wide WIN0 iris. Draw only its inside
+ * span in added margins; use WININ's OBJ/effect controls there. */
+bool Port_TitleCap_DrawIris(uint32_t* canvas, int width, int height, int pitch,
+                            int native_x, int native_y, int heading_x, int heading_y,
+                            const uint8_t* frame, size_t frame_size, const uint8_t* vram, size_t vram_size,
+                            const uint16_t* obj_palette, const uint8_t* io, unsigned background_layer,
+                            const uint8_t* (*io_for_line)(int), const PortEffectSpan* spans, int span_count);
 bool Port_TitleCap_CanDraw(int width, int height, int pitch, int native_x, int native_y,
                            int heading_x, int heading_y, const uint8_t* frame, size_t frame_size,
                            size_t vram_size, const uint8_t* io);

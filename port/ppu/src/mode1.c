@@ -648,6 +648,34 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
 #undef MODE1_BG_PIXEL
 }
 
+bool virtuappu_mode1_sample_below_bg(int line, int x, int source_bg, unsigned* layer, uint32_t* color) {
+    if (!layer || !color || line < 0 || line >= MODE1_GBA_HEIGHT || x < 0 || x >= MODE1_GBA_BG_CLIP_X ||
+        source_bg < 0 || source_bg >= MODE1_GBA_BG_COUNT || mode1_frame_width < MODE1_GBA_BG_CLIP_X)
+        return false;
+    const uint8_t* io = virtuappu_mode1_frame_io_for_line(line);
+    if (!io || (io[0] & 7u)) return false;
+    const uint8_t* previous = virtuappu_mode1_io_thread_override;
+    virtuappu_mode1_io_thread_override = io;
+    uint16_t display = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
+    unsigned source_priority = virtuappu_mode1_io_read16(MODE1_IO_BG0CNT + source_bg * 2) & 3u;
+    unsigned best_priority = 4, best_layer = 5;
+    uint32_t best_color = mode1_bg_abgr_lut[0];
+    uint32_t pixels[MODE1_GBA_WIDTH];
+    for (unsigned bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        if (bg == (unsigned)source_bg || !(display & (1u << (8 + bg)))) continue;
+        unsigned priority = virtuappu_mode1_io_read16(MODE1_IO_BG0CNT + bg * 2) & 3u;
+        if (priority < source_priority || (priority == source_priority && bg < (unsigned)source_bg) ||
+            priority > best_priority || (priority == best_priority && bg > best_layer)) continue;
+        memset(pixels, 0, sizeof(pixels));
+        virtuappu_mode1_render_text_bg_line((int)bg, line, pixels, NULL);
+        if (!(pixels[x] & 0xff000000u)) continue;
+        best_priority = priority; best_layer = bg; best_color = pixels[x];
+    }
+    virtuappu_mode1_io_thread_override = previous;
+    *layer = best_layer; *color = best_color;
+    return true;
+}
+
 void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffer, uint8_t* priority_buffer) {
     const uint32_t obj_tile_base = 0x10000u;
     /* OBJ mosaic block dimensions for this line (MOSAIC is in the per-line IO

@@ -4,6 +4,15 @@
 #include "port_background_effect.h"
 
 int main(void) {
+    uint16_t tables[3][32]; uint8_t curves[3][256];
+    for (unsigned c = 0; c < 3; ++c) for (unsigned i = 0; i < 32; ++i)
+        tables[c][i] = (uint16_t)(i << (c * 5));
+    Port_Background_BuildBrightnessCurve(tables, curves);
+    for (unsigned c = 0; c < 3; ++c) for (unsigned i = 0; i < 256; ++i)
+        assert(curves[c][i] == i);
+    for (unsigned i = 0; i < 32; ++i) tables[0][i] = (uint16_t)(i / 2);
+    Port_Background_BuildBrightnessCurve(tables, curves);
+    assert(curves[0][0] == 0 && curves[0][255] == 123);
     PortPaletteFade banks[16] = {{0, 0}}, result = {123, 99};
     /* Credits use BG2 banks 7..14 while a native transition excludes bank 15. */
     for (int i = 7; i <= 14; ++i) banks[i] = (PortPaletteFade){128, 248};

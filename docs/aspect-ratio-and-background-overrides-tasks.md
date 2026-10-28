@@ -54,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 12 unchecked
+[the closure checklist](background-context-closure-checklist.md): 11 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -353,14 +353,19 @@ or tile alignment. Native-content centering continues to use floor offsets.
   the OAM build/latch lifetime, even when native pieces are clipped. The
   compositor reconstructs the cap from live OBJ tiles and palette, honors the
   animated pose and per-line OBJ effects, and preserves the native rectangle.
-  EU software captures verify the missing-image fallback and an unchanged
-  native crop. OBJ-window scenes still fail closed; runtime artwork composition
-  and other regions and presenters require validation before closing this task.
+  EU software captures verify artwork and missing-image fallback with an
+  unchanged native crop. OBJ-window scenes still fail closed; other regions
+  and presenters require validation before closing this task.
   The in-place margin preparation now accepts an already effect-resolved canvas,
   and the cap accepts an explicit second-target layer for alpha blending. The
   title-cap regression covers all profile geometries, animation, transparent
-  pixels and full-precision background blending; runtime artwork publication
-  remains a separate prerequisite.
+  pixels and full-precision background blending, including the actual RGBA
+  margin kernel followed by OBJ alpha blending over the resolved artwork.
+  The shared presentation path composes EU artwork under the cap for resolved
+  effects, including verified scene-wide iris, uploaded palette fades and
+  interpolated native brightness curves. Mixed brightness, unclassified
+  windows and unknown alpha inputs retain the black fallback. The broader
+  runtime capture matrix remains part of this task.
 - [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
@@ -427,10 +432,29 @@ or tile alignment. Native-content centering continues to use floor offsets.
   and context changes, cached failures and an unavailable asset root. Raw
   cache pixels have no renderer-owned resource and use generation zero here.
   Effect resolution and renderer consumption remain separate.
+- [x] Publish committed BG palette-fade inputs with the VBlank artwork
+  snapshot. Record only banks actually uploaded by FadeVBlank; preserve
+  untouched banks and invalidate unknown state on palette reset or quickload.
+  Native fade and quicksave regressions cover selective upload and lifetime.
 - [ ] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
-- [ ] Include the verified title-frame completion mask/pose in foreground
+  The VBlank descriptor now carries EU source-layer/bank unions checked against
+  all 33 current ROM recipes. The effect resolver rejects mixed/unavailable
+  palette state and requires an explicit actual alpha second layer and color.
+  Other regions fail closed. The title-cap consumer resolves scanline effects
+  and samples BG2's actual lower layer at the native edges; broader per-edge
+  coverage and renderer consumption remain to be connected and validated.
+
+- [x] Include the verified title-frame completion mask/pose in foreground
   composition above artwork, with no task IDs or live health reads in pixel loops.
+  The renderer composes resolved artwork or missing-image black first, then
+  draws the latched OBJ cap with native pose and per-line effects. EU 16:9
+  software captures cover titled pause and fusion, installed artwork, missing
+  artwork, black/white intermediate fades and animated cap pose; the native
+  crop is byte-identical in each pair. `tools/verify_title_cap_composition.py`
+  checks the retained captures in `.tmp/title-cap-composition-2026-10-28/`.
+  Unclassified windows and effect inputs fail closed; the broader title-frame,
+  other-presenter and profile acceptance gates remain in section 4.
 - [ ] Implement procedural fields and black fallback with correct global effects;
   preserve every native foreground pixel and exclude gameplay completely.
 - [ ] Retire the old ImGui menu side-art path as its supported screens migrate;

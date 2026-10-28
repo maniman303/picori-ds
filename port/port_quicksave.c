@@ -40,6 +40,8 @@
  *    mid-cutscene positions.
  */
 
+#include "port_background_effect.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -285,6 +287,7 @@ static int Snapshot_Restore(const Slot* s) {
     /* Host-only effect ownership is not serialized in a quicksave. */
     Port_Effect_ClearFadeIris();
     Port_Background_Reset();
+    Port_Background_InvalidatePaletteFades();
     return 1;
 }
 

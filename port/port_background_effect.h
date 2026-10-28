@@ -14,6 +14,15 @@ typedef struct {
     uint8_t color;
 } PortPaletteFade;
 
+/* FadeVBlank records each BG bank only when its native palette upload occurs.
+ * Unknown banks fail closed after startup, palette reset or quickload. The
+ * returned storage is immutable until the next upload/reset. */
+void Port_Background_InvalidatePaletteFades(void);
+void Port_Background_RecordPaletteFade(unsigned bank, PortPaletteFade fade, uint8_t brightness);
+const PortPaletteFade* Port_Background_CommittedPaletteFades(void);
+uint16_t Port_Background_ValidPaletteFades(void);
+const uint8_t* Port_Background_CommittedBrightness(void);
+
 typedef enum {
     PORT_PALETTE_FADE_INVALID,
     PORT_PALETTE_FADE_UNIFORM,
@@ -24,9 +33,16 @@ typedef enum {
  * cannot safely be applied to a single image without further source coverage;
  * do not pick an arbitrary bank or silently replace it with the global mask.
  * No engine state is read here. On failure/mixed the output is unchanged. */
+/* Reject unknown uploaded banks; do not read pending FadeMain state. */
+PortPaletteFadeResult Port_Background_ResolveCommittedPaletteFade(uint16_t source_banks, PortPaletteFade* output);
+
 PortPaletteFadeResult Port_Background_ResolvePaletteFade(uint16_t source_banks,
                                                         const PortPaletteFade banks[16],
                                                         PortPaletteFade* output);
+
+/* Expand three native 5-bit channel tables to full-precision RGB888 curves.
+ * The identity table maps every 8-bit value to itself. */
+void Port_Background_BuildBrightnessCurve(const uint16_t tables[3][32], uint8_t curves[3][256]);
 
 /* Composite one straight-alpha RGB888 sample over black, then apply a
  * previously resolved fade. Neutral opaque samples retain all eight bits.

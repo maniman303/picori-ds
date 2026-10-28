@@ -7,6 +7,7 @@
 #ifdef PC_PORT
 #include "port_gba_mem.h"
 #include "port_effect_geometry.h"
+#include "port_background_effect.h"
 #include "port_rom.h"
 #include <stdio.h>
 #endif
@@ -145,6 +146,8 @@ void FadeVBlank(void) {
         if ((usedPalettesTmp & 1) == 1) {
 #ifdef PC_PORT
             Port_MakeFadeBuff256(&((u8*)gPaletteBuffer)[palIdx], &PAL_RAM[palIdx], ptrUnk->unk2, ptrUnk->unk1);
+            Port_Background_RecordPaletteFade(palIdx / 0x20, (PortPaletteFade){ptrUnk->unk2, ptrUnk->unk1},
+                                              gEwram[6] < 3 ? gEwram[6] : 0);
 #else
             func = (fptrMakeFadeBuff256)&ram_MakeFadeBuff256;
             func(&((u8*)gPaletteBuffer)[palIdx], &PAL_RAM[palIdx], ptrUnk->unk2, ptrUnk->unk1);

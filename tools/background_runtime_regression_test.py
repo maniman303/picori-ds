@@ -29,7 +29,8 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-runtime-') as tmp:
         '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport',
         'tools/tests/background_runtime.c', 'port/port_background_runtime.c',
         'port/port_background_cache.c', 'port/port_background_png.c',
-        'port/port_screen_background.c', 'port/port_viewport.c', *flags, '-o', str(binary)],
+        'port/port_screen_background.c', 'port/port_viewport.c', 'port/port_background_effect.c',
+        'port/port_background_policy.c', *flags, '-o', str(binary)],
         cwd=root, check=True)
     env = os.environ.copy()
     env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')

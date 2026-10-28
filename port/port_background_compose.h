@@ -18,6 +18,7 @@ typedef struct {
     PortLayerEffect layer_effect;
     uint16_t coefficient; /* BLDY or BLDALPHA according to layer_effect */
     uint8_t second_rgb[3];
+    const uint8_t (*brightness_curve)[256]; /* NULL for identity/already-faded sources */
     bool second_valid; /* required for NEEDS_ALPHA_INPUT */
     bool apply_palette_fade;
     bool forced_blank;
@@ -50,6 +51,15 @@ bool Port_Background_ComposeWindowMargins(uint32_t* output, int pitch,
                                           const PortEffectSpan* spans, int span_count,
                                           const PortBackgroundComposeRow* outside_rows,
                                           int outside_row_count, const uint8_t outside_rgb[3]);
+
+/* As above, with independent resolved effects for left and right edges.
+ * Additional top/bottom rows split at the native horizontal midpoint. */
+bool Port_Background_ComposeEdgeMargins(uint32_t* output, int pitch,
+                                        const PortBackgroundComposition* composition,
+                                        const PortBackgroundComposeRow* right_rows, int right_count,
+                                        const PortEffectSpan* spans, int span_count,
+                                        const PortBackgroundComposeRow* outside_rows, int outside_count,
+                                        const uint8_t outside_rgb[3]);
 
 #ifdef __cplusplus
 }

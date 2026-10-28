@@ -6,8 +6,9 @@
 
 static uint32_t canvas[192 * 576];
 static uint8_t rgba[192 * 569 * 4];
-static PortBackgroundComposeRow rows[192], outside[192];
+static PortBackgroundComposeRow rows[192], outside[192], right_rows[192];
 static PortEffectSpan spans[192];
+static uint8_t curve[3][256];
 
 int main(void) {
     const int sizes[][2] = {{240,160},{256,192},{285,160},{374,160},{569,160}};
@@ -37,11 +38,29 @@ int main(void) {
     assert(!Port_Background_ComposeMargins(canvas,576,&c));
     rows[1].second_valid = true;
     rows[1].second_rgb[0]=20; rows[1].second_rgb[1]=40; rows[1].second_rgb[2]=60;
+    for (int channel = 0; channel < 3; ++channel)
+        for (int value = 0; value < 256; ++value) curve[channel][value] = value / 2;
+    rows[3].brightness_curve = (const uint8_t (*)[256])curve;
     rows[2].forced_blank = true;
     assert(Port_Background_ComposeMargins(canvas,576,&c));
     assert(canvas[0] == 0xff9da7b1u);
     assert(canvas[576] == 0xff3c3c3cu);
     assert(canvas[1152] == 0xffffffffu);
+    assert(canvas[1728] == 0xff1e2832u);
+    /* Distinct actual second inputs on the two native edges. */
+    for (int y = 0; y < 160; ++y) {
+        rows[y] = (PortBackgroundComposeRow){0}; right_rows[y] = rows[y];
+        rows[y].layer_effect = right_rows[y].layer_effect = PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT;
+        rows[y].second_valid = right_rows[y].second_valid = true;
+        rows[y].coefficient = right_rows[y].coefficient = 0x1000;
+        rows[y].second_rgb[0] = 10; right_rows[y].second_rgb[0] = 200;
+    }
+    assert(Port_Background_ComposeEdgeMargins(canvas,576,&c,right_rows,160,NULL,0,NULL,0,NULL));
+    assert(canvas[0] == 0xff00000a && canvas[284] == 0xff0000c8);
+    canvas[0] = 0x12345678; right_rows[159].second_valid = false;
+    assert(!Port_Background_ComposeEdgeMargins(canvas,576,&c,right_rows,160,NULL,0,NULL,0,NULL));
+    assert(canvas[0] == 0x12345678);
+
     /* Exercise the real published iris geometry at every native radius. */
     const uint8_t black[3] = {0, 0, 0};
     for (unsigned i = 0; i < sizeof(sizes)/sizeof(sizes[0]); ++i) {

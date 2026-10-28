@@ -13,6 +13,8 @@
 #include "port_widescreen.h"
 #include "port_oam.h"
 #include "port_title_cap.h"
+#include "port_background_runtime.h"
+#include "port_background_compose.h"
 
 #ifdef launcher
 #include "tmc_launcher.h"
@@ -272,13 +274,121 @@ static bool Port_PPU_ComposeTitleCap(void) {
     if (!Port_TitleCap_CanDraw(geometry->canvas.width, geometry->canvas.height, pitch, native.x, native.y,
                                heading->x, heading->y, frame, available, sizeof(gVram), gIoMem))
         return false;
+    /* Prepare all raster effects before touching the frame. Unknown source
+     * ownership, mixed brightness and windows retain the existing safe
+     * black-margin path until their policies are classified. */
+    const PortBackgroundRuntimeSnapshot* bg = Port_BackgroundRuntime_Get();
+    PortBackgroundComposeRow effectRows[MODE1_MAX_RENDER_HEIGHT] = {};
+    PortBackgroundComposeRow rightRows[MODE1_MAX_RENDER_HEIGHT] = {};
+    PortBackgroundComposeRow outsideRows[MODE1_MAX_RENDER_HEIGHT] = {};
+    PortEffectSpan irisRows[MODE1_MAX_RENDER_HEIGHT];
+    bool useIris = false;
+    bool haveArt = bg->effect_policy_valid && bg->source == PORT_BACKGROUND_SOURCE_IMAGE &&
+                   bg->canvas.width == geometry->canvas.width && bg->canvas.height == geometry->canvas.height &&
+                   bg->native.x == native.x && bg->native.y == native.y &&
+                   (!bg->rgba || (bg->width == geometry->canvas.width && bg->height == geometry->canvas.height));
+    unsigned capLayer = 5;
+    uint8_t curves[3][256];
+    int sourceBrightness = -1;
+    if (haveArt) {
+        for (unsigned bank = 0; bank < 16; ++bank) {
+            if (!(bg->effect_policy.banks & (1u << bank))) continue;
+            if (sourceBrightness < 0) sourceBrightness = bg->brightness[bank];
+            else if (sourceBrightness != bg->brightness[bank]) haveArt = false;
+        }
+        if (sourceBrightness != 1) {
+            if (!gRomData || sourceBrightness < 0 || sourceBrightness > 2) haveArt = false;
+            else {
+                uint16_t table[3][32];
+                for (int ch = 0; ch < 3; ++ch) for (int k = 0; k < 32; ++k) {
+                    size_t offset = 0x0fcc + sourceBrightness * 0xc0 + ch * 0x40 + k * 2;
+                    table[ch][k] = gRomData[offset] | (uint16_t)gRomData[offset + 1] << 8;
+                }
+                Port_Background_BuildBrightnessCurve(table, curves);
+            }
+        }
+        unsigned layers = bg->effect_policy.layers;
+        for (unsigned n = 0; n < 6; ++n) if (layers & (1u << n)) { capLayer = n; break; }
+        const uint16_t backdrop = gBgPltt[0];
+        useIris = Port_Effect_ResolveFadeIris(geometry->canvas.width, geometry->canvas.height, native.x, native.y,
+                                              irisRows, MODE1_MAX_RENDER_HEIGHT);
+        const uint8_t second[3] = {(uint8_t)((backdrop & 31) << 3),
+                                   (uint8_t)(((backdrop >> 5) & 31) << 3),
+                                   (uint8_t)(((backdrop >> 10) & 31) << 3)};
+        for (int y = 0; y < geometry->canvas.height && haveArt; ++y) {
+            const uint8_t* io = virtuappu_mode1_frame_io_for_line(y - native.y);
+            if (!io) { haveArt = false; break; }
+            const unsigned display = io[0] | (unsigned)io[1] << 8;
+            const unsigned blend = io[0x50] | (unsigned)io[0x51] << 8;
+            const unsigned alpha = io[0x52] | (unsigned)io[0x53] << 8;
+            const unsigned brightness = io[0x54] | (unsigned)io[0x55] << 8;
+            const unsigned window = display & 0xe000;
+            if ((display & 0x80) || (window && (!useIris || window != 0x2000 ||
+                (io[0x48] & 0x3f) != 0x3f || (io[0x4a] & 0x3f) != 0))) { haveArt = false; break; }
+            if (!window && useIris) { haveArt = false; break; }
+            outsideRows[y].layer_effect = PORT_LAYER_EFFECT_NONE;
+            int leftLayer = layers == 8 ? 5 : -1, rightLayer = leftLayer;
+            uint8_t leftRgb[3] = {second[0], second[1], second[2]};
+            uint8_t rightRgb[3] = {second[0], second[1], second[2]};
+            if (layers == 4 && Port_Background_ResolveLayerEffect(layers, blend, 1) ==
+                                   PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT) {
+                /* BG2 reference panels can blend against BG3. Sample each
+                 * native edge's real next layer and its live palette color. */
+                if (geometry->canvas.height != 160) { haveArt = false; break; }
+                unsigned left, right; uint32_t lc, rc;
+                if (!virtuappu_mode1_sample_below_bg(y, 0, 2, &left, &lc) ||
+                    !virtuappu_mode1_sample_below_bg(y, 239, 2, &right, &rc)) { haveArt = false; break; }
+                leftLayer = (int)left; rightLayer = (int)right;
+                for (unsigned ch = 0; ch < 3; ++ch) {
+                    leftRgb[ch] = (uint8_t)(lc >> (8 * ch));
+                    rightRgb[ch] = (uint8_t)(rc >> (8 * ch));
+                }
+            }
+            if (!Port_BackgroundRuntime_ResolveEffect(bg, layers, bg->effect_policy.banks, blend, alpha, brightness,
+                                                     1, leftLayer, leftLayer >= 0 ? leftRgb : nullptr,
+                                                     &effectRows[y]) ||
+                !Port_BackgroundRuntime_ResolveEffect(bg, layers, bg->effect_policy.banks, blend, alpha, brightness,
+                                                     1, rightLayer, rightLayer >= 0 ? rightRgb : nullptr,
+                                                     &rightRows[y])) { haveArt = false; break; }
+            if (sourceBrightness != 1) effectRows[y].brightness_curve = rightRows[y].brightness_curve = curves;
+            /* A mixed second-target mask cannot describe the cap's actual
+             * background with a single layer. */
+            if ((blend & 0x10) && ((blend >> 6) & 3) == 1) {
+                unsigned targets = (blend >> 8) & layers;
+                if (targets && targets != layers) haveArt = false;
+            }
+        }
+    }
     const uint32_t fill = (gIoMem[0] & 0x80) ? 0xffffffffu : 0xff000000u;
     if (!Port_TitleCap_ExpandFrame(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height,
                                    pitch, native.x, native.y, nullptr, 0, fill))
         return false;
-    Port_TitleCap_Draw(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
-                       native.x, native.y, heading->x, heading->y, frame, available,
-                       gVram, sizeof(gVram), gObjPltt, gIoMem, 5, virtuappu_mode1_frame_io_for_line);
+    if (haveArt) {
+        PortBackgroundComposition composition = {geometry->canvas, native, bg->rgba, bg->width * 4,
+                                                  {0, 0, 0}, effectRows, geometry->canvas.height};
+        const uint16_t backdrop = gBgPltt[0];
+        const uint8_t outside[3] = {(uint8_t)((backdrop & 31) << 3),
+                                    (uint8_t)(((backdrop >> 5) & 31) << 3),
+                                    (uint8_t)(((backdrop >> 10) & 31) << 3)};
+        bool composed = Port_Background_ComposeEdgeMargins(virtuappu_frame_buffer, pitch, &composition,
+                                                          rightRows, geometry->canvas.height,
+                                                          useIris ? irisRows : nullptr,
+                                                          useIris ? geometry->canvas.height : 0,
+                                                          useIris ? outsideRows : nullptr,
+                                                          useIris ? geometry->canvas.height : 0,
+                                                          useIris ? outside : nullptr);
+        if (!composed) haveArt = false;
+    }
+    if (haveArt && useIris)
+        Port_TitleCap_DrawIris(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
+                               native.x, native.y, heading->x, heading->y, frame, available,
+                               gVram, sizeof(gVram), gObjPltt, gIoMem, capLayer,
+                               virtuappu_mode1_frame_io_for_line, irisRows, geometry->canvas.height);
+    else
+        Port_TitleCap_Draw(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
+                           native.x, native.y, heading->x, heading->y, frame, available,
+                           gVram, sizeof(gVram), gObjPltt, gIoMem, haveArt ? capLayer : 5,
+                           virtuappu_mode1_frame_io_for_line);
     sComposedWidth = geometry->canvas.width;
     sComposedHeight = geometry->canvas.height;
     return true;

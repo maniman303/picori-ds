@@ -37,6 +37,8 @@ static unsigned sEffectClears;
 void Port_Effect_ClearFadeIris(void) { ++sEffectClears; }
 static unsigned sBackgroundResets;
 void Port_Background_Reset(void) { ++sBackgroundResets; }
+static unsigned sPaletteInvalidations;
+void Port_Background_InvalidatePaletteFades(void) { ++sPaletteInvalidations; }
 u8 gEwram[0x40000], gIwram[0x8000], gVram[0x18000], gIoMem[0x400];
 u32 gRand;
 u64 gPracticeFrame;
@@ -117,6 +119,7 @@ int main(void) {
     assert(Snapshot_Restore(&s));
     assert(sEffectClears == 1);
     assert(sBackgroundResets == 1);
+    assert(sPaletteInvalidations == 1);
     assert(gEntityLists[0].first == saved && gEntityLists[0].last == saved);
     assert(saved->next == (Entity*)&gEntityLists[0] && saved->prev == (Entity*)&gEntityLists[0]);
     assert(gEntCount == 1 && gManagerCount == 2);

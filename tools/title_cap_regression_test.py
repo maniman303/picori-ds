@@ -12,7 +12,8 @@ with tempfile.TemporaryDirectory(prefix='tmc-title-cap-') as directory:
     cmd = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-Iport',
-        'tools/tests/title_cap.c', 'port/port_title_cap.c', '-o', str(binary)]
+        'tools/tests/title_cap.c', 'port/port_title_cap.c', 'port/port_background_compose.c',
+        'port/port_background_effect.c', '-o', str(binary)]
     subprocess.run(cmd, cwd=root, check=True)
     env = os.environ.copy()
     env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')

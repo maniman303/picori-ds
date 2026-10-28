@@ -1,4 +1,30 @@
 #include "port_background_effect.h"
+#include <string.h>
+
+static PortPaletteFade sCommittedFades[16];
+static uint16_t sValidFades;
+static uint8_t sCommittedBrightness[16];
+
+void Port_Background_InvalidatePaletteFades(void) {
+    memset(sCommittedFades, 0, sizeof(sCommittedFades));
+    sValidFades = 0;
+    memset(sCommittedBrightness, 0, sizeof(sCommittedBrightness));
+}
+
+void Port_Background_RecordPaletteFade(unsigned bank, PortPaletteFade fade, uint8_t brightness) {
+    if (bank >= 16) return;
+    if (brightness > 2 || fade.intensity > 256 || (fade.intensity && fade.color != 0 && fade.color != 248)) {
+        sValidFades &= (uint16_t)~(1u << bank);
+        return;
+    }
+    sCommittedFades[bank] = fade;
+    sCommittedBrightness[bank] = brightness;
+    sValidFades |= (uint16_t)(1u << bank);
+}
+
+const PortPaletteFade* Port_Background_CommittedPaletteFades(void) { return sCommittedFades; }
+uint16_t Port_Background_ValidPaletteFades(void) { return sValidFades; }
+const uint8_t* Port_Background_CommittedBrightness(void) { return sCommittedBrightness; }
 
 static int valid_fade(PortPaletteFade fade) {
     return fade.intensity <= 256 &&
@@ -28,6 +54,21 @@ PortPaletteFadeResult Port_Background_ResolvePaletteFade(uint16_t source_banks,
     }
     *output = value;
     return PORT_PALETTE_FADE_UNIFORM;
+}
+
+PortPaletteFadeResult Port_Background_ResolveCommittedPaletteFade(uint16_t source_banks, PortPaletteFade* output) {
+    if (!source_banks || (source_banks & sValidFades) != source_banks) return PORT_PALETTE_FADE_INVALID;
+    return Port_Background_ResolvePaletteFade(source_banks, sCommittedFades, output);
+}
+
+void Port_Background_BuildBrightnessCurve(const uint16_t tables[3][32], uint8_t curves[3][256]) {
+    if (!tables || !curves) return;
+    for (unsigned ch = 0; ch < 3; ++ch) for (unsigned x = 0; x < 256; ++x) {
+        unsigned position = x * 31, lo = position / 255, rem = position % 255;
+        unsigned a = (tables[ch][lo] >> (ch * 5)) & 31;
+        unsigned b = (tables[ch][lo < 31 ? lo + 1 : lo] >> (ch * 5)) & 31;
+        curves[ch][x] = (uint8_t)((a * (255 - rem) + b * rem + 15) / 31);
+    }
 }
 
 int Port_Background_ApplyPaletteFade(uint8_t rgb[3], uint8_t alpha, PortPaletteFade fade) {

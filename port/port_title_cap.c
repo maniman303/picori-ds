@@ -53,15 +53,20 @@ bool Port_TitleCap_CanDraw(int width, int height, int pitch, int nx, int ny, int
     return !(read16(io) & 0x8000);
 }
 
-bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
+static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
                         int nx, int ny, int hx, int hy,
                         const uint8_t* frame, size_t frame_size,
                         const uint8_t* vram, size_t vram_size,
                         const uint16_t* palette, const uint8_t* io, unsigned background_layer,
-                        const uint8_t* (*io_for_line)(int)) {
+                        const uint8_t* (*io_for_line)(int), const PortEffectSpan* spans, int span_count) {
     if (!canvas || !vram || !palette || (background_layer > 3 && background_layer != 5) ||
         !Port_TitleCap_CanDraw(width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram_size, io))
         return false;
+    if (spans) {
+        if (span_count < height) return false;
+        for (int y = 0; y < height; ++y)
+            if (spans[y].left > spans[y].right || spans[y].right > width) return false;
+    }
     /* Sprite pieces include transparent padding after the right corner. Find
      * the actual outer edge in the live OBJ tile data instead of assuming
      * that the 128-pixel piece bounds are opaque. */
@@ -89,7 +94,7 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
         const uint16_t display = read16(line_io);
         if (!(display & 0x1000) || (display & (0x80 | 0x8000))) continue;
         unsigned window = 0x3f;
-        if (display & 0x6000) window = read16(line_io + 0x4a) & 0x3f;
+        if (display & 0x6000) window = read16(line_io + (spans ? 0x48 : 0x4a)) & 0x3f;
         if (!(window & 0x10)) continue;
         const int right_edge = right[(display & 0x40) != 0];
         if (right_edge < 7) continue;
@@ -100,6 +105,7 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
         if (eva > 16) eva = 16;
         if (evb > 16) evb = 16;
         for (int x = first_x; x < last_x; ++x) {
+            if (spans && (x < spans[y].left || x >= spans[y].right)) continue;
             int sx = x - nx;
             if (sx >= 0 && sx < 240 && y >= ny && y < ny + 160) continue;
             if (sx < 0) {
@@ -134,4 +140,22 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
         }
     }
     return true;
+}
+
+
+bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch, int nx, int ny, int hx, int hy,
+                        const uint8_t* frame, size_t frame_size, const uint8_t* vram, size_t vram_size,
+                        const uint16_t* palette, const uint8_t* io, unsigned background_layer,
+                        const uint8_t* (*io_for_line)(int)) {
+    return draw_cap(canvas, width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram, vram_size,
+                    palette, io, background_layer, io_for_line, NULL, 0);
+}
+
+bool Port_TitleCap_DrawIris(uint32_t* canvas, int width, int height, int pitch, int nx, int ny, int hx, int hy,
+                            const uint8_t* frame, size_t frame_size, const uint8_t* vram, size_t vram_size,
+                            const uint16_t* palette, const uint8_t* io, unsigned background_layer,
+                            const uint8_t* (*io_for_line)(int), const PortEffectSpan* spans, int span_count) {
+    if (!spans) return false;
+    return draw_cap(canvas, width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram, vram_size,
+                    palette, io, background_layer, io_for_line, spans, span_count);
 }

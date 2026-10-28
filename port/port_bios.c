@@ -8,6 +8,7 @@
 #include "ui.h"
 #include "port_screen_background.h"
 #include "port_background_runtime.h"
+#include "port_background_effect.h"
 #include "port_a11y_cues.h"
 #include "port_audio.h"
 #include "port_asset_loader.h"
@@ -1205,7 +1206,7 @@ void VBlankIntrWait(void) {
      * wait used the previous native image, and repeat presents must keep the
      * same background until the next completed upload. */
     Port_Background_PublishGameState();
-    Port_BackgroundRuntime_Publish(Port_Background_Published(), Port_Viewport_Get(), 0);
+    Port_BackgroundRuntime_Publish(Port_Background_Published(), Port_Viewport_Get(), 0, REGION_IS_EU);
 }
 
 /* ---- BIOS functions ---- */
@@ -1368,6 +1369,7 @@ void RegisterRamReset(u32 flags) {
     }
 
     if (flags & RESET_PALETTE) {
+        Port_Background_InvalidatePaletteFades();
         memset(gBgPltt, 0, sizeof(gBgPltt));
         memset(gObjPltt, 0, sizeof(gObjPltt));
     }
