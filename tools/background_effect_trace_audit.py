@@ -64,15 +64,20 @@ def check_traces(menus, fusion, credits, coverage, figurines=None, gameover=None
     if travel is not None:
         if images['fast_travel_background']['layer_mask'] != 0x08:
             raise ValueError('fast-travel source is not BG3')
-        frames = [r for r in travel if r.get('travel_field') == 1]
-        controls = {r['bldcnt'] for r in frames}
-        if not {0, 0x3648, 0x2f40}.issubset(controls):
-            raise ValueError('missing native fast-travel blend states')
-        # 0x3648 has BG3 as first target and backdrop among second targets.
-        if not any(r['bldcnt'] == 0x3648 and r['alpha'] == 0x0f01 for r in frames):
-            raise ValueError('missing native BG3/backdrop alpha coefficients')
-        result['fast_travel'] = dict(frames=len(frames), bldcnt=sorted(controls),
-                                     fade_masks=sorted({r['fade_mask'] for r in frames}))
+        # The audit's travel_field is an observation retained until gameplay
+        # restoration, not the lifetime of the installed screen. After cancel,
+        # gameplay registers can already be installed while that flag is set.
+        frames = [r for r in travel if r.get('travel_field') == 1
+                  and r.get('display_control') == 0x9f40]
+        if not frames or any(r['bldcnt'] != 0 for r in frames):
+            raise ValueError('unexpected effect on installed EU travel screen')
+        if any(not (r['fade_mask'] & (1 << 5)) for r in frames):
+            raise ValueError('travel BG3 palette bank excluded from fade')
+        result['fast_travel'] = dict(frames=len(frames), bldcnt=[0],
+                                     fade_masks=sorted({r['fade_mask'] for r in frames}),
+                                     excluded_replaced_frames=sum(
+                                         r.get('travel_field') == 1 and r.get('display_control') != 0x9f40
+                                         for r in travel))
     if prologue is not None:
         if any(images[f'prologue_{i:02d}']['layer_mask'] != 0x04 for i in range(1, 7)):
             raise ValueError('prologue image source is not BG2')

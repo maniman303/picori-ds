@@ -26,7 +26,7 @@ reference recipes. Twenty recipes use more than one BG palette bank.
 | Plain and titled pause backgrounds | BG3, bank 14 | Pause alpha `0x0e46` targets BG1/BG2 first and BG3 second. The heading OBJ is separate foreground. |
 | Pieces and techniques references | BG2, bank 13 | During a tab transition `0x0e46` can target BG2 as the first alpha input, with BG3 among the second targets. The actual second input is required; treating all alpha as local/no-op is incorrect. |
 | Fusion | BG1 banks 12–13, BG2 banks 11/13, BG3 bank 14 | Source ownership varies along the edges. The native success flash `0x3f90` brightens OBJ, not these BGs. Other source/second-layer combinations must use the actual current registers and window. |
-| Fast travel | BG3, bank 5 | Group 93 supplies one fixed source regardless of health. Retained interaction traces include `0x3648`/`0x0f01`, where BG3 is a first alpha target and backdrop is an eligible second target, as well as `0x2f40` and neutral states. The actual second input and confirmation/scene-handoff publication remain their separate task. |
+| Fast travel | BG3, bank 5 | Group 93 supplies one fixed source regardless of health. Installed EU travel frames have neutral BLDCNT; bank 5 receives the palette fade. BG3 has priority 3, so its immediate underlying layer is backdrop. The formerly attributed alpha registers occur after gameplay replaces the travel screen; see the boundary audit below. |
 | Prologue page 1 | BG2, banks 11–14 | Native `0x2244` makes BG2 an alpha first target; BG1 and backdrop are eligible second targets. Resolve the actual second input and per-bank fade state. |
 | Prologue pages 2–6 | BG2, banks 7–14 | The same `0x2244` policy applies; a single representative pixel does not describe the image. |
 | Credits 1–8, ending card | BG2, banks 7–14; backdrop bank 0 at transparent pixels | Credits `0x2442` uses BG1 as alpha first target and BG2 as second target beneath text. A mask excluding bank 15 does not exclude these image banks. |
@@ -54,9 +54,8 @@ compositor must use the corrected edge ownership and actual effect registers.
 
 `tools/background_effect_trace_audit.py` checks retained EU traces against the
 decoded source layers. The title ray, pieces tab transition, fusion flash,
-figurine prize, Game Over masks, fast-travel/prologue blend and credits text have distinct
-observed alpha/brightness timelines. These traces do not resolve all fast-travel,
-iris or regional intermediate effects.
+figurine prize, Game Over masks, prologue blend and credits text have distinct
+observed alpha/brightness timelines. These traces do not establish regional intermediate effects or complete compositor publication.
 
 `port/port_background_effect.{h,c}` supplies allocation-free, C/C++-compatible
 helpers for explicit per-bank palette state and BLDCNT targets. Zero-intensity
@@ -125,11 +124,48 @@ in `staffroll-language-verification.json`; historical summary counts are not
 retroactively changed.
 
 EU source-target resolution is complete for the available fixture; it does not
-claim intermediate screenshot acceptance for masked credits pixels or all
-fast-travel transitions. Region-specific effect acceptance, scene-wide
+claim intermediate screenshot acceptance for masked credits pixels or composed
+fast-travel margins. Region-specific effect acceptance, scene-wide
 windows/iris and full compositor publication remain separate tasks. The
 compositor must consume the ownership data and publish effects before any
 image-margin behavior is claimed. The HDMA/geometry interim task is complete: unsupported effects remain on the
 classified native-height fallback and fade-iris geometry is published for the
 future compositor. Physical RG budgets and 4:3/32:9 enablement are separate
 outstanding tasks.
+
+## Fast-travel effect and replacement boundary (2026-10-28)
+
+The complete EU/English interaction trace contains 16,999 frame observations
+with the installed travel display control `0x9f40`, including selection,
+enquiry, decline and outgoing fade; the independent selection/cancel trace has
+2,629. Every such observation has BLDCNT zero and fade mask `0xffffffff`,
+including bank 5. Thus no BG3 alpha second input is used in these observed travel
+frames. The native BG3 control `0x1e0b` has priority 3: among backgrounds BG3
+loses all equal-priority ties, and OBJ also precedes it, so the immediate layer
+under a visible BG3 pixel is backdrop. If a future classified travel effect
+uses BG3 as an alpha first target, apply the *live, already palette-faded*
+backdrop only when it is an enabled second target and the applicable window
+enables effects. Missing window or layer classification must fail closed; do
+not substitute black or assume an eligible target. Palette fade applies to the
+image's bank 5 before any layer effect, and must not be applied a second time
+to the live backdrop. Native foreground and its local blends remain native.
+
+The audit's `travel_field` is a lifetime observation, not a hardware snapshot:
+after cancellation it remains set while gameplay's display registers have
+already replaced the travel screen. Each retained trace contains 216 such
+observations. The earlier attribution of `0x3648` / `0x0f01` and `0x2f40`
+to installed travel was therefore incorrect. The adapter stages clear on the
+accepted handoff and identifies gameplay restoration on cancellation, with
+publication at the native VBlank boundary. A compositor must consume the
+latched source and matching raster/effect state, never this audit flag or a
+stale pre-handoff register sample. The retained interaction checker establishes
+the source through selection, enquiry, outgoing fade and replacement; actual
+margin publication and intermediate screenshot acceptance remain separate.
+USA/JP paths were reviewed in source, including their different decline route;
+no regional effect captures are claimed.
+
+`tools/background_effect_trace_audit.py` now restricts this EU observation to
+the installed display configuration and rejects unexpected effects or a mask
+excluding bank 5. Its regression includes gameplay registers while the audit
+flag remains set, and rejects an unexpected alpha effect on the installed
+screen. Display control is an audit discriminator, not a runtime context API.

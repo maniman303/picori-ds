@@ -40,11 +40,16 @@ class TraceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_traces(self.menus, self.fusion, self.credits, self.coverage, frames[:2])
 
-    def test_gameover_masks_and_travel_alpha_are_observed(self):
+    def test_gameover_masks_and_travel_screen_effects(self):
         self.coverage['images']['fast_travel_background'] = {'layer_mask': 8}
         gameover = [dict(task=3, fade_mask=m, bldcnt=0) for m in (0xffff0001, 0xffff, 0xffffffff)]
-        travel = [dict(travel_field=1, bldcnt=b, alpha=0x0f01, fade_mask=0xffffffff)
-                  for b in (0, 0x3648, 0x2f40)]
+        travel = [dict(travel_field=1, bldcnt=0, alpha=0, fade_mask=0xffffffff, display_control=0x9f40),
+                  dict(travel_field=1, bldcnt=0x3648, alpha=0x0f01, fade_mask=0xffffffff, display_control=0x1f40)]
+        result = check_traces(self.menus, self.fusion, self.credits, self.coverage, None, gameover, travel)
+        self.assertEqual(result['fast_travel']['excluded_replaced_frames'], 1)
+        invalid = [dict(travel[0], bldcnt=0x3648)]
+        with self.assertRaisesRegex(ValueError, 'unexpected effect'):
+            check_traces(self.menus, self.fusion, self.credits, self.coverage, None, gameover, invalid)
         check_traces(self.menus, self.fusion, self.credits, self.coverage, None, gameover, travel)
         gameover[0]['fade_mask'] = 0xffff0000
         with self.assertRaises(ValueError):

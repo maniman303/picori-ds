@@ -54,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 13 unchecked
+[the closure checklist](background-context-closure-checklist.md): 12 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -405,8 +405,16 @@ or tile alignment. Native-content centering continues to use floor offsets.
     --files .tmp/background-adapter-2026-10-28/files/trace.jsonl \
     --gameover .tmp/background-adapter-2026-10-28/gameover/trace.jsonl
   ```
-- [ ] Resolve fast-travel BG3 effect targets and source lifetime across selection,
+- [x] Resolve fast-travel BG3 effect targets and source lifetime across selection,
   confirmation/decline, cancel and travel transitions before compositor publication.
+  The [boundary audit](background-effect-target-audit.md#fast-travel-effect-and-replacement-boundary-2026-10-28)
+  corrects gameplay registers previously attributed to travel and defines the
+  backdrop and fail-closed policy for any future classified alpha state.
+- [x] Add a bounded, allocation-free margin composition kernel for prepared
+  RGBA or solid sources and explicit per-row fade, brightness, alpha-input and
+  forced-blank state. Reject unresolved inputs before writing and preserve the
+  native rectangle and pitch padding. This is a standalone prerequisite; it
+  does not publish game state, load artwork or enable runtime composition.
 - [ ] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
 - [ ] Include the verified title-frame completion mask/pose in foreground
