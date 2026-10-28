@@ -12,5 +12,5 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-compose-') as temp:
     subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c11', '-Wall', '-Wextra', '-Werror', '-Iport',
         'tools/tests/background_compose.c', 'port/port_background_compose.c',
-        'port/port_background_effect.c', '-o', str(binary)], cwd=root, check=True)
+        'port/port_background_effect.c', 'port/port_effect_geometry.c', '-o', str(binary)], cwd=root, check=True)
     subprocess.run([str(binary)], cwd=root, check=True)

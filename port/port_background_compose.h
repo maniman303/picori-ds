@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "port_background_effect.h"
+#include "port_effect_geometry.h"
 #include "port_viewport.h"
 
 #ifdef __cplusplus
@@ -38,6 +39,17 @@ typedef struct {
  * source, rows and output must not overlap. No allocation or game state. */
 bool Port_Background_ComposeMargins(uint32_t* output, int pitch,
                                     const PortBackgroundComposition* composition);
+
+/* Apply a previously classified scene-wide window to the margins. Pixels
+ * inside each span use composition's source and effects; pixels outside use
+ * the explicit solid source and per-row effects. Native pixels remain owned
+ * by the PPU. The caller resolves which native window policy is scene-wide;
+ * this function does not infer policy from register values. */
+bool Port_Background_ComposeWindowMargins(uint32_t* output, int pitch,
+                                          const PortBackgroundComposition* composition,
+                                          const PortEffectSpan* spans, int span_count,
+                                          const PortBackgroundComposeRow* outside_rows,
+                                          int outside_row_count, const uint8_t outside_rgb[3]);
 
 #ifdef __cplusplus
 }

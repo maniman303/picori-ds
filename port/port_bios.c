@@ -7,6 +7,7 @@
 #include "subtask.h"
 #include "ui.h"
 #include "port_screen_background.h"
+#include "port_background_runtime.h"
 #include "port_a11y_cues.h"
 #include "port_audio.h"
 #include "port_asset_loader.h"
@@ -1204,6 +1205,7 @@ void VBlankIntrWait(void) {
      * wait used the previous native image, and repeat presents must keep the
      * same background until the next completed upload. */
     Port_Background_PublishGameState();
+    Port_BackgroundRuntime_Publish(Port_Background_Published(), Port_Viewport_Get(), 0);
 }
 
 /* ---- BIOS functions ---- */

@@ -1,3 +1,4 @@
+#include "port_background_runtime.h"
 #include "port_asset_loader.h"
 #include "port_asset_pipeline.hpp"
 #include "port_asset_pak_loader.hpp"
@@ -1190,6 +1191,7 @@ bool EnsureAssetGroupCache() {
         return false;
     }
 
+    Port_BackgroundRuntime_Init(gAssetGroupCache.assetsRoot.string().c_str());
     gAssetGroupCache.ready = true;
     return true;
 }
@@ -1997,6 +1999,7 @@ extern "C" int Port_PakEntryCount(void) {
 }
 
 extern "C" void Port_AssetLoader_Reload(void) {
+    Port_BackgroundRuntime_Init(NULL);
     /* Reset everything except the binary file cache (cheap to refill)
      * and the pak set (managed independently by Port_MountAssetPaks).
      * Subsequent EnsureAssetGroupCache calls will re-scan and pick up

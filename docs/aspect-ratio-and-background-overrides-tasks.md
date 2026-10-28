@@ -415,6 +415,18 @@ or tile alignment. Native-content centering continues to use floor offsets.
   forced-blank state. Reject unresolved inputs before writing and preserve the
   native rectangle and pitch padding. This is a standalone prerequisite; it
   does not publish game state, load artwork or enable runtime composition.
+- [x] Extend the margin kernel with explicit scene-wide window spans and
+  independently resolved outside color/effects. Test the published iris at
+  every native radius in all five profiles, preserve native pixels and pitch
+  padding, and reject invalid spans or unresolved effects before any write.
+  Window classification and runtime publication remain separate.
+- [x] Connect installed-screen publication to the bounded artwork cache at
+  VBlank. Publish the current source, native rectangle and raw image pointer
+  without re-decoding unchanged keys; withdraw images for gameplay, parity,
+  native geometry and missing files. The boundary regression covers profile
+  and context changes, cached failures and an unavailable asset root. Raw
+  cache pixels have no renderer-owned resource and use generation zero here.
+  Effect resolution and renderer consumption remain separate.
 - [ ] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
 - [ ] Include the verified title-frame completion mask/pose in foreground

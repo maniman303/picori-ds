@@ -1,30 +1,42 @@
 #include "port_background_compose.h"
 #include <stddef.h>
 
-bool Port_Background_ComposeMargins(uint32_t* output, int pitch, const PortBackgroundComposition* c) {
+static bool valid_row(const PortBackgroundComposeRow* r) {
+    if (r->layer_effect != PORT_LAYER_EFFECT_NONE && r->layer_effect != PORT_LAYER_EFFECT_BRIGHTEN &&
+        r->layer_effect != PORT_LAYER_EFFECT_DARKEN && r->layer_effect != PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT)
+        return false;
+    if (r->layer_effect == PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT && !r->second_valid) return false;
+    return !r->apply_palette_fade || (r->palette_fade.intensity <= 256 &&
+        (!r->palette_fade.intensity || r->palette_fade.color == 0 || r->palette_fade.color == 248));
+}
+
+static bool compose(uint32_t* output, int pitch, const PortBackgroundComposition* c,
+                    const PortEffectSpan* spans, int span_count,
+                    const PortBackgroundComposeRow* outside_rows, int outside_count,
+                    const uint8_t outside_rgb[3]) {
     if (!output || !c || !c->rows || c->canvas.x != 0 || c->canvas.y != 0 ||
         c->canvas.width < 240 || c->canvas.width > 569 || c->canvas.height < 160 ||
         c->canvas.height > 192 || pitch < c->canvas.width || c->row_count < c->canvas.height ||
         c->native.width != 240 || c->native.height != 160 || c->native.x < 0 || c->native.y < 0 ||
         c->native.x > c->canvas.width - 240 || c->native.y > c->canvas.height - 160 ||
         (c->rgba && c->rgba_pitch_bytes < c->canvas.width * 4)) return false;
+    if (spans && (!outside_rows || !outside_rgb || span_count < c->canvas.height ||
+                  outside_count < c->canvas.height)) return false;
     for (int y = 0; y < c->canvas.height; ++y) {
-        const PortBackgroundComposeRow* r = &c->rows[y];
-        if (r->layer_effect != PORT_LAYER_EFFECT_NONE && r->layer_effect != PORT_LAYER_EFFECT_BRIGHTEN &&
-            r->layer_effect != PORT_LAYER_EFFECT_DARKEN && r->layer_effect != PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT)
-            return false;
-        if (r->layer_effect == PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT && !r->second_valid) return false;
-        if (r->apply_palette_fade && (r->palette_fade.intensity > 256 ||
-            (r->palette_fade.intensity && r->palette_fade.color != 0 && r->palette_fade.color != 248)))
-            return false;
+        if (!valid_row(&c->rows[y])) return false;
+        if (spans && (!valid_row(&outside_rows[y]) || spans[y].left > spans[y].right ||
+                      spans[y].right > c->canvas.width)) return false;
     }
     for (int y = 0; y < c->canvas.height; ++y) {
-        const PortBackgroundComposeRow* r = &c->rows[y];
         for (int x = 0; x < c->canvas.width; ++x) {
             if (x >= c->native.x && x < c->native.x + 240 && y >= c->native.y && y < c->native.y + 160)
                 continue;
+            const bool outside = spans && (x < spans[y].left || x >= spans[y].right);
+            const PortBackgroundComposeRow* r = outside ? &outside_rows[y] : &c->rows[y];
             uint8_t rgb[3], alpha = 255;
-            if (c->rgba) {
+            if (outside) {
+                rgb[0] = outside_rgb[0]; rgb[1] = outside_rgb[1]; rgb[2] = outside_rgb[2];
+            } else if (c->rgba) {
                 const uint8_t* p = c->rgba + (size_t)y * c->rgba_pitch_bytes + (size_t)x * 4;
                 rgb[0] = p[0]; rgb[1] = p[1]; rgb[2] = p[2]; alpha = p[3];
             } else {
@@ -42,4 +54,17 @@ bool Port_Background_ComposeMargins(uint32_t* output, int pitch, const PortBackg
         }
     }
     return true;
+}
+
+
+bool Port_Background_ComposeMargins(uint32_t* output, int pitch, const PortBackgroundComposition* c) {
+    return compose(output, pitch, c, NULL, 0, NULL, 0, NULL);
+}
+
+bool Port_Background_ComposeWindowMargins(uint32_t* output, int pitch, const PortBackgroundComposition* c,
+                                          const PortEffectSpan* spans, int span_count,
+                                          const PortBackgroundComposeRow* outside_rows, int outside_count,
+                                          const uint8_t outside_rgb[3]) {
+    if (!spans) return false;
+    return compose(output, pitch, c, spans, span_count, outside_rows, outside_count, outside_rgb);
 }
