@@ -272,22 +272,13 @@ static bool Port_PPU_ComposeTitleCap(void) {
     if (!Port_TitleCap_CanDraw(geometry->canvas.width, geometry->canvas.height, pitch, native.x, native.y,
                                heading->x, heading->y, frame, available, sizeof(gVram), gIoMem))
         return false;
-    for (int y = 159; y >= 0; --y)
-        std::memmove(virtuappu_frame_buffer + (y + native.y) * pitch + native.x,
-                     virtuappu_frame_buffer + y * pitch, 240 * sizeof(uint32_t));
     const uint32_t fill = (gIoMem[0] & 0x80) ? 0xffffffffu : 0xff000000u;
-    for (int y = 0; y < geometry->canvas.height; ++y) {
-        uint32_t* row = virtuappu_frame_buffer + y * pitch;
-        if (y < native.y || y >= native.y + 160) {
-            std::fill_n(row, geometry->canvas.width, fill);
-        } else {
-            std::fill_n(row, native.x, fill);
-            std::fill_n(row + native.x + 240, geometry->canvas.width - native.x - 240, fill);
-        }
-    }
+    if (!Port_TitleCap_ExpandFrame(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height,
+                                   pitch, native.x, native.y, nullptr, 0, fill))
+        return false;
     Port_TitleCap_Draw(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
                        native.x, native.y, heading->x, heading->y, frame, available,
-                       gVram, sizeof(gVram), gObjPltt, gIoMem, virtuappu_mode1_frame_io_for_line);
+                       gVram, sizeof(gVram), gObjPltt, gIoMem, 5, virtuappu_mode1_frame_io_for_line);
     sComposedWidth = geometry->canvas.width;
     sComposedHeight = geometry->canvas.height;
     return true;

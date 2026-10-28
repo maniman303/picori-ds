@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 21 unchecked
+[the closure checklist](background-context-closure-checklist.md): 20 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -317,6 +317,11 @@ or tile alignment. Native-content centering continues to use floor offsets.
   EU software captures verify the missing-image fallback and an unchanged
   native crop. OBJ-window scenes still fail closed; runtime artwork composition
   and other regions and presenters require validation before closing this task.
+  The in-place margin preparation now accepts an already effect-resolved canvas,
+  and the cap accepts an explicit second-target layer for alpha blending. The
+  title-cap regression covers all profile geometries, animation, transparent
+  pixels and full-precision background blending; runtime artwork publication
+  remains a separate prerequisite.
 - [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
@@ -350,10 +355,15 @@ or tile alignment. Native-content centering continues to use floor offsets.
 
 ## 6. Artwork loading
 
-- [ ] Decode exact-size ordinary PNGs with libpng limits and safe error cleanup;
+- [x] Decode exact-size ordinary PNGs with libpng limits and safe error cleanup;
   resolve only the selected ratio and exact shared family/health filename. Never
   substitute another health state or menu family. Validate width and height
   against the table above, including ceiling-rounded widths.
+  The bounded loader accepts a catalog context and selected profile, preserves
+  the caller's destination on failure and normalizes ordinary PNGs to RGBA8.
+  Its ROM-free regression covers all family/health combinations and profile
+  sizes, fast travel, transparency, interlacing, corrupt and mismatched files.
+  Runtime publication, caching and effects remain separate tasks below.
 - [ ] Resolve all five menu families independently; key cache/publication by
   family/image ID plus installed health, ratio and renderer generation. Test
   missing new files with old plain-menu art present: black, never a family alias.

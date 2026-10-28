@@ -1,4 +1,31 @@
 #include "port_title_cap.h"
+#include <string.h>
+
+bool Port_TitleCap_ExpandFrame(uint32_t* canvas, int width, int height, int pitch,
+                               int nx, int ny, const uint32_t* margins,
+                               int margins_pitch, uint32_t fill) {
+    if (!canvas || width < 240 || width > 569 || height < 160 || height > 192 ||
+        pitch < width || nx < 0 || ny < 0 || nx > width - 240 || ny > height - 160 ||
+        (margins && margins_pitch < width))
+        return false;
+    for (int y = 159; y >= 0; --y)
+        memmove(canvas + (size_t)(y + ny) * pitch + nx,
+                canvas + (size_t)y * pitch, 240 * sizeof(*canvas));
+    for (int y = 0; y < height; ++y) {
+        uint32_t* row = canvas + (size_t)y * pitch;
+        const uint32_t* source = margins ? margins + (size_t)y * margins_pitch : NULL;
+        int left = (y >= ny && y < ny + 160) ? nx : width;
+        int right = (y >= ny && y < ny + 160) ? nx + 240 : width;
+        if (source) {
+            memcpy(row, source, (size_t)left * sizeof(*row));
+            memcpy(row + right, source + right, (size_t)(width - right) * sizeof(*row));
+        } else {
+            for (int x = 0; x < left; ++x) row[x] = fill;
+            for (int x = right; x < width; ++x) row[x] = fill;
+        }
+    }
+    return true;
+}
 
 static uint16_t read16(const uint8_t* p) { return (uint16_t)(p[0] | (uint16_t)p[1] << 8); }
 
@@ -30,9 +57,9 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
                         int nx, int ny, int hx, int hy,
                         const uint8_t* frame, size_t frame_size,
                         const uint8_t* vram, size_t vram_size,
-                        const uint16_t* palette, const uint8_t* io,
+                        const uint16_t* palette, const uint8_t* io, unsigned background_layer,
                         const uint8_t* (*io_for_line)(int)) {
-    if (!canvas || !vram || !palette ||
+    if (!canvas || !vram || !palette || (background_layer > 3 && background_layer != 5) ||
         !Port_TitleCap_CanDraw(width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram_size, io))
         return false;
     /* Sprite pieces include transparent padding after the right corner. Find
@@ -85,19 +112,25 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch,
             if (!index) continue;
             uint16_t color = palette[80 + index];
             unsigned c[3] = {color & 31u, (color >> 5) & 31u, (color >> 10) & 31u};
+            uint32_t back = canvas[(size_t)y * pitch + x];
             if ((window & 0x20) && (blend & 0x10)) {
                 unsigned effect = (blend >> 6) & 3;
-                uint32_t back = canvas[(size_t)y * pitch + x];
                 for (int ch = 0; ch < 3; ++ch) {
                     if (effect == 2) c[ch] += ((31 - c[ch]) * amount) >> 4;
                     if (effect == 3) c[ch] -= (c[ch] * amount) >> 4;
-                    if (effect == 1 && (blend & 0x2000)) {
-                        c[ch] = (c[ch] * eva + ((back >> (ch * 8 + 3)) & 31u) * evb) >> 4;
-                        if (c[ch] > 31) c[ch] = 31;
-                    }
                 }
             }
-            canvas[(size_t)y * pitch + x] = 0xff000000u | c[0] << 3 | c[1] << 11 | c[2] << 19;
+            uint32_t result = 0xff000000u;
+            for (int ch = 0; ch < 3; ++ch) {
+                unsigned value = c[ch] << 3;
+                if ((window & 0x20) && (blend & 0x10) && ((blend >> 6) & 3) == 1 &&
+                    (blend & (1u << (8 + background_layer)))) {
+                    value = (value * eva + ((back >> (ch * 8)) & 255u) * evb) >> 4;
+                    if (value > 255) value = 255;
+                }
+                result |= value << (ch * 8);
+            }
+            canvas[(size_t)y * pitch + x] = result;
         }
     }
     return true;
