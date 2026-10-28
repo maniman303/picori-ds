@@ -25,6 +25,7 @@
 #include "port_gba_mem.h"
 #include "port_softslots.h"
 #include "port_repro.h"
+#include "port_oam.h"
 #include "rando/rando_runtime.h"
 #endif
 
@@ -274,6 +275,10 @@ void sub_080A5128(void) {
     } else {
         r5 = 0x1fb;
     }
+#ifdef PC_PORT
+    if (gPauseMenuOptions.screen != PauseMenuScreen_7 && gPauseMenuOptions.screen != PauseMenuScreen_8)
+        Port_Oam_RecordMenuHeading(p[0].x, p[0].y, r5);
+#endif
     DrawDirect(r5, 0);
     gOamCmd.x = p[1].x;
     gOamCmd.y = p[1].y;

@@ -12,6 +12,7 @@
 #include "port_touch_controls.h"
 #include "port_widescreen.h"
 #include "port_oam.h"
+#include "port_title_cap.h"
 
 #ifdef launcher
 #include "tmc_launcher.h"
@@ -26,6 +27,7 @@
 #include <cstring>
 #include <cmath>
 #include <climits>
+#include <algorithm>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -42,6 +44,9 @@ extern "C" void kmp_set_blocktime(int msec);
  * task field at known offset 2 (interruptFlag, sleepStatus, task —
  * include/main.h). C linkage matches the engine's Main gMain. */
 extern "C" uint8_t gMain[]; // fix for MSVC (UWP PORT)
+extern "C" void* sub_080AD8F0(uint32_t sprite, uint32_t frame);
+extern "C" uint32_t gFrameObjLists[];
+extern "C" uint32_t Port_FrameObjListsSizeForRegion(void);
 /* Phase-timer hooks (defined in port_bios.c, C linkage). */
 extern "C" int Port_Profile_Enabled(void);
 extern "C" uint64_t gPortProfileRenderNs;
@@ -224,16 +229,68 @@ static SDL_Texture* Port_PPU_EnsureTexture(SDL_Texture** slot, int* curW, int* c
     return *slot;
 }
 
+static int sComposedWidth, sComposedHeight;
+
 static const uint32_t* Port_PPU_SelectPresentFrame(int* outW, int* outH, int* outPitchBytes) {
-    const int visibleW = virtuappu_mode1_frame_width();
+    const int visibleW = sComposedWidth ? sComposedWidth : virtuappu_mode1_frame_width();
     if (outW)
         *outW = visibleW;
     if (outH)
-        *outH = virtuappu_mode1_frame_height();
+        *outH = sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height();
     if (outPitchBytes) {
         *outPitchBytes = virtuappu_mode1_frame_pitch() * static_cast<int>(sizeof(uint32_t));
     }
     return virtuappu_frame_buffer;
+}
+
+extern "C" const uint32_t* Port_PPU_GetComposedFrame(int* width, int* height, int* pitchPixels) {
+    int pitchBytes = 0;
+    const uint32_t* frame = Port_PPU_SelectPresentFrame(width, height, &pitchBytes);
+    if (pitchPixels) *pitchPixels = pitchBytes / (int)sizeof(uint32_t);
+    return frame;
+}
+
+/* The PPU buffer already has the bounded canvas capacity. Move native rows
+ * backwards in place so no second full-frame allocation is needed. */
+static bool Port_PPU_ComposeTitleCap(void) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    const PortOamMenuHeading* heading = Port_Oam_MenuHeading();
+    if (!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) || !heading->valid ||
+        geometry->flags || (geometry->canvas.width == 240 && geometry->canvas.height == 160) ||
+        virtuappu_mode1_frame_width() != 240 || virtuappu_mode1_frame_height() != 160 ||
+        geometry->canvas.width > virtuappu_mode1_frame_pitch() || geometry->canvas.height > MODE1_MAX_RENDER_HEIGHT)
+        return false;
+    const uint8_t* frame = static_cast<const uint8_t*>(sub_080AD8F0(heading->sprite, 0));
+    const uintptr_t base = reinterpret_cast<uintptr_t>(gFrameObjLists);
+    const uintptr_t address = reinterpret_cast<uintptr_t>(frame);
+    const size_t size = Port_FrameObjListsSizeForRegion();
+    if (!frame || address < base || address - base >= size)
+        return false;
+    const size_t available = size - (address - base);
+    const int pitch = virtuappu_mode1_frame_pitch();
+    const PortViewportRect native = geometry->nativeContent;
+    if (!Port_TitleCap_CanDraw(geometry->canvas.width, geometry->canvas.height, pitch, native.x, native.y,
+                               heading->x, heading->y, frame, available, sizeof(gVram), gIoMem))
+        return false;
+    for (int y = 159; y >= 0; --y)
+        std::memmove(virtuappu_frame_buffer + (y + native.y) * pitch + native.x,
+                     virtuappu_frame_buffer + y * pitch, 240 * sizeof(uint32_t));
+    const uint32_t fill = (gIoMem[0] & 0x80) ? 0xffffffffu : 0xff000000u;
+    for (int y = 0; y < geometry->canvas.height; ++y) {
+        uint32_t* row = virtuappu_frame_buffer + y * pitch;
+        if (y < native.y || y >= native.y + 160) {
+            std::fill_n(row, geometry->canvas.width, fill);
+        } else {
+            std::fill_n(row, native.x, fill);
+            std::fill_n(row + native.x + 240, geometry->canvas.width - native.x - 240, fill);
+        }
+    }
+    Port_TitleCap_Draw(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
+                       native.x, native.y, heading->x, heading->y, frame, available,
+                       gVram, sizeof(gVram), gObjPltt, gIoMem, virtuappu_mode1_frame_io_for_line);
+    sComposedWidth = geometry->canvas.width;
+    sComposedHeight = geometry->canvas.height;
+    return true;
 }
 
 static void Port_PPU_LoadConfig(void) {
@@ -302,6 +359,14 @@ extern "C" void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int f
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     const PortViewportRect canvas = geometry->canvas;
     const PortViewportRect native = geometry->nativeContent;
+    if ((geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+        geometry->effectiveAspect != PORT_ASPECT_NATIVE_3_2 && canvas.width >= 240 && canvas.height >= 160 &&
+        FW > 0 && FH > 0 && (int64_t)FW * canvas.height == (int64_t)FH * canvas.width) {
+        Port_PPU_FitAspectRect(outW, outH, canvas.width, canvas.height,
+                               stageX, stageY, stageW, stageH);
+        *frameX = *stageX; *frameY = *stageY; *frameW = *stageW; *frameH = *stageH;
+        return;
+    }
     /* A native raster represents one complete composition. Position it by
      * the published logical pixel rectangle, including the intentional odd
      * margin, rather than fitting 3:2 inside an idealized aspect ratio.
@@ -549,11 +614,12 @@ static void Port_PPU_PresentSurfaceFrame(void) {
         return;
     }
 
-    const int frameW = virtuappu_mode1_frame_width();
+    const int frameW = sComposedWidth ? sComposedWidth : virtuappu_mode1_frame_width();
+    const int frameH = sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height();
     int sx, sy, sw, sh;
-    Port_PPU_ComputeViewportRects(windowSurface->w, windowSurface->h, frameW, virtuappu_mode1_frame_height(),
+    Port_PPU_ComputeViewportRects(windowSurface->w, windowSurface->h, frameW, frameH,
                                   &sx, &sy, &sw, &sh, &x, &y, &w, &h);
-    srcRect = { 0, 0, frameW, virtuappu_mode1_frame_height() };
+    srcRect = { 0, 0, frameW, frameH };
     dstRect = { x, y, w, h };
     SDL_FillSurfaceRect(windowSurface, nullptr, 0);
     SDL_BlitSurfaceScaled(sFrameSurface, &srcRect, windowSurface, &dstRect, SDL_SCALEMODE_NEAREST);
@@ -726,8 +792,8 @@ extern "C" void Port_PPU_ColorCorrectBuffer(uint32_t* buf, int count) {
  * thread after the OpenMP scanline render has joined, so no locking needed. */
 static void Port_PPU_ApplyDisplayPostProcess(int pixelCount) {
     static int previousW = 0, previousH = 0, previousPitch = 0;
-    const int width = virtuappu_mode1_frame_width();
-    const int height = virtuappu_mode1_frame_height();
+    const int width = sComposedWidth ? sComposedWidth : virtuappu_mode1_frame_width();
+    const int height = sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height();
     const int pitch = virtuappu_mode1_frame_pitch();
     if (previousW != width || previousH != height || previousPitch != pitch) {
         sPersistAccumValid = false;
@@ -1417,6 +1483,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
     if (sBackend == RenderBackend::None) {
         return;
     }
+    sComposedWidth = sComposedHeight = 0;
 #ifdef TMC_GPU_RENDERER
     sSuperValid = false; /* set true only if TryGpuRaster renders the Sx buffer this frame */
 #endif
@@ -1475,7 +1542,14 @@ extern "C" void Port_PPU_PresentFrame(void) {
     {
         bool gpu_ok = false;
 #ifdef TMC_GPU_RENDERER
-        if (Port_Profile_Enabled()) {
+        /* Deferred GPU readback can belong to an earlier OAM generation;
+         * the cap must use the heading pose from this same native frame. */
+        const bool titleCapCandidate = Port_Oam_MenuHeading()->valid &&
+            (Port_Viewport_Get()->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+            (Port_Viewport_Get()->canvas.width > 240 || Port_Viewport_Get()->canvas.height > 160);
+        if (titleCapCandidate) {
+            gpu_ok = false;
+        } else if (Port_Profile_Enabled()) {
             uint64_t t0 = SDL_GetTicksNS();
             gpu_ok = Port_PPU_TryGpuRaster();
             gPortProfileRenderNs += SDL_GetTicksNS() - t0;
@@ -1585,7 +1659,9 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * raw game data. No-ops when disabled. Operates on the normalized render
      * height and pitch; present-side upscale/xBRZ run
      * afterwards on the transformed pixels. */
-    Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() * virtuappu_mode1_frame_height());
+    if (Port_PPU_ComposeTitleCap()) sSuperValid = false;
+    Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() *
+                                     (sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height()));
 
     int presentW = 0;
     int presentH = 0;

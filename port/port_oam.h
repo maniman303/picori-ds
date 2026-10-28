@@ -20,6 +20,16 @@ void Port_Oam_InvalidateLatchedRange(unsigned offset, unsigned length);
 bool Port_Oam_VisibleSlotsTagged(const uint16_t* oam);
 const VirtuaPPUObjPosition* Port_Oam_Positions(void);
 
+/* The direct menu heading can be clipped completely before OAM emission.
+ * Retain its source and signed pose with the OAM build/VBlank lifetime. */
+typedef struct {
+    int16_t x, y;
+    uint16_t sprite;
+    bool valid;
+} PortOamMenuHeading;
+void Port_Oam_RecordMenuHeading(int x, int y, unsigned sprite);
+const PortOamMenuHeading* Port_Oam_MenuHeading(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,19 +1,25 @@
 #include "port_hd_text.h"
 #include "port_hd_text_geometry.h"
+#include "port_viewport.h"
 #include "imgui.h"
 
 extern "C" bool Message_CopyTextCanvas(uint8_t* pixels, int capacity, int* x, int* y, int* width, int* height);
 
 extern "C" void Port_HDText_Draw(const uint32_t* frame, int frameWidth, int frameHeight, int pitchPixels,
                                   float viewportX, float viewportY, float viewportWidth, float viewportHeight) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    const bool fixedCanvas = (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+        frameWidth == geometry->canvas.width && frameHeight == geometry->canvas.height &&
+        frameWidth >= 240 && frameWidth <= 569 && frameHeight >= 160 && frameHeight <= 192;
     if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 ||
-        !PortHDText::SupportedFrame(frameWidth, frameHeight))
+        (!fixedCanvas && !PortHDText::SupportedFrame(frameWidth, frameHeight)))
         return;
     uint8_t pixels[PortHDText::kMaxPixels];
     int x, y, width, height;
     if (!Message_CopyTextCanvas(pixels, sizeof(pixels), &x, &y, &width, &height))
         return;
     x += (frameWidth - 240) / 2;
+    if (fixedCanvas) y += (frameHeight - 160) / 2;
     uint32_t colors[16] = {};
     if (!PortHDText::MatchCanvas(pixels, width, height, frame, frameWidth, frameHeight, pitchPixels, x, y, colors))
         return;

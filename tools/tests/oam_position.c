@@ -242,6 +242,30 @@ static void culling(void) {
     assert(!CheckOnScreen(&entity));
 }
 
+static void heading_lifetime(void) {
+    reset();
+    assert(!Port_Oam_MenuHeading()->valid);
+    Port_Oam_RecordMenuHeading(64, -16, 0x1fa);
+    assert(!Port_Oam_MenuHeading()->valid); /* before the OAM latch */
+    Port_Oam_Latch(0);
+    assert(Port_Oam_MenuHeading()->valid && Port_Oam_MenuHeading()->x == 64);
+    assert(Port_Oam_MenuHeading()->y == -16 && Port_Oam_MenuHeading()->sprite == 0x1fa);
+    Port_Oam_BeginFrame();
+    assert(Port_Oam_MenuHeading()->valid); /* repeat presents stay latched */
+    Port_Oam_Latch(0);
+    assert(!Port_Oam_MenuHeading()->valid);
+    Port_Oam_RecordMenuHeading(INT_MAX, 0, 0x1fa);
+    Port_Oam_Latch(0);
+    assert(!Port_Oam_MenuHeading()->valid);
+    Port_Oam_RecordMenuHeading(64, 16, 0x1fb);
+    Port_Oam_Latch(0);
+    Port_Oam_InvalidateLatchedRange(4, 2);
+    assert(!Port_Oam_MenuHeading()->valid);
+    Port_Oam_Latch(0);
+    Port_Oam_Invalidate();
+    assert(!Port_Oam_MenuHeading()->valid);
+}
+
 int main(void) {
     static const u8 widths[12] = { 8,16,32,64,16,32,32,64,8,8,16,32 };
     static const u8 heights[12] = { 8,16,32,64,8,8,16,32,16,32,32,64 };
@@ -256,6 +280,7 @@ int main(void) {
     validity();
     affine();
     culling();
+    heading_lifetime();
     puts("Signed OAM emission, latching, raw fallback, affine pixels and culling: PASS");
     return 0;
 }

@@ -89,6 +89,15 @@ static VirtuaPPUMode1GbaMemory mode1_memory = { mode1_default_io_mem, mode1_defa
                                                 mode1_default_obj_palette, mode1_default_oam_mem };
 
 static int mode1_frame_width = MODE1_GBA_WIDTH;
+static uint8_t mode1_frame_io_snapshots[MODE1_GBA_HEIGHT][MODE1_IO_MEM_SIZE];
+static bool mode1_frame_has_io_snapshots;
+
+const uint8_t* virtuappu_mode1_frame_io_for_line(int line) {
+    if (!mode1_frame_has_io_snapshots) return mode1_memory.io_mem;
+    if (line < 0) line = 0;
+    if (line >= MODE1_GBA_HEIGHT) line = MODE1_GBA_HEIGHT - 1;
+    return mode1_frame_io_snapshots[line];
+}
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static int mode1_frame_height = MODE1_GBA_HEIGHT;
 static const VirtuaPPUObjPosition* mode1_obj_positions;
@@ -353,6 +362,7 @@ static uint32_t mode1_darken(uint32_t abgr, int evy) {
 }
 
 void virtuappu_mode1_bind_gba_memory(const VirtuaPPUMode1GbaMemory* memory) {
+    mode1_frame_has_io_snapshots = false;
     /* Validate at bind: any missing pointer falls back to a (zeroed) default
      * buffer so render never dereferences NULL. A fallback means the engine's
      * memory wasn't wired up — surface it once instead of silently rendering a
@@ -1475,6 +1485,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
     const int frame_height = mode1_frame_height;
     const int raster_rows = frame_height > MODE1_GBA_HEIGHT ? frame_height : MODE1_GBA_HEIGHT;
 
+    mode1_frame_has_io_snapshots = false;
     dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
     if ((dispcnt & MODE1_DISP_FORCED_BLANK) != 0u) {
         for (line = 0; line < frame_height; ++line) {
@@ -1493,7 +1504,6 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      *      its line's snapshot, then renders BG / OBJ / composite normally
      *      via the existing single-line functions, which now read IO regs
      *      through the override. */
-    static uint8_t io_snapshots[MODE1_GBA_HEIGHT][MODE1_IO_MEM_SIZE];
     uint16_t per_line_dispcnt[MODE1_MAX_RENDER_HEIGHT];
 
     /* Affine BG2 carries an internal reference point across scanlines (#132).
@@ -1518,19 +1528,20 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      * critical path and point every thread's override straight at io_mem in the
      * parallel loop below. Byte-exact: each snapshot equalled io_mem anyway. */
     const bool per_line_io = (virtuappu_mode1_pre_line_callback != NULL);
+    mode1_frame_has_io_snapshots = per_line_io;
     for (line = 0; line < raster_rows; ++line) {
         if (per_line_io) {
             const int snapshot_line = line < MODE1_GBA_HEIGHT ? line : MODE1_GBA_HEIGHT - 1;
             if (line < MODE1_GBA_HEIGHT) {
                 virtuappu_mode1_pre_line_callback(line);
-                memcpy(io_snapshots[snapshot_line], mode1_memory.io_mem, MODE1_IO_MEM_SIZE);
+                memcpy(mode1_frame_io_snapshots[snapshot_line], mode1_memory.io_mem, MODE1_IO_MEM_SIZE);
             }
             per_line_dispcnt[line] =
 #ifdef TMC_N64
-                *(const uint16_t*)&io_snapshots[snapshot_line][MODE1_IO_DISPCNT];
+                *(const uint16_t*)&mode1_frame_io_snapshots[snapshot_line][MODE1_IO_DISPCNT];
 #else
-                (uint16_t)io_snapshots[snapshot_line][MODE1_IO_DISPCNT] |
-                ((uint16_t)io_snapshots[snapshot_line][MODE1_IO_DISPCNT + 1] << 8);
+                (uint16_t)mode1_frame_io_snapshots[snapshot_line][MODE1_IO_DISPCNT] |
+                ((uint16_t)mode1_frame_io_snapshots[snapshot_line][MODE1_IO_DISPCNT + 1] << 8);
 #endif
         } else {
             per_line_dispcnt[line] = dispcnt;
@@ -1568,7 +1579,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
         bool obj_1d = (line_dispcnt & MODE1_DISP_OBJ_1D) != 0u;
         const uint8_t* prev_override = virtuappu_mode1_io_thread_override;
 
-        virtuappu_mode1_io_thread_override = per_line_io ? io_snapshots[line < MODE1_GBA_HEIGHT ? line : MODE1_GBA_HEIGHT - 1]
+        virtuappu_mode1_io_thread_override = per_line_io ? mode1_frame_io_snapshots[line < MODE1_GBA_HEIGHT ? line : MODE1_GBA_HEIGHT - 1]
                                                           : mode1_memory.io_mem;
 
         memset(obj_layer, 0, (size_t)mode1_frame_width * sizeof(uint32_t));

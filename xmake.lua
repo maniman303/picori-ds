@@ -750,6 +750,7 @@ target("tmc_pc")
     add_files("port/port_viewport.c")
     add_files("port/port_effect_geometry.c")
     add_files("port/port_oam.c")
+    add_files("port/port_title_cap.c")
     add_files("port/port_level_editor.cpp")
     add_files("port/port_prelaunch_logo.cpp")
     -- Embed docs/picori-logo.png into the binary so the prelaunch

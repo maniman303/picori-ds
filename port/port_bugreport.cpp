@@ -12,6 +12,7 @@
 #include "port_bugreport.h"
 #include "port_version.h"
 #include "port_widescreen.h"
+#include "port_ppu.h"
 
 #include <SDL3/SDL.h>
 #include <png.h>
@@ -157,9 +158,8 @@ bool WriteScreenshotPNG(const std::filesystem::path& path) {
         return false;
     }
 
-    const int outW = virtuappu_mode1_frame_width();
-    const int outH = virtuappu_mode1_frame_height();
-    const int pitch = virtuappu_mode1_frame_pitch();
+    int outW, outH, pitch;
+    const uint32_t* pixels = Port_PPU_GetComposedFrame(&outW, &outH, &pitch);
 
     png_init_io(png, fp);
     png_set_IHDR(png, info, outW, outH, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
@@ -168,7 +168,7 @@ bool WriteScreenshotPNG(const std::filesystem::path& path) {
 
     uint8_t row[kFrameW * 3];
     for (int y = 0; y < outH; y++) {
-        const uint32_t* src = &virtuappu_frame_buffer[y * pitch];
+        const uint32_t* src = &pixels[y * pitch];
         for (int x = 0; x < outW; x++) {
             uint32_t p = src[x];
             row[x * 3 + 0] = static_cast<uint8_t>(p & 0xFF);         /* R (ABGR LE: byte0=R) */

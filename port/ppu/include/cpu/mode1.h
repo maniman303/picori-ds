@@ -182,6 +182,9 @@ int virtuappu_mode1_frame_width(void);
 int virtuappu_mode1_frame_height(void);
 int virtuappu_mode1_frame_pitch(void);
 uint16_t virtuappu_mode1_io_read16(uint16_t offset);
+/* IO used by the most recent CPU frame, clamped to native scanlines. The
+ * pointer stays valid until the next render or memory rebind. */
+const uint8_t* virtuappu_mode1_frame_io_for_line(int line);
 uint32_t virtuappu_mode1_io_read32(uint16_t offset);
 uint32_t virtuappu_mode1_rgb555_to_abgr8888(uint16_t color);
 void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_buffer, uint8_t* priority_buffer);

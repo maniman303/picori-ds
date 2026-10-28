@@ -28,6 +28,7 @@
 #include "fade.h"
 #ifdef PC_PORT
 #include "port_repro.h"
+#include "port_oam.h"
 #endif
 
 extern u32 sub_08000E44(u32);
@@ -461,6 +462,9 @@ void KinstoneMenu_080A4080(void) {
 #endif
     gOamCmd.x = 0x40;
     gOamCmd._8 = 0x400;
+#ifdef PC_PORT
+    Port_Oam_RecordMenuHeading(gOamCmd.x, gOamCmd.y, REGION_IS_EU ? 0x1fa : 0x1fb);
+#endif
     if (REGION_IS_EU) {
         DrawDirect(0x1fa, 0);
     } else {

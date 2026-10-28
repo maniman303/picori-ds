@@ -310,6 +310,13 @@ or tile alignment. Native-content centering continues to use floor offsets.
   preserving native pixels and label placement. Verify native OBJ source/mask,
   local effects and animated heading pose; missing PNGs must not leave the cut
   frame edge. Do not use tile wrapping or move the centered native composition.
+  Pause and fusion draw sites record the signed pose and region sprite ID with
+  the OAM build/latch lifetime, even when native pieces are clipped. The
+  compositor reconstructs the cap from live OBJ tiles and palette, honors the
+  animated pose and per-line OBJ effects, and preserves the native rectangle.
+  EU software captures verify the missing-image fallback and an unchanged
+  native crop. OBJ-window scenes still fail closed; runtime artwork composition
+  and other regions and presenters require validation before closing this task.
 - [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.

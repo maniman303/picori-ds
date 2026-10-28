@@ -5,10 +5,24 @@
 
 static VirtuaPPUObjPosition sBuild[MODE1_GBA_OAM_COUNT];
 static VirtuaPPUObjPosition sLatched[MODE1_GBA_OAM_COUNT];
+static PortOamMenuHeading sHeadingBuild, sHeadingLatched;
 
 void Port_Oam_BeginFrame(void) {
     memset(sBuild, 0, sizeof(sBuild));
+    memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
 }
+
+void Port_Oam_RecordMenuHeading(int x, int y, unsigned sprite) {
+    memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX || sprite > UINT16_MAX)
+        return;
+    sHeadingBuild.x = (int16_t)x;
+    sHeadingBuild.y = (int16_t)y;
+    sHeadingBuild.sprite = (uint16_t)sprite;
+    sHeadingBuild.valid = true;
+}
+
+const PortOamMenuHeading* Port_Oam_MenuHeading(void) { return &sHeadingLatched; }
 
 void Port_Oam_Record(unsigned slot, uint16_t attr0, uint16_t attr1, int x, int y, bool hidden) {
     if (slot >= MODE1_GBA_OAM_COUNT)
@@ -31,11 +45,14 @@ void Port_Oam_Latch(unsigned count) {
         count = MODE1_GBA_OAM_COUNT;
     memcpy(sLatched, sBuild, count * sizeof(sBuild[0]));
     memset(sLatched + count, 0, (MODE1_GBA_OAM_COUNT - count) * sizeof(sLatched[0]));
+    sHeadingLatched = sHeadingBuild;
 }
 
 void Port_Oam_Invalidate(void) {
     memset(sBuild, 0, sizeof(sBuild));
     memset(sLatched, 0, sizeof(sLatched));
+    memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
+    memset(&sHeadingLatched, 0, sizeof(sHeadingLatched));
 }
 
 const VirtuaPPUObjPosition* Port_Oam_Positions(void) {
@@ -44,6 +61,9 @@ const VirtuaPPUObjPosition* Port_Oam_Positions(void) {
 
 void Port_Oam_InvalidateLatchedRange(unsigned offset, unsigned length) {
     if (offset >= MODE1_GBA_OAM_COUNT * 8u || !length) return;
+    /* A raw write bypasses the heading producer and may change its piece or
+     * palette attributes. Drop the host-only pose until the next OAM latch. */
+    sHeadingLatched.valid = false;
     unsigned end = length > MODE1_GBA_OAM_COUNT * 8u - offset
                        ? MODE1_GBA_OAM_COUNT * 8u : offset + length;
     for (unsigned slot = offset / 8; slot < MODE1_GBA_OAM_COUNT && slot * 8 < end; ++slot) {

@@ -265,11 +265,15 @@ static void check_raster(void) {
     reset();
     stripes(false);
     PPUMemory p = geometry(192, 1);
+    for (int i = 0; i < 160; ++i) hardware_table[i] = (uint16_t)(i + 1);
     callbacks = 0;
     virtuappu_mode1_pre_line_callback = scanline;
     virtuappu_mode1_render_frame(&p);
     assert(callbacks == 160);
     assert(virtuappu_mode1_frame_height() == 160);
+    assert(virtuappu_mode1_frame_io_for_line(-1)[0x12] == 1);
+    assert(virtuappu_mode1_frame_io_for_line(7)[0x12] == 8);
+    assert(virtuappu_mode1_frame_io_for_line(200)[0x12] == 160);
     untouched(160);
     // Cropping the visible frame must not shorten the hardware sequence.
     p.frame_height = 80;
