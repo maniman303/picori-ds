@@ -522,6 +522,45 @@ def _invalidate_region_caches(dist_dir: Path, fingerprint: str) -> None:
             elif cache.is_dir():
                 shutil.rmtree(cache)
 
+def _stage_dist_asset_trees(dist_dir: Path, version: str) -> None:
+    """Refresh generated asset trees while preserving local user content."""
+    kept = [Path("assets") / "rando", Path("assets") / "override"] + [
+        Path(tree) / region for tree in ("assets", "assets_src") for region in ("usa", "eu", "jp")
+    ]
+    with tempfile.TemporaryDirectory(prefix="tmc-dist-keep-") as backup_dir:
+        for rel in kept:
+            if (dist_dir / rel).is_dir():
+                shutil.copytree(dist_dir / rel, Path(backup_dir) / rel)
+        try:
+            for src_name in ("assets", "assets_src"):
+                src = REPO_ROOT / "build" / version / src_name
+                dst = dist_dir / src_name
+                if src.exists():
+                    if dst.exists():
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+                    ok(f"{src_name}/  →  dist/{version}/{src_name}/")
+                else:
+                    warn(f"build/{version}/{src_name}/ not found — skipping")
+        finally:
+            for rel in kept:
+                if (Path(backup_dir) / rel).is_dir():
+                    shutil.copytree(Path(backup_dir) / rel, dist_dir / rel, dirs_exist_ok=True)
+
+def _prepare_developer_rom(version: str) -> bool:
+    """Prepare the standalone extractor's ROM without replacing another region."""
+    src = REPO_ROOT / VERSIONS[version]["rom_filename"]
+    dst = REPO_ROOT / "build" / "pc" / "baserom.gba"
+    if dst.exists():
+        if dst.resolve() == src.resolve() or sha1_file(dst) == sha1_file(src):
+            return True
+        warn(f"{dst} is a different ROM; keeping it and skipping local asset extraction")
+        return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    ok(f"{src.name} → build/pc/baserom.gba")
+    return True
+
 def stage_voxel_shapes(dist_dir: Path) -> None:
     """Ship the 3D view's default tile shapes, merged under a local copy.
 
@@ -678,18 +717,12 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
         # Copy ROM so the standalone asset_extractor can find it next
         # to itself and pre-populate build/pc/assets/ — a convenience
         # for local-dev runs of build/pc/tmc_pc.
-        src = Path("baserom.gba").resolve()
-        dst = Path("build/pc/baserom.gba")
-        if not dst.exists() or dst.resolve() != src:
-            shutil.copy2("baserom.gba", "build/pc/baserom.gba")
-            print("✓  Copied baserom.gba → build/pc/")
-        else:
-            print("✓  baserom.gba already in build/pc/ (same file)")
+        extractor_rom_ready = _prepare_developer_rom(version)
 
         extractor = REPO_ROOT / "build" / "pc" / (
             "asset_extractor.exe" if PLATFORM == "Windows" else "asset_extractor"
         )
-        if extractor.exists():
+        if extractor.exists() and extractor_rom_ready:
             info("Extracting runtime assets (pak mode)...")
             try:
                 # --pak matches tmc_pc's default (anything other than
@@ -697,9 +730,9 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
                 # warm-launch of build/pc/tmc_pc skips re-extraction
                 # via the ROM-fingerprint fast path.
                 run_cmd([extractor, "--pak"] + ([] if assets_ready else ["--force"]), cwd=REPO_ROOT)
-            except RuntimeError:
-                warn("asset_extractor failed — runtime assets may be incomplete")
-        else:
+            except (RuntimeError, OSError):
+                warn("asset_extractor failed or cannot run on this host — runtime assets may be incomplete")
+        elif not extractor.exists():
             warn("asset_extractor not built — run: xmake build asset_extractor")
 
     # ── Copy artefacts to dist/<version>/ ────────────────────────────────────
@@ -769,32 +802,12 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
         return dst_bin
 
     # Runtime assets (build/<version>/assets/) and editable assets (build/<version>/assets_src/)
-    # A previous dist may contain a user-edited logic file or additional
-    # randomizer files. Keep that directory across the ROM asset refresh.
+    # Preserve user artwork and randomizer files across the ROM asset refresh.
     # Also keep tmc_pc's per-region runtime caches (assets/<region>/ and
     # assets_src/<region>/): wiping them made the first launch after every
     # full build re-extract. Changed pipeline inputs invalidate these above;
     # tmc_pc also checks ROM size/mtime and the extractor output version.
-    kept = [Path("assets") / "rando"] + [
-        Path(tree) / region for tree in ("assets", "assets_src") for region in ("usa", "eu", "jp")
-    ]
-    with tempfile.TemporaryDirectory(prefix="tmc-dist-keep-") as backup_dir:
-        for rel in kept:
-            if (dist_dir / rel).is_dir():
-                shutil.copytree(dist_dir / rel, Path(backup_dir) / rel)
-        for src_name in ("assets", "assets_src"):
-            src = REPO_ROOT / "build" / version / src_name
-            dst = dist_dir / src_name
-            if src.exists():
-                if dst.exists():
-                    shutil.rmtree(dst)
-                shutil.copytree(src, dst)
-                ok(f"{src_name}/  →  dist/{version}/{src_name}/")
-            else:
-                warn(f"build/{version}/{src_name}/ not found — skipping")
-        for rel in kept:
-            if (Path(backup_dir) / rel).is_dir():
-                shutil.copytree(Path(backup_dir) / rel, dist_dir / rel, dirs_exist_ok=True)
+    _stage_dist_asset_trees(dist_dir, version)
     stage_rando_logic(dist_dir)
     stage_voxel_shapes(dist_dir)
 

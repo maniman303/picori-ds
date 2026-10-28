@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 
-from background_png_regression_test import png
+from background_png_regression_test import FAMILIES, HEALTH, png
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -18,11 +18,20 @@ def main():
         root = Path(tmp)
         folder = root / 'override' / '169'
         folder.mkdir(parents=True)
-        for name, red in [('menu_background_normal.png', 19),
-                          ('menu_titled_background_normal.png', 33),
-                          ('fast_travel_background.png', 55)]:
-            (folder / name).write_bytes(png(285, 160, sample=bytes([red, 89, 167, 129])))
+        mod_folder = root / 'mods' / 'art-impostor' / 'override' / '169'
+        mod_folder.mkdir(parents=True)
+        for family, name in enumerate(FAMILIES):
+            for health, suffix in enumerate(HEALTH):
+                red = 19 + family * 14 + health * 3
+                (folder / f'{name}_{suffix}.png').write_bytes(png(285, 160, sample=bytes([red, 89, 167, 129])))
+                (mod_folder / f'{name}_{suffix}.png').write_bytes(png(285, 160, sample=bytes([200, 1, 2, 255])))
+        (folder / 'fast_travel_background.png').write_bytes(png(285, 160, sample=bytes([55, 89, 167, 129])))
+        wide = root / 'override' / '219'
+        wide.mkdir()
+        (wide / 'menu_background_normal.png').write_bytes(png(374, 160, sample=bytes([76, 89, 167, 129])))
         (root / 'fixture.png').write_bytes(png(285, 160, sample=bytes([44, 89, 167, 129])))
+        (root / 'edited.png').write_bytes(png(285, 160, sample=bytes([88, 17, 23, 128])))
+        (root / 'corrupt.png').write_bytes(b'broken png')
         try:
             flags = shlex.split(subprocess.check_output(
                 ['pkg-config', '--cflags', '--libs', 'libpng'], text=True, stderr=subprocess.DEVNULL))
@@ -35,13 +44,14 @@ def main():
             '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-Iport',
             'tools/tests/background_cache.c', 'port/port_background_cache.c',
             'port/port_background_png.c', 'port/port_screen_background.c',
-            'port/port_viewport.c', *flags, '-o', str(binary)]
+            'port/port_viewport.c', 'port/port_title_cap.c', *flags, '-o', str(binary)]
         subprocess.run(cmd, cwd=ROOT, check=True)
         env = os.environ.copy()
         env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')
+        env['TMC_MODS'] = 'art-impostor'
         result = subprocess.run([str(binary), str(root)], cwd=ROOT, env=env, check=True,
                                 text=True, capture_output=True)
-        assert result.stderr.count('[background] unable to load') == 3, result.stderr
+        assert result.stderr.count('[background] unable to load') == 8, result.stderr
         print(result.stdout, end='')
 
 

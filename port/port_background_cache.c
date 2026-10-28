@@ -52,8 +52,33 @@ PortBackgroundCacheState Port_BackgroundCache_Stage(PortBackgroundCache* cache,
     return slot->state;
 }
 
+PortBackgroundCacheState Port_BackgroundCache_StageMenu(PortBackgroundCache* cache,
+                                                        PortBackgroundMenuFamily family,
+                                                        PortBackgroundHealth health,
+                                                        PortAspectMode aspect,
+                                                        uint32_t generation, bool parity) {
+    return Port_BackgroundCache_Stage(cache, Port_Background_MenuContext(family, health),
+                                      aspect, generation, parity);
+}
+
 void Port_BackgroundCache_Commit(PortBackgroundCache* cache) {
     if (cache) cache->current = cache->incoming;
+}
+
+PortBackgroundCacheState Port_BackgroundCache_Reload(PortBackgroundCache* cache) {
+    if (!cache) return PORT_BACKGROUND_CACHE_EMPTY;
+    int current = cache->current;
+    if (current < 0 || current > 1 || cache->slots[current].state == PORT_BACKGROUND_CACHE_EMPTY) {
+        Port_BackgroundCache_Invalidate(cache);
+        return PORT_BACKGROUND_CACHE_EMPTY;
+    }
+    PortBackgroundContext context = cache->slots[current].context;
+    PortAspectMode aspect = cache->slots[current].aspect;
+    uint32_t generation = cache->slots[current].renderer_generation;
+    Port_BackgroundCache_Invalidate(cache);
+    PortBackgroundCacheState result = Port_BackgroundCache_Stage(cache, context, aspect, generation, false);
+    Port_BackgroundCache_Commit(cache);
+    return result;
 }
 
 const uint8_t* Port_BackgroundCache_Current(const PortBackgroundCache* cache, int* width, int* height) {

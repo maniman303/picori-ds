@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 18 unchecked
+[the closure checklist](background-context-closure-checklist.md): 16 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -364,11 +364,16 @@ or tile alignment. Native-content centering continues to use floor offsets.
   Its ROM-free regression covers all family/health combinations and profile
   sizes, fast travel, transparency, interlacing, corrupt and mismatched files.
   Runtime publication, caching and effects remain separate tasks below.
-- [ ] Resolve all five menu families independently; key cache/publication by
+- [x] Resolve all five menu families independently; key cache/publication by
   family/image ID plus installed health, ratio and renderer generation. Test
   missing new files with old plain-menu art present: black, never a family alias.
   Include the fixed fast-travel image key without health or destination variants;
   navigation must not decode again. Missing art must not select a plain-menu image.
+  The cache stages installed family/health pairs through the catalog, with
+  distinct context, profile and renderer-generation keys. Its fixture verifies
+  all 15 combinations, missing new-family black fallback despite available plain
+  art, profile changes, and fixed fast-travel key reuse after file removal.
+  The game-state adapter that supplies these keys remains separately tracked.
 - [x] Test accepting each selected profile's exact size and rejecting a file
   sized for another ratio, floor-rounded widths (284/373/568), and wrong heights.
   The PNG regression checks each profile against all four other profile sizes,
@@ -382,8 +387,16 @@ or tile alignment. Native-content centering continues to use floor offsets.
   non-image context withdraws the old source. The cache regression exercises
   slot reuse, missing files, invalidation, profile/generation switches and
   no-I/O reads. Connecting the cache to the scene adapter remains separate.
-- [ ] Add explicit reload, corruption/size/alpha fixtures and packaging checks
+- [x] Add explicit reload, corruption/size/alpha fixtures and packaging checks
   that preserve custom artwork. Keep raw asset mods independent.
+  The cache exposes explicit current-image reload, including cached failures;
+  tests cover edited RGBA pixels, corrupt reloads, exact sizes and ignored raw
+  mods. Full staging preserves `assets/override` across generated-tree refresh
+  and restores it after a copy failure. An isolated RG staging fixture preserves
+  artwork and mods. A full EU ARM64 `build.py --eur` run preserved an artwork
+  fixture; cross-host `ldd` could not bundle libraries and `assets_src` was
+  absent. Region-specific extractor ROM preparation now keeps an existing ROM
+  from another region. Runtime UI/scene adapter integration remains separate.
 
 ## 7. Export synchronization
 

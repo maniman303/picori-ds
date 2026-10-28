@@ -43,7 +43,18 @@ PortBackgroundCacheState Port_BackgroundCache_Stage(PortBackgroundCache* cache,
                                                     PortAspectMode aspect,
                                                     uint32_t renderer_generation,
                                                     bool parity);
+/* Resolve an installed family/health pair before staging. Health is captured
+ * when the decoration is installed, never read from live game state here. */
+PortBackgroundCacheState Port_BackgroundCache_StageMenu(PortBackgroundCache* cache,
+                                                        PortBackgroundMenuFamily family,
+                                                        PortBackgroundHealth installed_health,
+                                                        PortAspectMode aspect,
+                                                        uint32_t renderer_generation,
+                                                        bool parity);
 void Port_BackgroundCache_Commit(PortBackgroundCache* cache);
+/* Explicitly discard both cached keys and re-read the current image, including
+ * a previously failed one. Commit the new result before returning. */
+PortBackgroundCacheState Port_BackgroundCache_Reload(PortBackgroundCache* cache);
 /* Read-only and allocation/I/O free. Returned pixels remain valid until the
  * next mutation; a failed or empty current slot returns NULL. */
 const uint8_t* Port_BackgroundCache_Current(const PortBackgroundCache* cache,
