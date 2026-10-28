@@ -171,6 +171,7 @@ void KinstoneMenu_Type0(void) {
     AddKinstoneToBag(KINSTONE_NONE);
     sub_080A70AC((void*)gUnk_081280DC);
 #ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_FUSION, 0);
     Port_ReproBackground_Event("fusion_screen", iVar1);
 #endif
     SetMenuType(1);

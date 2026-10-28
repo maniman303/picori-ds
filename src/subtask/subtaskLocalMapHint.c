@@ -91,6 +91,7 @@ void sub_080A6B04(void) {
     SetMenuType(1);
     SetFade(FADE_INSTANT, 8);
 #ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_LOCAL_HINT, 0);
     Port_ReproBackground_Event("fusion_local_hint_install", gMenu.field_0x3);
 #endif
 }

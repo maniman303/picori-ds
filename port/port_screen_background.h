@@ -105,6 +105,28 @@ typedef struct {
  * Invalid inputs fail closed. This function never infers game/task state. */
 PortBackgroundContext Port_Background_MenuContext(PortBackgroundMenuFamily family, PortBackgroundHealth installedHealth);
 
+/* Installed content is staged by native installation events and latched at a
+ * simulation boundary. The consumer never reads transient menu or health state. */
+typedef enum {
+    PORT_BG_EVENT_HEALTH, PORT_BG_EVENT_PAUSE, PORT_BG_EVENT_FUSION,
+    PORT_BG_EVENT_TRAVEL, PORT_BG_EVENT_FIGURINE, PORT_BG_EVENT_HINT,
+    PORT_BG_EVENT_LOCAL_HINT, PORT_BG_EVENT_PROLOGUE, PORT_BG_EVENT_CREDITS,
+    PORT_BG_EVENT_CREDITS_CLEAR, PORT_BG_EVENT_ENDING_SAVE, PORT_BG_EVENT_CLEAR,
+    PORT_BG_EVENT_LOGOS, PORT_BG_EVENT_TITLE, PORT_BG_EVENT_FILE, PORT_BG_EVENT_GAME_OVER
+} PortBackgroundEvent;
+
+typedef enum {
+    PORT_BG_SCOPE_UNKNOWN, PORT_BG_SCOPE_WORLD, PORT_BG_SCOPE_PAUSE,
+    PORT_BG_SCOPE_FUSION, PORT_BG_SCOPE_TRAVEL, PORT_BG_SCOPE_FIGURINE,
+    PORT_BG_SCOPE_HINT, PORT_BG_SCOPE_LOCAL_HINT, PORT_BG_SCOPE_STORY,
+    PORT_BG_SCOPE_CREDITS, PORT_BG_SCOPE_FILE, PORT_BG_SCOPE_GAME_OVER
+} PortBackgroundScope;
+
+void Port_Background_StageEvent(PortBackgroundEvent event, unsigned value);
+void Port_Background_Publish(PortBackgroundScope scope);
+PortBackgroundContext Port_Background_Published(void);
+void Port_Background_Reset(void);
+
 typedef enum {
     PORT_BACKGROUND_SOURCE_NONE,
     PORT_BACKGROUND_SOURCE_IMAGE,

@@ -41,6 +41,7 @@ void Subtask_FastTravel_0(void) {
     sub_080A6290();
     gMenu.field_0x3 = sub_080A6D74(0);
 #ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_TRAVEL, 0);
     Port_ReproBackground_Event("fast_travel_screen", gMenu.field_0x3);
 #endif
     SetMenuType(1);
@@ -186,6 +187,7 @@ void Subtask_FastTravel_4(void) {
 #endif
         sub_080A71F4(&gUnk_08128024[gMenu.field_0x3]);
 #ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_CLEAR, 0);
         Port_ReproBackground_Event("fast_travel_handoff", gMenu.field_0x3);
 #endif
     }

@@ -1,4 +1,5 @@
 #pragma once
+#include "port_screen_background.h"
 /*
  * port_repro.h — declarations for the headless auto-repro harnesses.
  *

@@ -70,3 +70,79 @@ const PortScreenBackground* Port_Background_Get(PortBackgroundContext context, b
         context = PORT_BACKGROUND_UNCLASSIFIED;
     return &sBackgrounds[context];
 }
+
+static PortBackgroundContext sInstalled, sPublished;
+static PortBackgroundScope sInstalledScope;
+static PortBackgroundHealth sHealth;
+static bool sHealthValid;
+
+void Port_Background_StageEvent(PortBackgroundEvent event, unsigned value) {
+    PortBackgroundContext context = PORT_BACKGROUND_UNCLASSIFIED;
+    PortBackgroundScope scope = PORT_BG_SCOPE_UNKNOWN;
+    if (event == PORT_BG_EVENT_HEALTH) {
+        sHealthValid = value <= PORT_BACKGROUND_HEALTH_CRITICAL;
+        if (sHealthValid) sHealth = (PortBackgroundHealth)value;
+        return;
+    }
+    switch (event) {
+        case PORT_BG_EVENT_PAUSE: {
+            PortBackgroundMenuFamily family;
+            if (value == 7) family = PORT_BACKGROUND_MENU_PIECES;
+            else if (value == 8) family = PORT_BACKGROUND_MENU_TECHNIQUES;
+            else if (value >= 9 && value <= 11) family = PORT_BACKGROUND_MENU_PLAIN;
+            else if (value == 1 || value == 2 || (value >= 4 && value <= 6)) family = PORT_BACKGROUND_MENU_TITLED;
+            else break;
+            if (sHealthValid) context = Port_Background_MenuContext(family, sHealth);
+            scope = PORT_BG_SCOPE_PAUSE;
+            break;
+        }
+        case PORT_BG_EVENT_FUSION:
+            if (sHealthValid) context = Port_Background_MenuContext(PORT_BACKGROUND_MENU_FUSION, sHealth);
+            scope = PORT_BG_SCOPE_FUSION; break;
+        case PORT_BG_EVENT_TRAVEL: context = PORT_BACKGROUND_FAST_TRAVEL; scope = PORT_BG_SCOPE_TRAVEL; break;
+        case PORT_BG_EVENT_FIGURINE: context = PORT_BACKGROUND_FIGURINES; scope = PORT_BG_SCOPE_FIGURINE; break;
+        case PORT_BG_EVENT_HINT: context = PORT_BACKGROUND_MAP_HINT; scope = PORT_BG_SCOPE_HINT; break;
+        case PORT_BG_EVENT_LOCAL_HINT: context = PORT_BACKGROUND_LOCAL_MAP_HINT; scope = PORT_BG_SCOPE_LOCAL_HINT; break;
+        case PORT_BG_EVENT_PROLOGUE:
+            if (value < 6) context = (PortBackgroundContext)(PORT_BACKGROUND_PROLOGUE_01 + value);
+            scope = PORT_BG_SCOPE_STORY; break;
+        case PORT_BG_EVENT_CREDITS:
+            if (value < 8) context = (PortBackgroundContext)(PORT_BACKGROUND_CREDITS_01 + value);
+            else if (value == 8) context = PORT_BACKGROUND_ENDING;
+            scope = PORT_BG_SCOPE_CREDITS; break;
+        case PORT_BG_EVENT_CREDITS_CLEAR: context = PORT_BACKGROUND_CREDITS_CLEARED; scope = PORT_BG_SCOPE_CREDITS; break;
+        case PORT_BG_EVENT_ENDING_SAVE: context = PORT_BACKGROUND_ENDING_SAVE; scope = PORT_BG_SCOPE_CREDITS; break;
+        case PORT_BG_EVENT_LOGOS: context = PORT_BACKGROUND_BOOT_LOGOS; scope = PORT_BG_SCOPE_STORY; break;
+        case PORT_BG_EVENT_TITLE: context = PORT_BACKGROUND_TITLE; scope = PORT_BG_SCOPE_STORY; break;
+        case PORT_BG_EVENT_FILE: context = PORT_BACKGROUND_FILE_SELECT; scope = PORT_BG_SCOPE_FILE; break;
+        case PORT_BG_EVENT_GAME_OVER: context = PORT_BACKGROUND_GAME_OVER; scope = PORT_BG_SCOPE_GAME_OVER; break;
+        case PORT_BG_EVENT_CLEAR: sHealthValid = false; break;
+        default: return;
+    }
+    sInstalled = context;
+    sInstalledScope = scope;
+}
+
+void Port_Background_Publish(PortBackgroundScope scope) {
+    if (scope == PORT_BG_SCOPE_WORLD) {
+        sInstalled = PORT_BACKGROUND_UNCLASSIFIED;
+        sInstalledScope = PORT_BG_SCOPE_UNKNOWN;
+        sHealthValid = false;
+        sPublished = PORT_BACKGROUND_LIVE_WORLD;
+    } else {
+        sPublished = scope != PORT_BG_SCOPE_UNKNOWN && scope == sInstalledScope
+                         ? sInstalled : PORT_BACKGROUND_UNCLASSIFIED;
+        if (scope != sInstalledScope) {
+            sInstalled = PORT_BACKGROUND_UNCLASSIFIED;
+            sInstalledScope = PORT_BG_SCOPE_UNKNOWN;
+        }
+    }
+}
+
+PortBackgroundContext Port_Background_Published(void) { return sPublished; }
+
+void Port_Background_Reset(void) {
+    sInstalled = sPublished = PORT_BACKGROUND_UNCLASSIFIED;
+    sInstalledScope = PORT_BG_SCOPE_UNKNOWN;
+    sHealthValid = false;
+}

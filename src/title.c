@@ -19,6 +19,7 @@
 #include "sound.h"
 #ifdef PC_PORT
 #include "../port/port_tts.h"
+#include "../port/port_screen_background.h"
 #endif
 
 extern void FlushSprites(void);
@@ -176,6 +177,9 @@ static void HandleNintendoCapcomLogos(void) {
         gIntroState.timer = 120;
         LoadGfxGroup(16);
         LoadGfxGroup(1);
+#ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_LOGOS, 0);
+#endif
         if (gSaveHeader->language == 0) {
             paletteGroup = 1;
         } else {
@@ -215,6 +219,9 @@ static void HandleTitlescreen(void) {
             ResetPalettes();
             gGFXSlots.unk0 = 1;
             LoadGfxGroup(2);
+#ifdef PC_PORT
+            Port_Background_StageEvent(PORT_BG_EVENT_TITLE, 0);
+#endif
             if (gSaveHeader->language == 0) {
                 paletteGroup = 3;
             } else {

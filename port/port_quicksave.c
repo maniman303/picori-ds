@@ -62,6 +62,7 @@ extern int fileno(FILE*);
 #include "entity.h"
 #include "port_gba_mem.h"
 #include "port_effect_geometry.h"
+#include "port_screen_background.h"
 #include "port_runtime_config.h"
 #include "region.h" /* REGION_IS_EU/JP — per-region savestate isolation (#21) */
 
@@ -283,6 +284,7 @@ static int Snapshot_Restore(const Slot* s) {
     }
     /* Host-only effect ownership is not serialized in a quicksave. */
     Port_Effect_ClearFadeIris();
+    Port_Background_Reset();
     return 1;
 }
 

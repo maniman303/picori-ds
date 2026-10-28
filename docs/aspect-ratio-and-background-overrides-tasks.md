@@ -1,8 +1,47 @@
 # Aspect ratio and background implementation tasks
 
 Tracks implementation of [the design](aspect-ratio-and-background-overrides-plan.md).
-Work proceeds in the order below. Checked items describe implemented contracts
-or completed checks, not a claim that the renderer supports the new profiles.
+Work proceeds in the dependency order below. Checked items describe implemented
+contracts or completed checks, not a claim that the renderer supports the new profiles.
+
+## Remaining implementation order
+
+The sections below group contracts by subject; their section order is not the
+dependency order for the remaining work. Follow this sequence, completing and
+verifying each step before marking its corresponding checklist item complete:
+
+1. **State publication.** Implement the game-state adapter at native installation
+   and removal boundaries. Track installed illustration, menu health and semantic
+   family separately; publish fast travel only after its fixed BG3 installation.
+   Cover menu-to-menu transitions, credits commands, cancellation and scene
+   replacement, and explicitly distinguish live gameplay from fixed screens.
+   This step completes the two state-adapter items in section 5.
+2. **Effect inputs.** Resolve fast-travel source lifetime and actual BG3 alpha
+   second input throughout selection, confirmation and departure. Define and
+   validate the per-context effect inputs needed by the compositor, including
+   explicit fail-closed behavior for unclassified effects. This does not depend
+   on loading artwork, but must precede effect-correct margin publication.
+3. **Composition and cache integration.** Connect published state to the bounded
+   cache and publish source, native coverage and resolved effects at simulation
+   boundaries. Compose procedural fields, image pixels and missing-image black
+   in added margins; exclude live gameplay and preserve the native crop. Retire
+   the old side-art path only after its supported screens have migrated.
+4. **Title cap and fixed-screen validation.** Place the existing title cap over
+   the composed margins, including missing-image and effect cases. Complete the
+   title-frame and direct-OBJ/presentation checks for supported profiles and
+   presenters, preserving native and parity goldens.
+5. **Live layout.** Separate gameplay from installed fixed-screen contexts, then
+   implement the semantic HUD and dialogue anchors. Fast travel remains a fixed
+   screen with its own background and centered native foreground.
+6. **Acceptance and release.** Run the fast-travel and full EU visual matrices,
+   renderer and profile-switch checks, RG performance/memory/thread measurements,
+   and packaging checks where packaging changed. Unsupported profiles remain
+   disabled until their independent scene, sprite, layout and effect gates pass.
+
+Steps may be subdivided into reviewable changes, but a substep must not be
+marked as completing a broader checklist item unless all of that item's stated
+acceptance criteria have passed. Existing capture evidence remains valid only
+for the behavior it actually tested.
 
 The [2026-10-25 menu-family revision](menu-background-family-revision.md)
 reviews every one of the 27 previously checked tasks. The active target is
@@ -15,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 15 unchecked
+[the closure checklist](background-context-closure-checklist.md): 13 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -333,15 +372,39 @@ or tile alignment. Native-content centering continues to use floor offsets.
 
 ## 5. Margin composition
 
-- [ ] Add a game-state adapter selecting catalog contexts at scene boundaries;
+- [x] Add a game-state adapter selecting catalog contexts at scene boundaries;
   track the installed prologue/credits illustration across text commands/fades
   and the installed normal/damaged/critical menu or kinstone decoration.
   Publish the fixed FAST_TRAVEL context after screen 13 installation; ignore
   overwritten health preloads and retain the image across destination changes;
   invalidate it on native gameplay restoration/scene replacement.
-- [ ] Track semantic menu family independently of installed health. Publish
+- [x] Track semantic menu family independently of installed health. Publish
   titled/plain/pieces/techniques changes after native layout installation and
   before incoming fade; do not infer family from BG3, current health or task ID.
+  Native load sites stage installed family and health independently; VBlank
+  publishes the context alongside the native VRAM/OAM upload. The ROM-free
+  adapter regression covers all 15 combinations. The EU native 130-case menu
+  replay verifies all 15 and same-health transitions, and the complete travel,
+  prologue, credits, file and Game Over captures verify installed lifetimes.
+  A separate travel-action capture was deliberately stopped after one decline
+  and one accepted trip, including its fade, handoff and gameplay return; its
+  trailing interrupted trace record is ignored by the verifier. Quickload clears
+  host-only state and fails closed until a screen is installed again. Trace and
+  run logs are retained under `.tmp/background-adapter-2026-10-28/` and checked
+  by `tools/verify_background_adapter_trace.py`. The cache and compositor do
+  not yet consume the published context.
+
+  ```sh
+  python3 tools/background_adapter_regression_test.py
+  python3 tools/verify_background_adapter_trace.py \
+    --travel .tmp/background-adapter-2026-10-28/travel/trace.jsonl \
+    --travel-actions .tmp/background-adapter-2026-10-28/travel_actions/trace.jsonl \
+    --menus .tmp/background-adapter-2026-10-28/menus/trace.jsonl \
+    --prologue .tmp/background-adapter-2026-10-28/prologue/trace.jsonl \
+    --credits .tmp/background-adapter-2026-10-28/credits/trace.jsonl \
+    --files .tmp/background-adapter-2026-10-28/files/trace.jsonl \
+    --gameover .tmp/background-adapter-2026-10-28/gameover/trace.jsonl
+  ```
 - [ ] Resolve fast-travel BG3 effect targets and source lifetime across selection,
   confirmation/decline, cancel and travel transitions before compositor publication.
 - [ ] Publish source, native coverage and resolved effect data to a compositor

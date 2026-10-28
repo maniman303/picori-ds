@@ -59,6 +59,9 @@ void GameOver_Init(void) {
     SetFadeInverted(4);
     gFadeControl.mask = 0xFFFF0001;
     switch_state(GAMETASK_INIT);
+#ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_GAME_OVER, 0);
+#endif
     AUDIT("gameover_install", 0);
 }
 void GameOver_FadeIn(void) {

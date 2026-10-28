@@ -929,6 +929,9 @@ static void HandleFileScreenEnter(void) {
     InitVBlankDMA();
     sub_080503A8(0x5);
     LoadPaletteGroup(0x9);
+#ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_FILE, 0);
+#endif
     for (i = 0; i < 26; i++) {
         CreateObject(FILE_SCREEN_OBJECTS, i, 0);
     }

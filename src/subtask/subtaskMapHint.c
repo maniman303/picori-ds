@@ -51,6 +51,7 @@ void Subtask_MapHint_0(void) {
     SetMenuType(1);
     SetFade(FADE_INSTANT, 8);
 #ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_HINT, 0);
     Port_ReproBackground_Event("hint_screen", gUI.field_0x3);
 #endif
 }

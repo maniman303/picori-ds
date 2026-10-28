@@ -273,6 +273,7 @@ void sub_08053800(void) {
         LoadPaletteGroup(index + 0x8a);
         LoadGfxGroup(index + 0x3a);
 #ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_PROLOGUE, index);
         Port_ReproBackground_Event("prologue_install", index);
 #endif
         MemClear(&gBG1Buffer, 0x800);
@@ -336,6 +337,7 @@ void sub_08053974(void) {
         InitFade();
         DispReset(1);
 #ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_CLEAR, 0);
         Port_ReproBackground_Event("prologue_world", 0);
 #endif
         SetBGDefaults();
@@ -362,6 +364,7 @@ void sub_080539F4(void) {
     if (gFadeControl.active == 0) {
         DispReset(1);
 #ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_CLEAR, 0);
         Port_ReproBackground_Event("prologue_clear", 0);
 #endif
         gMenu.overlayType++;

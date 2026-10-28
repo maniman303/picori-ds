@@ -140,6 +140,7 @@ void FigurineMenu_080A4608(void) {
     gFigurineMenu.figure_idx = r1;
     SetFade(FADE_INSTANT, 8);
 #ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_FIGURINE, 0);
     Port_ReproBackground_Event("figurine_screen", r1);
 #endif
 }
@@ -652,6 +653,7 @@ void sub_080A4D34(void) {
     }
     LoadGfxGroup(iVar1 + 0x56);
 #ifdef PC_PORT
+    Port_Background_StageEvent(PORT_BG_EVENT_HEALTH, iVar1);
     Port_ReproBackground_Event("menu_decoration", iVar1);
 #endif
     gScreen.bg3.xOffset = 0;
@@ -765,7 +767,9 @@ void sub_080A4DB8(u32 param_1) {
         LoadGfxGroup(ptr->gfxGroup);
     }
 #ifdef PC_PORT
-    Port_ReproBackground_Event("pause_screen", param_1);
+    if (gUI.lastState == SUBTASK_PAUSEMENU)
+        Port_Background_StageEvent(PORT_BG_EVENT_PAUSE, param_1);
+        Port_ReproBackground_Event("pause_screen", param_1);
 #endif
 }
 

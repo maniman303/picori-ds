@@ -1,6 +1,12 @@
 #include "gba/io_reg.h"
 #include "save.h" /* gSave for Discord-RPC stat reads */
 #include "main.h"
+#include "game.h"
+#include "map.h"
+#include "menu.h"
+#include "subtask.h"
+#include "ui.h"
+#include "port_screen_background.h"
 #include "port_a11y_cues.h"
 #include "port_audio.h"
 #include "port_asset_loader.h"
@@ -36,6 +42,42 @@ static bool gQuitRequested = false;
 static bool sFastForward = false;
 static int sFrameNum = 0;
 static bool sWaitForOverlayInputRelease = false;
+
+static void Port_Background_PublishGameState(void) {
+    static PortBackgroundScope previous = PORT_BG_SCOPE_UNKNOWN;
+    PortBackgroundScope scope = PORT_BG_SCOPE_UNKNOWN;
+    switch (gMain.task) {
+        case TASK_FILE_SELECT: scope = PORT_BG_SCOPE_FILE; break;
+        case TASK_GAMEOVER: scope = PORT_BG_SCOPE_GAME_OVER; break;
+        case TASK_STAFFROLL: scope = PORT_BG_SCOPE_CREDITS; break;
+        case TASK_TITLE: scope = PORT_BG_SCOPE_STORY; break;
+        case TASK_GAME:
+            scope = PORT_BG_SCOPE_WORLD;
+            if (gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_SUBTASK) {
+                if (gUI.nextToLoad == 1) scope = previous;
+                else if (gUI.nextToLoad >= 2 && gUI.nextToLoad <= 3) {
+                    switch (gUI.lastState) {
+                        case SUBTASK_PAUSEMENU: scope = PORT_BG_SCOPE_PAUSE; break;
+                        case SUBTASK_KINSTONEMENU: scope = PORT_BG_SCOPE_FUSION; break;
+                        case SUBTASK_FASTTRAVEL: scope = PORT_BG_SCOPE_TRAVEL; break;
+                        case SUBTASK_FIGURINEMENU: scope = PORT_BG_SCOPE_FIGURINE; break;
+                        case SUBTASK_MAPHINT: scope = PORT_BG_SCOPE_HINT; break;
+                        case SUBTASK_LOCALMAPHINT: scope = PORT_BG_SCOPE_LOCAL_HINT; break;
+                        case SUBTASK_AUXCUTSCENE:
+                            scope = gMenu.menuType == 1 && gMenu.field_0x0 == 1 &&
+                                            (gMenu.field_0x3 == 0 || gMenu.field_0x3 == 2) &&
+                                            gMapBottom.bgSettings == NULL && gMapTop.bgSettings == NULL
+                                        ? PORT_BG_SCOPE_STORY : PORT_BG_SCOPE_WORLD;
+                            break;
+                        default: scope = PORT_BG_SCOPE_UNKNOWN; break;
+                    }
+                }
+            }
+            break;
+    }
+    Port_Background_Publish(scope);
+    previous = scope;
+}
 
 static bool Port_InputOverlayIsOpen(void) {
     return Port_DebugMenu_IsOpen() || Port_ImGui_IsQuitModalOpen() || Port_SoftSlots_ConfigIsOpen() ||
@@ -1158,6 +1200,10 @@ void VBlankIntrWait(void) {
 #endif
 
     VBlankIntr();
+    /* Publish with the VRAM/OAM upload: the presentation earlier in this
+     * wait used the previous native image, and repeat presents must keep the
+     * same background until the next completed upload. */
+    Port_Background_PublishGameState();
 }
 
 /* ---- BIOS functions ---- */

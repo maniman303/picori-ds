@@ -156,6 +156,7 @@ void StaffrollTask_State1MenuType1(void) {
         LoadPaletteGroup(ptr->paletteGroup);
         LoadGfxGroup(ptr->gfxGroup);
 #ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_CREDITS, gStaffrollMenu.gfxEntry);
         Port_ReproBackground_Event("credits_install", gStaffrollMenu.gfxEntry);
 #endif
         MemClear(&gBG1Buffer, sizeof(gBG1Buffer));
@@ -246,6 +247,7 @@ void StaffrollTask_State1MenuType6(void) {
         gScreen.bg1.updated = 1;
         MemClear(&gBG2Buffer, sizeof(gBG2Buffer));
 #ifdef PC_PORT
+        Port_Background_StageEvent(PORT_BG_EVENT_CREDITS_CLEAR, 0);
         Port_ReproBackground_Event("credits_clear", 0);
 #endif
         gScreen.bg2.updated = 1;
@@ -309,6 +311,7 @@ void StaffrollTask_State2(void) {
             MemClear((void*)VRAM, 0x20);
             SetPopupState(0, 0);
 #ifdef PC_PORT
+            Port_Background_StageEvent(PORT_BG_EVENT_ENDING_SAVE, 0);
             Port_ReproBackground_Event("credits_save", 0);
 #endif
             gScreen.lcd.displayControl |= 0x600;
