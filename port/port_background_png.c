@@ -50,8 +50,9 @@ bool Port_Background_LoadPng(const char* root, PortBackgroundContext context,
     if (!setjmp(png_jmpbuf(png))) {
         png_set_user_limits(png, (png_uint_32)profile->width, (png_uint_32)profile->height);
 #ifdef PNG_SET_USER_LIMITS_SUPPORTED
-        png_set_chunk_cache_max(png, 128);
-        png_set_chunk_malloc_max(png, 1024 * 1024);
+        /* Bound retained ancillary metadata as well as individual chunks. */
+        png_set_chunk_cache_max(png, 16);
+        png_set_chunk_malloc_max(png, 256 * 1024);
 #endif
         png_init_io(png, file);
         png_read_info(png, info);

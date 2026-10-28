@@ -108,6 +108,19 @@ def main():
             path = root / 'override' / directory / 'menu_titled_background_normal.png'
             path.write_bytes(png(width, 160))
             run(aspect, 1, 0, 0)
+        # Every selected profile must reject all four other valid sizes, as
+        # well as a height error. Test the selected directory itself so a
+        # missing-file failure cannot masquerade as a dimension check.
+        for aspect, directory, width, height in PROFILES:
+            path = root / 'override' / directory / 'menu_titled_background_normal.png'
+            for other_aspect, _, other_width, other_height in PROFILES:
+                if aspect != other_aspect:
+                    path.write_bytes(png(other_width, other_height))
+                    run(aspect, 1, 0, 0)
+            path.write_bytes(png(width, height - 1))
+            run(aspect, 1, 0, 0)
+            path.write_bytes(png(width, height))
+            run(aspect, 1, 0)
         print('Background PNG profiles, exact catalog names, formats and failure cleanup: PASS')
 
 

@@ -15,7 +15,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 20 unchecked
+[the closure checklist](background-context-closure-checklist.md): 18 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -369,10 +369,19 @@ or tile alignment. Native-content centering continues to use floor offsets.
   missing new files with old plain-menu art present: black, never a family alias.
   Include the fixed fast-travel image key without health or destination variants;
   navigation must not decode again. Missing art must not select a plain-menu image.
-- [ ] Test accepting each selected profile's exact size and rejecting a file
+- [x] Test accepting each selected profile's exact size and rejecting a file
   sized for another ratio, floor-rounded widths (284/373/568), and wrong heights.
-- [ ] Cache current/incoming image bytes within 8 MiB steady / 16 MiB peak;
+  The PNG regression checks each profile against all four other profile sizes,
+  a wrong height, and its own exact size; it also checks all three floor widths.
+- [x] Cache current/incoming image bytes within 8 MiB steady / 16 MiB peak;
   cache failures, clear stale images, and perform no hot-path I/O/allocation.
+  The two-slot cache uses under 0.84 MiB of fixed storage, stages only at an
+  explicit boundary, and publishes read-only pixels after commit. Its decoder
+  uses a bounded scratch image and limits retained PNG metadata to 16 chunks
+  of at most 256 KiB each. Failed keys remain cached; committing a failure or
+  non-image context withdraws the old source. The cache regression exercises
+  slot reuse, missing files, invalidation, profile/generation switches and
+  no-I/O reads. Connecting the cache to the scene adapter remains separate.
 - [ ] Add explicit reload, corruption/size/alpha fixtures and packaging checks
   that preserve custom artwork. Keep raw asset mods independent.
 
