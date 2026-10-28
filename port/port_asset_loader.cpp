@@ -2004,7 +2004,16 @@ extern "C" int Port_PakEntryCount(void) {
 }
 
 extern "C" void Port_AssetLoader_Reload(void) {
-    Port_BackgroundRuntime_Init(NULL);
+    /* Non-USA asset readers can return before EnsureAssetGroupCache(), so a
+     * warm bootstrap must establish the shared artwork root independently. */
+    const auto runtimeRoot = FindRuntimeAssetsRoot();
+    if (runtimeRoot) {
+        const auto artworkRoot = runtimeRoot->filename() == RegionAssetSubdir()
+                                     ? runtimeRoot->parent_path() : *runtimeRoot;
+        Port_BackgroundRuntime_Init(artworkRoot.string().c_str());
+    } else {
+        Port_BackgroundRuntime_Init(NULL);
+    }
     /* Reset everything except the binary file cache (cheap to refill)
      * and the pak set (managed independently by Port_MountAssetPaks).
      * Subsequent EnsureAssetGroupCache calls will re-scan and pick up

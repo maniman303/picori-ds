@@ -54,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 11 unchecked
+[the closure checklist](background-context-closure-checklist.md): 10 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -369,9 +369,17 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
-- [ ] Resolve functional live gameplay separately from pause/map/fusion states.
+- [x] Resolve functional live gameplay separately from pause/map/fusion states.
   Include fixed fast-travel BG3 artwork behind its centered native map/frame/OBJ;
-  it has no health variant or top-left heading-cap requirement.
+  it has no health variant or top-left heading-cap requirement. The fixed-screen
+  compositor now also handles screens without a heading and uses the actual
+  outside controls for fast travel's OBJ window. An EU 16:9 warm-launch replay
+  compares artwork and missing-image runs at installation, fade, held selection,
+  cancellation and gameplay return: native crops match, margins show the correct
+  source, and restored gameplay frames are identical. Evidence and the checker
+  are in `.tmp/fast-travel-composition-2026-10-28/` and
+  `tools/verify_fast_travel_composition.py`. The complete travel/profile/backend
+  matrix remains a separate acceptance task.
 - [ ] Implement semantic corner HUD anchors and bottom dialogue geometry shared
   by BG/OAM, portrait, choices, cursor, arrows and HD text; keep banners separate.
 

@@ -254,26 +254,33 @@ extern "C" const uint32_t* Port_PPU_GetComposedFrame(int* width, int* height, in
 
 /* The PPU buffer already has the bounded canvas capacity. Move native rows
  * backwards in place so no second full-frame allocation is needed. */
-static bool Port_PPU_ComposeTitleCap(void) {
+static bool Port_PPU_ComposeBackground(void) {
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     const PortOamMenuHeading* heading = Port_Oam_MenuHeading();
-    if (!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) || !heading->valid ||
+    if (!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) ||
         geometry->flags || (geometry->canvas.width == 240 && geometry->canvas.height == 160) ||
         virtuappu_mode1_frame_width() != 240 || virtuappu_mode1_frame_height() != 160 ||
         geometry->canvas.width > virtuappu_mode1_frame_pitch() || geometry->canvas.height > MODE1_MAX_RENDER_HEIGHT)
         return false;
-    const uint8_t* frame = static_cast<const uint8_t*>(sub_080AD8F0(heading->sprite, 0));
-    const uintptr_t base = reinterpret_cast<uintptr_t>(gFrameObjLists);
-    const uintptr_t address = reinterpret_cast<uintptr_t>(frame);
-    const size_t size = Port_FrameObjListsSizeForRegion();
-    if (!frame || address < base || address - base >= size)
-        return false;
-    const size_t available = size - (address - base);
     const int pitch = virtuappu_mode1_frame_pitch();
     const PortViewportRect native = geometry->nativeContent;
-    if (!Port_TitleCap_CanDraw(geometry->canvas.width, geometry->canvas.height, pitch, native.x, native.y,
-                               heading->x, heading->y, frame, available, sizeof(gVram), gIoMem))
-        return false;
+    const uint8_t* frame = nullptr;
+    size_t available = 0;
+    bool haveHeading = heading->valid;
+    if (haveHeading) {
+        frame = static_cast<const uint8_t*>(sub_080AD8F0(heading->sprite, 0));
+        const uintptr_t base = reinterpret_cast<uintptr_t>(gFrameObjLists);
+        const uintptr_t address = reinterpret_cast<uintptr_t>(frame);
+        const size_t size = Port_FrameObjListsSizeForRegion();
+        if (!frame || address < base || address - base >= size) haveHeading = false;
+        else {
+            available = size - (address - base);
+            haveHeading = Port_TitleCap_CanDraw(geometry->canvas.width, geometry->canvas.height, pitch,
+                                                 native.x, native.y, heading->x, heading->y,
+                                                 frame, available, sizeof(gVram), gIoMem);
+        }
+    }
+    if (heading->valid && !haveHeading) return false;
     /* Prepare all raster effects before touching the frame. Unknown source
      * ownership, mixed brightness and windows retain the existing safe
      * black-margin path until their policies are classified. */
@@ -323,14 +330,24 @@ static bool Port_PPU_ComposeTitleCap(void) {
             const unsigned alpha = io[0x52] | (unsigned)io[0x53] << 8;
             const unsigned brightness = io[0x54] | (unsigned)io[0x55] << 8;
             const unsigned window = display & 0xe000;
-            if ((display & 0x80) || (window && (!useIris || window != 0x2000 ||
-                (io[0x48] & 0x3f) != 0x3f || (io[0x4a] & 0x3f) != 0))) { haveArt = false; break; }
+            int windowEffects = 1;
+            if (display & 0x80) { haveArt = false; break; }
+            if (window == 0x8000 && !haveHeading && !useIris) {
+                /* OBJ-window sprites are clipped to the native rectangle.
+                 * Added margins see the outside-window controls. */
+                unsigned outside = io[0x4a] & 0x3f;
+                if ((outside & layers) != layers) { haveArt = false; break; }
+                windowEffects = (outside & 0x20) != 0;
+            } else if (window && (!useIris || window != 0x2000 ||
+                       (io[0x48] & 0x3f) != 0x3f || (io[0x4a] & 0x3f) != 0)) {
+                haveArt = false; break;
+            }
             if (!window && useIris) { haveArt = false; break; }
             outsideRows[y].layer_effect = PORT_LAYER_EFFECT_NONE;
             int leftLayer = layers == 8 ? 5 : -1, rightLayer = leftLayer;
             uint8_t leftRgb[3] = {second[0], second[1], second[2]};
             uint8_t rightRgb[3] = {second[0], second[1], second[2]};
-            if (layers == 4 && Port_Background_ResolveLayerEffect(layers, blend, 1) ==
+            if (layers == 4 && Port_Background_ResolveLayerEffect(layers, blend, windowEffects) ==
                                    PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT) {
                 /* BG2 reference panels can blend against BG3. Sample each
                  * native edge's real next layer and its live palette color. */
@@ -345,10 +362,10 @@ static bool Port_PPU_ComposeTitleCap(void) {
                 }
             }
             if (!Port_BackgroundRuntime_ResolveEffect(bg, layers, bg->effect_policy.banks, blend, alpha, brightness,
-                                                     1, leftLayer, leftLayer >= 0 ? leftRgb : nullptr,
+                                                     windowEffects, leftLayer, leftLayer >= 0 ? leftRgb : nullptr,
                                                      &effectRows[y]) ||
                 !Port_BackgroundRuntime_ResolveEffect(bg, layers, bg->effect_policy.banks, blend, alpha, brightness,
-                                                     1, rightLayer, rightLayer >= 0 ? rightRgb : nullptr,
+                                                     windowEffects, rightLayer, rightLayer >= 0 ? rightRgb : nullptr,
                                                      &rightRows[y])) { haveArt = false; break; }
             if (sourceBrightness != 1) effectRows[y].brightness_curve = rightRows[y].brightness_curve = curves;
             /* A mixed second-target mask cannot describe the cap's actual
@@ -359,6 +376,7 @@ static bool Port_PPU_ComposeTitleCap(void) {
             }
         }
     }
+    if (!haveHeading && !haveArt) return false;
     const uint32_t fill = (gIoMem[0] & 0x80) ? 0xffffffffu : 0xff000000u;
     if (!Port_TitleCap_ExpandFrame(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height,
                                    pitch, native.x, native.y, nullptr, 0, fill))
@@ -379,12 +397,12 @@ static bool Port_PPU_ComposeTitleCap(void) {
                                                           useIris ? outside : nullptr);
         if (!composed) haveArt = false;
     }
-    if (haveArt && useIris)
+    if (haveHeading && haveArt && useIris)
         Port_TitleCap_DrawIris(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
                                native.x, native.y, heading->x, heading->y, frame, available,
                                gVram, sizeof(gVram), gObjPltt, gIoMem, capLayer,
                                virtuappu_mode1_frame_io_for_line, irisRows, geometry->canvas.height);
-    else
+    else if (haveHeading)
         Port_TitleCap_Draw(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
                            native.x, native.y, heading->x, heading->y, frame, available,
                            gVram, sizeof(gVram), gObjPltt, gIoMem, haveArt ? capLayer : 5,
@@ -1643,12 +1661,13 @@ extern "C" void Port_PPU_PresentFrame(void) {
     {
         bool gpu_ok = false;
 #ifdef TMC_GPU_RENDERER
-        /* Deferred GPU readback can belong to an earlier OAM generation;
-         * the cap must use the heading pose from this same native frame. */
-        const bool titleCapCandidate = Port_Oam_MenuHeading()->valid &&
+        /* Deferred GPU readback can belong to an earlier OAM generation or
+         * omit the scanline state needed by fixed-background composition. */
+        const bool fixedBackgroundCandidate = (Port_Oam_MenuHeading()->valid ||
+            Port_BackgroundRuntime_Get()->source != PORT_BACKGROUND_SOURCE_NONE) &&
             (Port_Viewport_Get()->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
             (Port_Viewport_Get()->canvas.width > 240 || Port_Viewport_Get()->canvas.height > 160);
-        if (titleCapCandidate) {
+        if (fixedBackgroundCandidate) {
             gpu_ok = false;
         } else if (Port_Profile_Enabled()) {
             uint64_t t0 = SDL_GetTicksNS();
@@ -1760,7 +1779,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * raw game data. No-ops when disabled. Operates on the normalized render
      * height and pitch; present-side upscale/xBRZ run
      * afterwards on the transformed pixels. */
-    if (Port_PPU_ComposeTitleCap()) sSuperValid = false;
+    if (Port_PPU_ComposeBackground()) sSuperValid = false;
     Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() *
                                      (sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height()));
 
