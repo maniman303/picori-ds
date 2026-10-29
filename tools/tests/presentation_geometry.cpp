@@ -2,6 +2,7 @@
 #include "port_screen_background.h"
 #include "port_upscale.h"
 #include "port_filter.h"
+#include "port_title_cap.h"
 #include "port_hd_text_geometry.h"
 #include <cassert>
 #include <climits>
@@ -80,6 +81,45 @@ static void check_xbrz_filters(int width, int height) {
         if (sUpscale4xPixels < kMaxXbrz4xPixels) assert(sUpscale4xBuf[sUpscale4xPixels] == canary);
     }
     if (sUpscale2xPixels < kMaxXbrz2xPixels) assert(sUpscale2xBuf[sUpscale2xPixels] == canary);
+}
+
+// Exercise an actual fixed-screen cap and distinct margin/native colors
+// through the same pitched scaling and LCD-grid paths used by the presenter.
+static void check_composed_cap_filters(int width, int height, int nx, int ny) {
+    if ((size_t)width * height > (size_t)MODE1_GBA_WIDTH * 160) return;
+    const int pitch = width + 7;
+    std::vector<uint32_t> source((size_t)pitch * height, canary);
+    for (int y = 0; y < 160; ++y)
+        for (int x = 0; x < 240; ++x) source[y * pitch + x] = 0xff306090;
+    assert(Port_TitleCap_ExpandFrame(source.data(), width, height, pitch, nx, ny,
+                                    nullptr, 0, 0xff224466));
+    static uint8_t vram[0x18000] = {}, io[0x400] = {};
+    static uint16_t palette[256] = {};
+    const uint8_t frame[] = {2, 0xc0, 0xf0, 0x71, 0x40, 0x50, 0, 0xf0, 0x71, 0x60, 0x50};
+    std::memset(vram + 0x10800, 0x11, 0x1000);
+    io[0] = 0x40; io[1] = 0x10; palette[81] = 0x001f;
+    assert(Port_TitleCap_Draw(source.data(), width, height, pitch, nx, ny, 64, 16,
+                              frame, sizeof(frame), vram, sizeof(vram), palette, io, 5, nullptr));
+    assert(source[ny * pitch + nx - 1] == 0xff0000f8);
+    assert(source[ny * pitch + nx] == 0xff306090);
+    int outW = 0, outH = 0;
+    uint32_t* scaled = Port_PPU_BuildScaledFrame(source.data(), width, height, pitch * 4, 4, &outW, &outH);
+    assert(scaled && outW == width * 4 && outH == height * 4);
+    for (int y = 0; y < outH; ++y)
+        for (int x = 0; x < outW; ++x)
+            assert(scaled[(size_t)y * outW + x] == source[(y / 4) * pitch + x / 4]);
+    Port_Filter_Apply(scaled, outW, outH, 4, PORT_FILTER_LCD_GRID);
+    // LCD-grid cell interiors retain cap and native colors; borders dim them.
+    const size_t cap = (size_t)(ny * 4 + 1) * outW + (nx - 1) * 4 + 1;
+    const size_t native = (size_t)(ny * 4 + 1) * outW + nx * 4 + 1;
+    assert(scaled[cap] == 0xff0000f8 && scaled[native] == 0xff306090);
+    assert(scaled[cap - 1] == 0xff0000ae && scaled[native - 1] == 0xff214365);
+    assert(Port_PPU_EnsureXbrzBuffers(width, height));
+    Port_Upscale_xBRZ_4x_Pitch(source.data(), width, height, pitch, sUpscale2xBuf, sUpscale4xBuf);
+    assert(sUpscale4xBuf[cap] == 0xff0000f8);
+    assert(sUpscale4xBuf[(size_t)(ny * 4 + 20) * outW + (nx + 10) * 4] == 0xff306090);
+    for (int y = 0; y < height; ++y)
+        for (int x = width; x < pitch; ++x) assert(source[y * pitch + x] == canary);
 }
 
 static void check_rejection(void) {
@@ -285,6 +325,10 @@ int main(void) {
         for (int scale : {2, 4, 10}) check_nearest(profile.width, profile.height, scale);
         check_xbrz_filters(profile.width, profile.height);
     }
+    check_composed_cap_filters(256, 192, 8, 16);
+    check_composed_cap_filters(285, 160, 22, 0);
+    check_composed_cap_filters(374, 160, 67, 0);
+    check_composed_cap_filters(569, 160, 164, 0);
     check_rejection();
     check_optional_paths();
     check_presentation_layout();

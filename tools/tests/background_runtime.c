@@ -34,6 +34,23 @@ int main(int argc, char** argv) {
         Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
         assert(snap->rgba && snap->rgba[0] == 55);
     }
+    /* Requests leave the published frame untouched until the next boundary.
+     * A failed reload withdraws the old image, and a later request retries
+     * the cached failure after artwork is installed. */
+    Port_BackgroundRuntime_RequestReload();
+    assert(snap->rgba && snap->rgba[0] == 55);
+    Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
+    assert(!snap->rgba && snap->source == PORT_BACKGROUND_SOURCE_IMAGE);
+    char replacement[4096];
+    assert(snprintf(replacement, sizeof(replacement), "%s/override/169/travel-replacement.png", argv[1]) > 0);
+    assert(rename(replacement, path) == 0);
+    Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
+    assert(!snap->rgba); /* failed key stays cached without a reload request */
+    Port_BackgroundRuntime_RequestReload();
+    assert(!snap->rgba);
+    Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
+    assert(snap->rgba && snap->rgba[0] == 91);
+    assert(remove(path) == 0);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_MENU_NORMAL, &g, 1, true);
     assert(snap->rgba && snap->rgba[0] == 11 && snap->width == 285);
     g.canvas.width = 374; g.nativeContent.x = 67;

@@ -198,13 +198,13 @@ preserves the game's text layout and reveal timing without replacing its font.
 It is off by default. Small windows, scrolling, translucent or obscured text,
 and unsupported dialogue layouts retain the original rendering.
 
-**Widescreen menu artwork** extends the decorative backgrounds of file select,
-Items, Quest Status, Kinstones and Sword Techniques into the side margins.
-It requires widescreen to be enabled; the original menu content stays centered.
-Other screens retain the selected background fill. LCD persistence disables
-the decoration. Presentation filters, custom shader presets, the experimental
-3D view and Console-Parity retain the original presentation instead of applying
-these overlays.
+Custom fixed-screen backgrounds can fill the added margins at 16:9 and 21:9.
+Place correctly sized PNGs in `assets/override/169/` or `assets/override/219/`;
+the native game screen stays centered. Missing artwork uses black margins, and
+unclassified effects can also fall back to black. After adding or editing an
+image, choose **F8 → Display → Reload background artwork** to refresh the cache
+without restarting. See [the background plan](docs/aspect-ratio-and-background-overrides-plan.md)
+for filenames and dimensions.
 
 Named dialogue and menu rendering checks are documented in
 [docs/render-scene-checks.md](docs/render-scene-checks.md).

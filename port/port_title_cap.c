@@ -50,7 +50,7 @@ bool Port_TitleCap_CanDraw(int width, int height, int pitch, int nx, int ny, int
         return false;
     for (size_t i = 0; i < sizeof(expected); ++i)
         if (frame[i] != expected[i]) return false;
-    return !(read16(io) & 0x8000);
+    return true;
 }
 
 static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
@@ -92,9 +92,9 @@ static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
         const uint8_t* line_io = io_for_line ? io_for_line(y - ny) : io;
         if (!line_io) continue;
         const uint16_t display = read16(line_io);
-        if (!(display & 0x1000) || (display & (0x80 | 0x8000))) continue;
+        if (!(display & 0x1000) || (display & 0x80)) continue;
         unsigned window = 0x3f;
-        if (display & 0x6000) window = read16(line_io + (spans ? 0x48 : 0x4a)) & 0x3f;
+        if (display & 0xe000) window = read16(line_io + (spans ? 0x48 : 0x4a)) & 0x3f;
         if (!(window & 0x10)) continue;
         const int right_edge = right[(display & 0x40) != 0];
         if (right_edge < 7) continue;

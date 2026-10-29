@@ -30,6 +30,9 @@ typedef struct {
 
 bool Port_BackgroundRuntime_Init(const char* root);
 void Port_BackgroundRuntime_Reset(void);
+/* Request an artwork refresh at the next publication boundary. Safe to call
+ * while a published snapshot is in use; no files or pixels change here. */
+void Port_BackgroundRuntime_RequestReload(void);
 /* Runs only after prior readers finish, alongside the native VBlank latch.
  * Decode and I/O are confined to a changed key at this boundary. */
 void Port_BackgroundRuntime_Publish(PortBackgroundContext context, const PortViewportGeometry* geometry,

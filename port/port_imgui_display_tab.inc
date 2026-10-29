@@ -451,6 +451,12 @@ static void DrawRibbonDisplayTab(void) {
                        "Default off. Presentation filters, shader presets and 3D view retain original text.");
     ImGui::EndDisabled();
 
+    if (ImGui::Button("Reload background artwork")) {
+        Port_BackgroundRuntime_RequestReload();
+    }
+    RandoUi_HelpTooltip("Reloads custom background images on the next game frame. "
+                       "Use this after adding or editing artwork in assets/override.");
+
     bool holdAdv = Port_Config_GetHoldToAdvanceText();
     if (ImGui::Checkbox("Hold to advance text", &holdAdv)) {
         Port_Config_SetHoldToAdvanceText(holdAdv);

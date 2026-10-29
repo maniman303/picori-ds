@@ -53,6 +53,7 @@ extern "C" void Port_ApplyLanguage(void);
 #include "port_prelaunch_logo.h"
 #include "port_ppu.h"
 #include "port_hd_text.h"
+#include "port_background_runtime.h"
 #include "port_reborn.h"
 #include "port_discord_rpc.h" /* Port_DiscordRpc_IsEnabled / SetEnabled */
 #include "port_tts.h"         /* Port_TTS_* — accessibility tab + focus reader */

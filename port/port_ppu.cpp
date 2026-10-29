@@ -343,9 +343,10 @@ static bool Port_PPU_ComposeBackground(void) {
                 effectRows[y].forced_blank = rightRows[y].forced_blank = outsideRows[y].forced_blank = true;
                 continue;
             }
-            if (window && !haveHeading && !useIris) {
-                /* Ordinary windows and OBJ-window sprites belong to the
-                 * native screen. Added margins use outside-window controls. */
+            if (window && !useIris) {
+                /* Fixed-screen windows and OBJ-window sprites are clipped
+                 * to the native composition. The added margins, including
+                 * the reconstructed heading cap, use outside controls. */
                 unsigned outside = io[0x4a] & 0x3f;
                 if ((outside & (layers & 0x0f)) != (layers & 0x0f)) { haveArt = false; break; }
                 windowEffects = (outside & 0x20) != 0;

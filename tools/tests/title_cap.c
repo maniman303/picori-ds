@@ -144,6 +144,17 @@ int main(void) {
     assert(Port_TitleCap_Draw(canvas,285,160,569,22,0,64,16,frame,sizeof(frame),
                              vram,sizeof(vram),palette,io,5,io_line));
     assert(canvas[21] == 0xff0000f8 && canvas[8 * 569 + 21] == 0xff000080);
+    /* OBJ-window mask is confined to the centered native composition.
+     * Added margins use WINOUT, including its OBJ and effect enable bits. */
+    reset(); io16(0,0x9040); io16(0x4a,0x10); io16(0x50,0xd0); io16(0x54,8);
+    assert(draw(285,160,22,0,16));
+    assert(canvas[21] == 0xff0000f8); native_untouched(22,0);
+    reset(); io16(0,0x9040); io16(0x4a,0x30); io16(0x50,0xd0); io16(0x54,8);
+    assert(draw(285,160,22,0,16));
+    assert(canvas[21] == 0xff000080); native_untouched(22,0);
+    reset(); io16(0,0x9040); io16(0x4a,0);
+    assert(draw(285,160,22,0,16));
+    assert(canvas[21] == before[21]); native_untouched(22,0);
     reset(); io16(0,0x3040); io16(0x4a,0); assert(draw(285,160,22,0,16));
     assert(canvas[21] == before[21]); /* outside-window OBJ disabled */
     reset(); io16(0,0x3040); io16(0x48,0x3f); io16(0x4a,0);
@@ -155,8 +166,6 @@ int main(void) {
     reset(); iris[159].right = 286;
     assert(!Port_TitleCap_DrawIris(canvas,285,160,569,22,0,64,16,frame,sizeof(frame),
                                   vram,sizeof(vram),palette,io,5,NULL,iris,160));
-    assert(memcmp(canvas,before,sizeof(canvas)) == 0);
-    reset(); io16(0,0x9040); assert(!draw(285,160,22,0,16));
     assert(memcmp(canvas,before,sizeof(canvas)) == 0);
     reset(); uint8_t bad[sizeof(frame)]; memcpy(bad,frame,sizeof(frame)); bad[5] = 0;
     assert(!Port_TitleCap_Draw(canvas,285,160,569,22,0,64,16,bad,sizeof(bad),vram,sizeof(vram),palette,io,5,NULL));

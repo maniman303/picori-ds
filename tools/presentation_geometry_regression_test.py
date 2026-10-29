@@ -36,7 +36,7 @@ def main():
         tmp = Path(directory)
         (tmp / 'presentation_functions.inc').write_text(definitions + '\n'.join(bodies))
         objects = []
-        for name in ('port_upscale', 'port_filter'):
+        for name in ('port_upscale', 'port_filter', 'port_title_cap'):
             output = tmp / (name + '.o')
             subprocess.run(cc + ['-std=c11'] + flags + ['-c', str(ROOT / 'port' / (name + '.c')),
                                                        '-o', str(output)], check=True)

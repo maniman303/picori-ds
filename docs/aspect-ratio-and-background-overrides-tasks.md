@@ -354,8 +354,11 @@ or tile alignment. Native-content centering continues to use floor offsets.
   compositor reconstructs the cap from live OBJ tiles and palette, honors the
   animated pose and per-line OBJ effects, and preserves the native rectangle.
   EU software captures verify artwork and missing-image fallback with an
-  unchanged native crop. OBJ-window scenes still fail closed; other regions
-  and presenters require validation before closing this task.
+  unchanged native crop. Fixed-screen OBJ-window and ordinary-window states now
+  use the outside-window controls for artwork and the cap in added margins;
+  the native 240 × 160 composition remains clipped and unchanged. Regression
+  checks OBJ visibility and effect gating; other regions, actual OBJ-window
+  captures and presenters require validation before closing this task.
   The in-place margin preparation now accepts an already effect-resolved canvas,
   and the cap accepts an explicit second-target layer for alpha blending. The
   title-cap regression covers all profile geometries, animation, transparent
@@ -369,6 +372,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
 - [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
+  The ROM-free screenshot regression checks the production cap, frame accessor
+  and PNG writer at all five geometries with padded pitch; actual presenter
+  screenshots remain part of this task.
 - [x] Resolve functional live gameplay separately from pause/map/fusion states.
   Include fixed fast-travel BG3 artwork behind its centered native map/frame/OBJ;
   it has no health variant or top-left heading-cap requirement. The fixed-screen
@@ -474,17 +480,11 @@ or tile alignment. Native-content centering continues to use floor offsets.
   Evidence is retained in `.tmp/procedural-composition-2026-10-29/`. Other
   regions retain the existing fail-closed effect policy pending regional
   verification; presenter and profile acceptance remain separate tasks.
-- [x] Remove the old ImGui menu side-art overlay and its obsolete setting.
-  Fixed screens now use only the shared contextual compositor; legacy
-  `menu_art_background` keys are discarded on the next config save. The
-  configuration and margin/presentation geometry regressions cover the removal.
-- [x] Verify composed margin pixels through the production color-correction
-  and LCD-persistence routines, including repeated presents, geometry changes
-  and selection of the composed frame. The ROM-free regression uses the real
-  margin kernel and native-frame expansion at 16:9 and test-only 4:3 geometry.
-  Run `ASAN_OPTIONS=detect_leaks=0 python3 tools/presentation_postprocess_regression_test.py`.
-- [ ] Verify software/GPU presentation and raster fallbacks and filters for
-  the shared fixed-screen compositor, including runtime LCD persistence.
+- [ ] Retire the old ImGui menu side-art path as its supported screens migrate;
+  verify software/GPU presentation and raster fallbacks, filters and persistence.
+  The old overlay and its setting have been removed. ROM-free regressions cover
+  composed pixels through color correction, persistence, nearest and xBRZ scaling,
+  LCD grid and screenshot encoding. Runtime presenter validation remains.
 
 ## 6. Artwork loading
 
@@ -529,7 +529,10 @@ or tile alignment. Native-content centering continues to use floor offsets.
   artwork and mods. A full EU ARM64 `build.py --eur` run preserved an artwork
   fixture; cross-host `ldd` could not bundle libraries and `assets_src` was
   absent. Region-specific extractor ROM preparation now keeps an existing ROM
-  from another region. Runtime UI/scene adapter integration remains separate.
+  from another region. F8 → Display now requests a cache refresh at the next
+  publication boundary, so edited and previously missing images can be reloaded
+  without restarting. The runtime regression verifies deferred publication,
+  failure caching and recovery after a file is installed.
 
 ## 7. Export synchronization
 
@@ -557,7 +560,15 @@ or tile alignment. Native-content centering continues to use floor offsets.
   USA/JP source differences on a best-effort basis without regional ROM testing.
 - [ ] Measure RG performance, memory/cache limits and 1/2/4-thread behavior;
   record unsupported optional-path fallbacks and untested regional behavior explicitly.
-- [ ] Run full staging/RG packaging checks when runtime asset packaging changes.
+- [x] Run full staging/RG packaging checks when runtime asset packaging changes.
+  The EU `build.py --eur` and `scripts/build-rgdsplus.sh` builds completed with
+  an ARM64 cross-toolchain. Both preserve a staged custom-artwork fixture; the
+  RG checksum manifest verifies, and both packaged binaries reach AgbMain under
+  QEMU with the EU ROM and dummy SDL. The packaging preservation regression also
+  passes. EU cross-host `ldd` could not bundle shared libraries, and the generated
+  `build/EU/assets_src` tree was absent; these are explicit limits of this run,
+  not a native Linux package or physical-device acceptance. Logs are retained in
+  `.tmp/background-packaging-check-2026-10-29/`.
 
 ## Native export recipe validation (2026-10-28)
 

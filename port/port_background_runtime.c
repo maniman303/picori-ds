@@ -1,5 +1,6 @@
 #include "port_background_runtime.h"
 #include <string.h>
+#include <stdatomic.h>
 
 static PortBackgroundCache sCache;
 static PortBackgroundRuntimeSnapshot sSnapshot;
@@ -8,6 +9,7 @@ static PortBackgroundContext sContext;
 static PortAspectMode sAspect;
 static uint32_t sRendererGeneration;
 static bool sEnabled;
+static atomic_bool sReloadRequested;
 
 bool Port_BackgroundRuntime_Init(const char* root) {
     bool initialized = Port_BackgroundCache_Init(&sCache, root);
@@ -22,9 +24,17 @@ void Port_BackgroundRuntime_Reset(void) {
     memset(&sSnapshot, 0, sizeof(sSnapshot));
 }
 
+void Port_BackgroundRuntime_RequestReload(void) {
+    atomic_store_explicit(&sReloadRequested, true, memory_order_relaxed);
+}
+
 void Port_BackgroundRuntime_Publish(PortBackgroundContext context, const PortViewportGeometry* g,
                                     uint32_t renderer_generation, bool verified_effect_coverage) {
     if (!g) { Port_BackgroundRuntime_Reset(); return; }
+    if (atomic_exchange_explicit(&sReloadRequested, false, memory_order_relaxed)) {
+        Port_BackgroundCache_Invalidate(&sCache);
+        sKeyValid = false;
+    }
     bool enabled = !g->flags &&
                    (g->canvas.width != 240 || g->canvas.height != 160);
     const PortScreenBackground* background = Port_Background_Get(context, !enabled);
