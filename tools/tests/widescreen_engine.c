@@ -33,6 +33,7 @@ static int Port_Widescreen_MapTileY(void) { return (u16)(gRoomControls.scroll_y 
 static unsigned Port_Widescreen_MapBufferSize(void) { return 27 * 64; }
 static void UpdateScrollVram(void) {}
 void Port_Widescreen_PublishScene(void);
+void Port_Widescreen_BeforePresent(void);
 int Port_Widescreen_EffectiveViewWidth(void);
 /* Only unrelated task/HUD dependencies are stubbed; shadow publication runs
  * the production UpdateShadows body, including its area and BG gates. */
@@ -239,6 +240,16 @@ int main(void) {
             CHECK(!!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) == (phase == 2 || phase == 3));
         }
     }
+    /* Subtask installation and exit can occur while room scrolling is idle. */
+    gUI.lastState = SUBTASK_FIGURINEMENU;
+    gUI.nextToLoad = 2;
+    Port_Widescreen_BeforePresent();
+    CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
+    CHECK(Port_PPU_VisibleFrameWidth() == 240);
+    gMain.substate = GAMEMAIN_UPDATE;
+    Port_Widescreen_BeforePresent();
+    CHECK(!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN));
+    gMain.substate = GAMEMAIN_SUBTASK;
     gUI.lastState = SUBTASK_PAUSEMENU;
     gUI.nextToLoad = 2;
     Port_Widescreen_PublishScene();

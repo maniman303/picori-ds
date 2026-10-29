@@ -29,7 +29,7 @@ bool Port_Background_EffectPolicy(PortBackgroundContext c, PortBackgroundEffectP
         case PORT_BACKGROUND_CREDITS_06: case PORT_BACKGROUND_CREDITS_07:
             p = (PortBackgroundEffectPolicy){0x24, 0x7f81, false}; break;
         case PORT_BACKGROUND_GAME_OVER: case PORT_BACKGROUND_CREDITS_CLEARED: case PORT_BACKGROUND_ENDING_SAVE:
-            p = (PortBackgroundEffectPolicy){0x20, 1, false}; break;
+            p = (PortBackgroundEffectPolicy){0x20, 1, true}; break;
         case PORT_BACKGROUND_FIGURINES: case PORT_BACKGROUND_MAP_HINT:
             p = (PortBackgroundEffectPolicy){0x20, 1, true}; break;
         case PORT_BACKGROUND_LOCAL_MAP_HINT: p = (PortBackgroundEffectPolicy){8, 0x20, true}; break;
@@ -54,6 +54,9 @@ bool Port_Background_ResolveEffect(const PortBackgroundEffectPolicy* p, uint8_t 
     }
     r.layer_effect = Port_Background_ResolveLayerEffect(layers, bldcnt, window_effects);
     if (r.layer_effect == PORT_LAYER_EFFECT_INVALID || r.layer_effect == PORT_LAYER_EFFECT_MIXED) return false;
+    /* The backdrop is the bottommost layer and has no alpha second input. */
+    if (layers == 0x20 && r.layer_effect == PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT)
+        r.layer_effect = PORT_LAYER_EFFECT_NONE;
     if (r.layer_effect == PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT) {
         if (second_layer < 0 || second_layer > 5 || (layers & (1u << second_layer))) return false;
         if (!(bldcnt & (1u << (8 + second_layer)))) r.layer_effect = PORT_LAYER_EFFECT_NONE;

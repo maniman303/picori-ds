@@ -30,5 +30,13 @@ int main(void) {
     assert(Port_Background_EffectPolicy(PORT_BACKGROUND_LOCAL_MAP_HINT, &p));
     assert(Port_Background_ResolveEffect(&p, 8, 0x20, NULL, 0, 0x0088, 0, 8, 1, -1, NULL, &r));
     assert(!r.apply_palette_fade && r.layer_effect == PORT_LAYER_EFFECT_BRIGHTEN);
+    assert(Port_Background_EffectPolicy(PORT_BACKGROUND_FIGURINES, &p));
+    assert(Port_Background_ResolveEffect(&p, 0x20, 1, NULL, 0, 0x2060, 0x0808, 0, 1, -1, NULL, &r));
+    assert(!r.apply_palette_fade && r.layer_effect == PORT_LAYER_EFFECT_NONE);
+    assert(Port_Background_EffectPolicy(PORT_BACKGROUND_GAME_OVER, &p));
+    /* Generated black is the live backdrop: its hardware palette already
+     * includes quantized fades and brightness, but still receives layer FX. */
+    assert(Port_Background_ResolveEffect(&p, 0x20, 1, NULL, 0, 0x00a0, 0, 8, 1, -1, NULL, &r));
+    assert(!r.apply_palette_fade && r.layer_effect == PORT_LAYER_EFFECT_BRIGHTEN);
     puts("Background context effect and second-input policy: PASS");
 }

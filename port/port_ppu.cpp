@@ -264,6 +264,13 @@ static bool Port_PPU_ComposeBackground(void) {
         return false;
     const int pitch = virtuappu_mode1_frame_pitch();
     const PortViewportRect native = geometry->nativeContent;
+    if ((gIoMem[0] & 0x80) && !port_hdma_has_active_channels()) {
+        if (!Port_TitleCap_ExpandFrame(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height,
+                                       pitch, native.x, native.y, nullptr, 0, 0xffffffffu)) return false;
+        sComposedWidth = geometry->canvas.width;
+        sComposedHeight = geometry->canvas.height;
+        return true;
+    }
     const uint8_t* frame = nullptr;
     size_t available = 0;
     bool haveHeading = heading->valid;
@@ -290,7 +297,7 @@ static bool Port_PPU_ComposeBackground(void) {
     PortBackgroundComposeRow outsideRows[MODE1_MAX_RENDER_HEIGHT] = {};
     PortEffectSpan irisRows[MODE1_MAX_RENDER_HEIGHT];
     bool useIris = false;
-    bool haveArt = bg->effect_policy_valid && bg->source == PORT_BACKGROUND_SOURCE_IMAGE &&
+    bool haveArt = bg->effect_policy_valid && bg->source != PORT_BACKGROUND_SOURCE_NONE &&
                    bg->canvas.width == geometry->canvas.width && bg->canvas.height == geometry->canvas.height &&
                    bg->native.x == native.x && bg->native.y == native.y &&
                    (!bg->rgba || (bg->width == geometry->canvas.width && bg->height == geometry->canvas.height));
@@ -303,6 +310,7 @@ static bool Port_PPU_ComposeBackground(void) {
             if (sourceBrightness < 0) sourceBrightness = bg->brightness[bank];
             else if (sourceBrightness != bg->brightness[bank]) haveArt = false;
         }
+        if (bg->effect_policy.live_palette) sourceBrightness = 1;
         if (sourceBrightness != 1) {
             if (!gRomData || sourceBrightness < 0 || sourceBrightness > 2) haveArt = false;
             else {
@@ -331,12 +339,15 @@ static bool Port_PPU_ComposeBackground(void) {
             const unsigned brightness = io[0x54] | (unsigned)io[0x55] << 8;
             const unsigned window = display & 0xe000;
             int windowEffects = 1;
-            if (display & 0x80) { haveArt = false; break; }
-            if (window == 0x8000 && !haveHeading && !useIris) {
-                /* OBJ-window sprites are clipped to the native rectangle.
-                 * Added margins see the outside-window controls. */
+            if (display & 0x80) {
+                effectRows[y].forced_blank = rightRows[y].forced_blank = outsideRows[y].forced_blank = true;
+                continue;
+            }
+            if (window && !haveHeading && !useIris) {
+                /* Ordinary windows and OBJ-window sprites belong to the
+                 * native screen. Added margins use outside-window controls. */
                 unsigned outside = io[0x4a] & 0x3f;
-                if ((outside & layers) != layers) { haveArt = false; break; }
+                if ((outside & (layers & 0x0f)) != (layers & 0x0f)) { haveArt = false; break; }
                 windowEffects = (outside & 0x20) != 0;
             } else if (window && (!useIris || window != 0x2000 ||
                        (io[0x48] & 0x3f) != 0x3f || (io[0x4a] & 0x3f) != 0)) {
@@ -382,8 +393,14 @@ static bool Port_PPU_ComposeBackground(void) {
                                    pitch, native.x, native.y, nullptr, 0, fill))
         return false;
     if (haveArt) {
+        uint16_t solid = 0;
+        if (bg->effect_policy.live_palette)
+            solid = gBgPltt[bg->effect_policy.layers == 8 ? 95 : 0];
         PortBackgroundComposition composition = {geometry->canvas, native, bg->rgba, bg->width * 4,
-                                                  {0, 0, 0}, effectRows, geometry->canvas.height};
+                                                  {(uint8_t)((solid & 31) << 3),
+                                                   (uint8_t)(((solid >> 5) & 31) << 3),
+                                                   (uint8_t)(((solid >> 10) & 31) << 3)},
+                                                  effectRows, geometry->canvas.height};
         const uint16_t backdrop = gBgPltt[0];
         const uint8_t outside[3] = {(uint8_t)((backdrop & 31) << 3),
                                     (uint8_t)(((backdrop >> 5) & 31) << 3),

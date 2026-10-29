@@ -54,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 10 unchecked
+[the closure checklist](background-context-closure-checklist.md): 9 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -463,8 +463,17 @@ or tile alignment. Native-content centering continues to use floor offsets.
   checks the retained captures in `.tmp/title-cap-composition-2026-10-28/`.
   Unclassified windows and effect inputs fail closed; the broader title-frame,
   other-presenter and profile acceptance gates remain in section 4.
-- [ ] Implement procedural fields and black fallback with correct global effects;
+- [x] Implement procedural fields and black fallback with correct global effects;
   preserve every native foreground pixel and exclude gameplay completely.
+  Fixed-screen margins now use the live logo/figurine/hint palettes or generated
+  black, with palette fades, layer effects, window controls and forced blank.
+  Scene publication follows menu installation and exit even without room
+  scrolling. EU software captures at 16:9 compare byte-for-byte with native
+  foregrounds for logos, both hint types, figurines and Game Over; sleep
+  captures verify white forced blank and return to live-world classification.
+  Evidence is retained in `.tmp/procedural-composition-2026-10-29/`. Other
+  regions retain the existing fail-closed effect policy pending regional
+  verification; presenter and profile acceptance remain separate tasks.
 - [ ] Retire the old ImGui menu side-art path as its supported screens migrate;
   verify software/GPU presentation and raster fallbacks, filters and persistence.
 

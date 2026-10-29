@@ -1401,7 +1401,9 @@ void Port_Widescreen_PublishScene(void) {
 }
 
 void Port_Widescreen_BeforePresent(void) {
-    if (sWsValidatedKey != UINT64_MAX || sWsStageHeight > 0 ||
+    if (sWsFixedInstalled ||
+        (gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_SUBTASK) ||
+        sWsValidatedKey != UINT64_MAX || sWsStageHeight > 0 ||
         Port_Viewport_Get()->world.height > 160)
         Port_Widescreen_PublishScene();
 }

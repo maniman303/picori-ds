@@ -38,6 +38,7 @@ def main():
     functions.extend(function(stubs, name) for name in (
         'static int Port_WidescreenRepeatingOverlayLive(void)',
         'void Port_Widescreen_PublishScene(void)',
+        'void Port_Widescreen_BeforePresent(void)',
         'void Port_Widescreen_RoomLoaded(void)',
     ))
     functions.append(function(message, 'bool Message_GetWindowRect('))
