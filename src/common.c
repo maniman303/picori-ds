@@ -950,9 +950,8 @@ void DrawDungeonFeatures(u32 floor, void* data, u32 size) {
         nextLayout = layout + 1;
         if (features != 0) {
             // Copies 0x400 bytes even though the data is less most of the time.
-            /* gDungeonLayouts is a compiled table — mapDataOffset is a baked
-             * USA gMapData index; remap for EU/JP (garbage pause-menu maps). */
-            DmaCopy32(3, gMapData + Port_RemapMapOffset(layout->mapDataOffset), gMapDataBottomSpecial, 0x400);
+            /* Compiled map offsets follow the configured build baseline. */
+            DmaCopy32(3, gMapData + Port_RemapCompiledMapOffset(layout->mapDataOffset), gMapDataBottomSpecial, 0x400);
 
             roomHeader = Common_GetAreaRoomHeaderSafe(layout->area, layout->room);
             if (roomHeader == NULL) {

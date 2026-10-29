@@ -9,19 +9,19 @@ health value, unlock mask or quest flag. A new variant belongs in this gate
 when it exercises an unverified installation, source lifetime, foreground layout
 or functional/error return path. Exhaustive products remain acceptance work.
 
-There are **7 unchecked implementation-list items** as of this revision:
+There are **6 unchecked implementation-list items** as of this revision:
 
 | Section | Unchecked items |
 | --- | ---: |
 | Catalog/baseline | 0 |
 | Geometry/settings | 0 |
 | World rendering | 0 |
-| Layout | 3 |
+| Layout | 2 |
 | Margin composition | 1 |
 | Artwork loading | 0 |
 | Export synchronization | 0 |
 | Acceptance/budgets | 3 |
-| **Total** | **7** |
+| **Total** | **6** |
 
 The completed catalog item contains seven resolved groups. C1–C6 have native
 lifecycle/source evidence; C7 records the revised regional policy rather than
@@ -69,8 +69,7 @@ test evidence. These are a breakdown of one parent item, not additional tasks.
   Their visual, effect and interaction behavior is unverified; this is not
   regional acceptance or evidence of equivalence.
 
-EU effect acceptance, top-left title-frame completion, compositor/PNG work,
-profile enablement, packaging, GPU acceptance and physical RG measurements have
+EU effect acceptance, profile enablement, packaging, GPU acceptance and physical RG measurements have
 their own unchecked parent tasks. They do not generate further context-audit
 subtasks by implication. The first parent task is complete under the revised EU-tested scope; USA/JP
 remain explicitly untested and are not an acceptance gate.

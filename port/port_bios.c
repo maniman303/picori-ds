@@ -132,9 +132,9 @@ static void Port_UpdateInput(void) {
     Port_ApplyLanguage();
     u16 keyinput = 0x03FF;
 
-    /* Generic framebuffer capture for verification: set TMC_CAPTURE_FRAME=N and
-     * TMC_CAPTURE_OUT=<path.png> to dump one PNG of the base framebuffer at frame
-     * N, then exit. Region-agnostic; works under the headless video driver. */
+    /* Generic capture for verification. TMC_CAPTURE_PRESENTATION=1 selects
+     * presenter readback instead of the base framebuffer; its request is
+     * asynchronous and must be polled after the next presentation. */
     {
         static int sCapFrame = -2; /* -2 unread, -1 disabled */
         static const char* sCapOut = NULL;
@@ -145,9 +145,13 @@ static void Port_UpdateInput(void) {
         }
         if (sCapFrame >= 0 && (int)sFrameNum >= sCapFrame) {
             extern int Port_CaptureBaseFramebufferPNG(const char* path);
-            int ok = Port_CaptureBaseFramebufferPNG(sCapOut);
+            extern int Port_CapturePresentationPNG(const char* path);
+            const char* presentation = getenv("TMC_CAPTURE_PRESENTATION");
+            int ok = presentation && *presentation && strcmp(presentation, "0") != 0 ?
+                Port_CapturePresentationPNG(sCapOut) : (Port_CaptureBaseFramebufferPNG(sCapOut) ? 1 : -1);
+            if (ok == 0) return;
             fprintf(stderr, "[capture] frame %u -> %s (ok=%d)\n", sFrameNum, sCapOut, ok);
-            exit(ok ? 0 : 1);
+            exit(ok > 0 ? 0 : 1);
         }
     }
 

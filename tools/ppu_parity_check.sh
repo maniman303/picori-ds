@@ -18,8 +18,8 @@
 # TMC_* knob is pinned explicitly below. Never run --update with ad-hoc
 # TMC_* overrides exported.
 #
-# Known limitation: the committed corpus covers only 2 hermetic boot frames
-# (title/logo). "Byte-faithful" claims beyond those scenes need the richer
+# Known limitation: the committed corpus covers boot/title frames, including
+# an EU-only wordmark frame. Claims beyond those scenes need the richer
 # save-dependent local corpus (PPU_CORPUS/PPU_GOLDEN overrides).
 #
 # Usage:
@@ -137,6 +137,13 @@ while IFS=$'\t' read -r name regions spec _desc; do
     bin="$WORK/$name.bin"
     tierB="$(capture "$spec" "$bin")" || { fail=1; continue; }
     if [ ! -s "$bin" ]; then echo "[parity] FAIL $name: no snapshot captured"; fail=1; continue; fi
+    if [ "$TMC_REGION" = eu ] && [ "$name" = title_logo ]; then
+        if ! python3 "$ROOT/tools/verify_eu_title_assets.py" --rom "$TMC_BASEROM" --snapshot "$bin"; then
+            echo "[parity] FAIL $name: title resources do not match the EU ROM"
+            fail=1
+            continue
+        fi
+    fi
     tierA="$("$PARITY" "$bin" 2>/dev/null)"
     if [[ ! "$tierA" =~ ^0x[0-9a-f]+$ || ! "$tierB" =~ ^0x[0-9a-f]+$ ]]; then
         echo "[parity] FAIL $name: missing/invalid renderer hash"

@@ -381,7 +381,7 @@ void Scroll5Sub1(RoomControls* controls) {
     controls->scrollSubAction = 2;
     controls->unk_18 = sub_080803D0() + 6;
     gUnk_0200B640 = sub_08080278();
-    /* gCaveBorderMapData is a compiled table — baked USA offsets need remap. */
+    /* gCaveBorderMapData uses the configured build's compiled offsets. */
     LoadMapDataB(gCaveBorderMapData[gDiggingCaveEntranceTransition.entrance->type][0]);
     sub_0807C8B0(gMapTop.mapData, controls->width >> 4, controls->height >> 4);
     RenderMapLayerToSubTileMap(gMapDataTopSpecial, &gMapTop);
@@ -1057,7 +1057,7 @@ void UpdateScreenShake(void) {
 }
 
 void sub_08080C80(MapDataDefinition* dataDefinition) {
-    /* Sole caller passes compiled gCaveBorderMapData rows (baked USA offsets). */
+    /* Sole caller passes compiled gCaveBorderMapData rows. */
     LoadMapDataB(dataDefinition);
     sub_0807C8B0(gMapBottom.mapData, gRoomControls.width / 16, gRoomControls.height / 16);
     sub_0807C8B0(gMapTop.mapData, gRoomControls.width / 16, gRoomControls.height / 16);

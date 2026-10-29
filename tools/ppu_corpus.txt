@@ -28,6 +28,7 @@
 # --- portable scenes (committed + CI-gated) ---
 intro_logo	all	atframe=150	intro logo — GBA mode0 (VPPU mode1): BG0+BG2 text
 title	all	atframe=300	title screen — GBA mode1 affine (VPPU mode2): BG0/BG1 text + BG2 affine + OBJ
+title_logo	eu	atframe=420	EU title screen after wordmark OBJ and palette load
 #
 # --- local gameplay scenes (copy into ppu_corpus.local.txt; need a dev save) ---
 # Tune warp coords in-game (F-menu), confirm they settle, then use locally.

@@ -2427,14 +2427,8 @@ void LoadBgAnimationGfx(const BgAnimationGfx* param_1) {
     u32 vramOffset;
     u32 size;
     while (TRUE) {
-        /* gfxOffset is a compiled USA-baseline assets/gfx_offsets.h constant
-         * (offset_bgAnim_*), so it needs the same per-region translation the
-         * other compiled-offset consumers apply (hyruleTownTileSetManager.c,
-         * color.c). Without it, EU reads the wrong bytes out of the gfx blob:
-         * animated BG tiles (Picori Festival balloons/decorations) draw as
-         * garbage and BG_ANIM_PALETTE rows load the wrong colours. Identity on
-         * USA/JP and on non-multi-region builds. */
-        src = &gGlobalGfxAndPalettes[Port_RemapGfxOffset(param_1->gfxOffset)];
+        /* offset_bgAnim_* uses the configured build's asset baseline. */
+        src = &gGlobalGfxAndPalettes[Port_RemapCompiledGfxOffset(param_1->gfxOffset)];
         size = param_1->gfxSize;
         vramOffset = param_1->vramOffset;
         if ((param_1->flags & BG_ANIM_PALETTE) != 0) {

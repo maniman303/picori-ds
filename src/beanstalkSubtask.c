@@ -176,7 +176,7 @@ void LoadMapDataB(const MapDataDefinition* dataDefinition) {
     do {
         u32 src = dataDefinition[i].src;
         if (i == (int)(sizeof(xlat) / sizeof(xlat[0]))) {
-            /* Fail closed: loading untranslated USA offsets on EU/JP would
+            /* Fail closed: loading untranslated compiled offsets would
              * paint garbage into VRAM — skip the load and log instead. */
             fprintf(stderr, "LoadMapDataB: compiled chain exceeds %d entries — refusing to load\n", i);
             return;
@@ -184,7 +184,7 @@ void LoadMapDataB(const MapDataDefinition* dataDefinition) {
         xlat[i] = dataDefinition[i];
         if ((src & MAP_SRC_FILE) == 0) {
             /* remap only the offset payload; keep flag bits */
-            xlat[i].src = (src & ~0x7fffffffu) | Port_RemapMapOffset(src & 0x7fffffff);
+            xlat[i].src = (src & ~0x7fffffffu) | Port_RemapCompiledMapOffset(src & 0x7fffffff);
         }
         i++;
     } while ((dataDefinition[i - 1].src & MAP_MULTIPLE) != 0);

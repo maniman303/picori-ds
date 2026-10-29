@@ -328,9 +328,8 @@ void LoadObjPaletteAtIndex(u32 objPaletteId, u32 paletteIndex) {
                 objPalTbl = gUnk_08133368_eu;
             u32 offset = objPalTbl[objPaletteId - 0x16];
             u32 numPalettes = (offset >> 0x18) & 0xf;
-            /* Compiled USA-baseline gGlobalGfxAndPalettes offset — remap for EU
-             * (palette rows >= ~3388 shift by -0x40 on the EU blob). */
-            offset = Port_RemapGfxOffset(offset & 0xffffff);
+            /* The compiled table uses the configured build's asset baseline. */
+            offset = Port_RemapCompiledGfxOffset(offset & 0xffffff);
             LoadPalettes(&gGlobalGfxAndPalettes[offset], paletteIndex + 16, numPalettes);
         }
     }

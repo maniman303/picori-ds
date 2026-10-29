@@ -197,10 +197,8 @@ void HyruleTownTileSetManager_LoadGfxGroup(u32 gfxIndex, u32 gfxGroup) {
         gfxInfo = &gHyruleTownTileSetManagerGfxInfosFestival[gfxGroup];
         base = offset_gUnk_086E8460;
     }
-    /* gfx1/gfx2 are compiled `base + delta` offsets into gGlobalGfxAndPalettes;
-     * the base symbol shifts on EU (assets/gfx_offsets.h is USA-baseline in
-     * the fat binary) — wrong Hyrule Town tiles without the remap. */
-    adj = Port_RemapGfxOffset(base) - base;
+    /* gfx1/gfx2 are compiled `base + delta` offsets in the build baseline. */
+    adj = Port_RemapCompiledGfxOffset(base) - base;
     LoadResourceAsync(&gGlobalGfxAndPalettes[gfxInfo->gfx1 + adj], gfxInfo->dest1, BG_SCREEN_SIZE * 2);
     LoadResourceAsync(&gGlobalGfxAndPalettes[gfxInfo->gfx2 + adj], gfxInfo->dest2, BG_SCREEN_SIZE * 2);
 }

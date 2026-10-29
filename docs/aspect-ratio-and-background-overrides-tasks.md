@@ -54,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 7 unchecked
+[the closure checklist](background-context-closure-checklist.md): 6 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -345,7 +345,7 @@ or tile alignment. Native-content centering continues to use floor offsets.
   fixed screens use button input and have no screen-coordinate hit testing.
   Added artwork, margin effects and unsupported-profile enablement remain
   separate tasks.
-- [ ] Implement top-left title-frame completion strictly in added margins,
+- [x] Implement top-left title-frame completion strictly in added margins,
   preserving native pixels and label placement. Verify native OBJ source/mask,
   local effects and animated heading pose; missing PNGs must not leave the cut
   frame edge. Do not use tile wrapping or move the centered native composition.
@@ -357,8 +357,9 @@ or tile alignment. Native-content centering continues to use floor offsets.
   unchanged native crop. Fixed-screen OBJ-window and ordinary-window states now
   use the outside-window controls for artwork and the cap in added margins;
   the native 240 × 160 composition remains clipped and unchanged. Regression
-  checks OBJ visibility and effect gating; other regions, actual OBJ-window
-  captures and presenters require validation before closing this task.
+  checks OBJ visibility and effect gating. USA/JP retain their region-specific
+  sprite IDs and byte-validated source; their ROM pixels remain untested under
+  the documented best-effort regional policy.
   The in-place margin preparation now accepts an already effect-resolved canvas,
   and the cap accepts an explicit second-target layer for alpha blending. The
   title-cap regression covers all profile geometries, animation, transparent
@@ -367,8 +368,20 @@ or tile alignment. Native-content centering continues to use floor offsets.
   The shared presentation path composes EU artwork under the cap for resolved
   effects, including verified scene-wide iris, uploaded palette fades and
   interpolated native brightness curves. Mixed brightness, unclassified
-  windows and unknown alpha inputs retain the black fallback. The broader
-  runtime capture matrix remains part of this task.
+  windows and unknown alpha inputs retain the black fallback. On a real EU
+  map screen with OBJ-window enabled, the captured OAM/VRAM produces 12,960
+  visible window-mask pixels. At native, 16:9 and 21:9, actual SDL_Renderer and
+  SDL_GPU captures preserve the native crop; software/GPU outputs match at
+  both wide sizes. With artwork or missing-image black, all 176 visible cap
+  pixels match the mirrored native frame corner. The GPU run used Wayland and
+  Vulkan software rendering, not physical-device acceptance. Evidence and the
+  checker are in `.tmp/title-cap-objwindow-2026-10-29/` and
+  `tools/verify_objwindow_title_presenters.py`; the real PPU mask check uses
+  `tools/verify_obj_window_snapshot.py`. The captures use the repro `menus`
+  route, frame 1690, nearest scale 4 and `TMC_CAPTURE_PRESENTATION=1`; the
+  mask snapshot uses frame 1688. `TMC_CAPTURE_FAST_FORWARD=1` preserves raster
+  and audit ticks while skipping interim presentations. Wider profile, filter, screenshot and
+  direct-OBJ acceptance remains in the next item.
 - [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
@@ -1702,3 +1715,33 @@ The staging, 192-row palette and camera/script-completion fixtures verify that
 case and reject unrelated fades. No production caller currently certifies a
 tall room and 4:3 remains unavailable; rolling, mosaic, iris and unclassified
 transition continuations retain their native-height safety fallback.
+
+## EU title palette and compiled-offset baseline correction (2026-10-29)
+
+An EU-baseline multi-region build rendered the Zelda wordmark green. The
+compiled object-palette table already contained EU offsets, but the old remap
+interpreted them as USA offsets and shifted them a second time. The same
+baseline assumption affected compiled animated graphics, player-preview
+palettes, town tilesets and dungeon/cave/transition map offsets. Compiled
+sources now translate from the configured build baseline to the active ROM;
+explicitly USA-based literals retain the original USA-source API. The mapping
+regression checks all table rows for USA, EU and JP baselines and, when both
+asset headers are available, checks 4,195 graphics and 1,846 map offsets.
+
+A fresh EU frame-420 PPU snapshot now matches the ROM's title OBJ resource:
+5,632 tile bytes and all three title palettes. The earlier snapshot fails the
+independent palette check. The retained screenshot shows the restored red
+wordmark. The previous boot/title parity frames at 150/300 are unchanged but
+precede the wordmark; the EU-only frame-420 corpus entry checks the rendered
+frame and compares the title resources directly to the ROM. Historical native
+pixel comparisons remain evidence of the builds actually captured; EU-baseline
+OBJ colours and compiled-map offsets from those earlier binaries are not a
+reference for corrected rendering. USA/JP execution remains untested here.
+
+The post-fix EU title presentation was captured at native 3:2, 16:9 and 21:9;
+the 16:9 software/GPU output and both widescreen native crops match exactly.
+GPU presentation used the local Wayland/Vulkan software device. Captures,
+logs and before/after snapshots are retained in
+`.tmp/title-palette-baseline-fix-2026-10-29/`; the independent check is
+`tools/verify_eu_title_assets.py`. The broader title-cap OBJ-window evidence
+uses a separate corrected-build replay described in section 4.

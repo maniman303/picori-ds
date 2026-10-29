@@ -1,14 +1,11 @@
 /**
- * Per-region runtime remap for compiled USA-baseline blob offsets (M7
- * multi-region fix). Generated implementation: port/port_offset_remap.c
- * (tools/gen_offset_remap.py; regeneration needs extracted assets for all
- * three regions under dist/ or build/ — the committed .c is authoritative).
+ * Per-region runtime remap for compiled blob offsets (M7 multi-region fix).
+ * The committed mapping tables in port/port_offset_remap.c are authoritative.
  *
- * Contract: apply ONLY to offsets that came from a compiled C table or
- * macro (offset_* from port_offset_USA.h / assets/gfx_offsets.h baked at
- * compile time). Offsets read out of ROM-native or asset-extracted data are
- * already region-correct — translating them would corrupt the lookup the
- * same way the untranslated compiled ones are corrupted today.
+ * Compiled-offset helpers translate from the build's selected asset baseline
+ * (USA, EU or JP) to the active ROM. The USA helpers are for explicitly
+ * USA-based literals. ROM-native and asset-extracted offsets are already
+ * region-correct and must not be translated.
  *
  *   Port_RemapMapOffset — indices into gMapData          (dungeon maps,
  *                         cave borders, gyorg mappings)
@@ -25,9 +22,13 @@
 #if defined(PC_PORT) && defined(MULTI_REGION)
 u32 Port_RemapMapOffset(u32 usa_offset);
 u32 Port_RemapGfxOffset(u32 usa_offset);
+u32 Port_RemapCompiledMapOffset(u32 offset);
+u32 Port_RemapCompiledGfxOffset(u32 offset);
 #else
 #define Port_RemapMapOffset(off) (off)
 #define Port_RemapGfxOffset(off) (off)
+#define Port_RemapCompiledMapOffset(off) (off)
+#define Port_RemapCompiledGfxOffset(off) (off)
 #endif
 
 #endif /* PORT_OFFSET_REMAP_H */

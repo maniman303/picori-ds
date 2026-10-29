@@ -127,8 +127,7 @@ void FileScreenObjects_Type23_LinkPreview(FileScreenObjectsEntity* this) {
             const s32* objPalTbl = gUnk_08133368;
             if (REGION_IS_EU)
                 objPalTbl = gUnk_08133368_eu;
-            /* Compiled USA-baseline blob offset — remap for EU. */
-            offset = Port_RemapGfxOffset(objPalTbl[GetPlayerPalette(TRUE) - 22] & 0xFFFFFF);
+            offset = Port_RemapCompiledGfxOffset(objPalTbl[GetPlayerPalette(TRUE) - 22] & 0xFFFFFF);
         }
         LoadPalettes(&gGlobalGfxAndPalettes[offset], 31, 1);
     }

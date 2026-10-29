@@ -57,6 +57,7 @@ void LoadPaletteGroup(u32 group) { palettes++; (void)group; }
 bool32 CheckGlobalFlag(u32 flag) { (void)flag; return FALSE; }
 void SetTileByIndex(u32 tile, u32 pos, u32 layer) { (void)tile; (void)pos; (void)layer; }
 u32 Port_RemapGfxOffset(u32 off) { return off; }
+u32 Port_RemapCompiledGfxOffset(u32 off) { return off; }
 u32 Port_IsLoadedAssetBytes(const void* ptr, u32 size) { (void)ptr; (void)size; return 0; }
 
 static void check_village(void) {

@@ -1839,6 +1839,21 @@ extern "C" void Port_PPU_PresentFrame(void) {
     int presentPitchBytes = 0;
     const uint32_t* presentFrame = Port_PPU_SelectPresentFrame(&presentW, &presentH, &presentPitchBytes);
 
+#ifdef TMC_REPRO_HARNESS
+    /* Preserve rasterization and audit snapshots while avoiding thousands of
+     * unnecessary swapchain presents before a single requested readback. */
+    static const bool captureWarmup = [] {
+        const char* fast = std::getenv("TMC_CAPTURE_FAST_FORWARD");
+        const char* capture = std::getenv("TMC_CAPTURE_PRESENTATION");
+        const char* frame = std::getenv("TMC_CAPTURE_FRAME");
+        const char* output = std::getenv("TMC_CAPTURE_OUT");
+        return fast && *fast && std::strcmp(fast, "0") != 0 && capture && *capture &&
+               std::strcmp(capture, "0") != 0 && frame && *frame && std::atoi(frame) >= 0 && output && *output;
+    }();
+    if (captureWarmup && !Port_PPU_PresentationCapturePath())
+        return;
+#endif
+
     /* Stage 2: SDL_GPU present path. Stretched 240x160 → swapchain via
      * the passthrough shader. Internal-scale and xBRZ now route through
      * here too (the upscaled buffer is just fed to Port_GPU_PresentFrame
