@@ -191,7 +191,9 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
 /* Sample the nearest visible BG below a given BG at a native pixel. Uses
  * the rendered frame's scanline IO; OBJ is intentionally excluded. Returns
  * backdrop layer 5 if no lower BG is opaque. Mode 0 only. */
-bool virtuappu_mode1_sample_below_bg(int line, int x, int source_bg, unsigned* layer, uint32_t* color);
+/* visible_bgs contains the effective window's BG enable bits (bits 0-3). */
+bool virtuappu_mode1_sample_below_bg(int line, int x, int source_bg, unsigned visible_bgs,
+                                     unsigned* layer, uint32_t* color);
 void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffer, uint8_t* priority_buffer);
 void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH],
                                     uint8_t bg_priority[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH],

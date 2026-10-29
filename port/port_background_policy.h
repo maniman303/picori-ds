@@ -18,6 +18,13 @@ typedef struct {
 
 bool Port_Background_EffectPolicy(PortBackgroundContext context, PortBackgroundEffectPolicy* output);
 
+/* Audited EU artwork ownership at the native perimeter. Each byte encodes
+ * (GBA layer << 4) | palette bank. NULL for non-image contexts. */
+typedef struct {
+    uint8_t left[160], right[160], top[240], bottom[240];
+} PortBackgroundArtworkEdges;
+const PortBackgroundArtworkEdges* Port_Background_ArtworkEdges(PortBackgroundContext context);
+
 /* Resolve a single region/row. source_layers and source_banks may narrow the
  * policy to verified edge ownership; callers must never invent that coverage.
  * second_layer is 0..5, or -1 when the actual underlying layer is unknown.

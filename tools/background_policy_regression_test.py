@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-policy-') as directory:
     subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport',
         'tools/tests/background_policy.c', 'port/port_background_policy.c',
-        'port/port_background_effect.c', '-o', str(binary)], cwd=root, check=True)
+        'port/port_background_effect.c', 'port/port_background_compose.c', '-o', str(binary)], cwd=root, check=True)
     env = os.environ.copy()
     env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')
     subprocess.run([str(binary)], cwd=root, env=env, check=True)
@@ -32,7 +32,8 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-policy-') as directory:
         coverage = json.loads(coverage_path.read_text())['images']
         assert len(entries) == len(coverage) == 33
         for entry in entries:
-            name, layers, banks = entry.split()
+            name, layers, banks, *edge_values = entry.split()
             item = coverage[Path(name).stem]
             assert (int(layers), int(banks)) == (item['layer_mask'], item['palette_bank_mask']), name
+            assert list(map(int, edge_values)) == sum((item['edges'][edge] for edge in ('left', 'right', 'top', 'bottom')), []), name
         print('ROM-derived context coverage: PASS')

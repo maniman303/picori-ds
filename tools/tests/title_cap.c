@@ -134,6 +134,25 @@ int main(void) {
     assert(canvas[21] == 0xff0c18a1); /* BG3 artwork keeps its eight-bit channels */
     reset(); io16(0x50, 0x0850); io16(0x52, 0x0808); assert(draw(285,160,22,0,16));
     assert(canvas[21] == 0xff0000f8); /* backdrop is not a selected second target */
+    /* The cap follows the actual left-edge owner for each raster line. */
+    reset(); io16(0x50, 0x0850); io16(0x52, 0x0808);
+    uint8_t layers[160]; memset(layers, 5, sizeof(layers)); layers[8] = 3;
+    assert(Port_TitleCap_DrawResolved(canvas,285,160,569,22,0,64,16,frame,sizeof(frame),
+                                     vram,sizeof(vram),palette,io,layers,160,NULL,NULL,NULL,0));
+    assert(canvas[21] == 0xff0000f8 && canvas[8 * 569 + 21] != 0xff0000f8);
+    native_untouched(22,0);
+    reset(); layers[159] = 4;
+    assert(!Port_TitleCap_DrawResolved(canvas,285,160,569,22,0,64,16,frame,sizeof(frame),
+                                      vram,sizeof(vram),palette,io,layers,160,NULL,NULL,NULL,0));
+    assert(memcmp(canvas,before,sizeof(canvas)) == 0);
+    reset(); io16(0x50, 0x0850); io16(0x52, 0x0808);
+    uint8_t tall_layers[192], top_layers[240];
+    memset(tall_layers, 5, sizeof(tall_layers)); memset(top_layers, 5, sizeof(top_layers));
+    top_layers[0] = 3;
+    assert(Port_TitleCap_DrawResolved(canvas,256,192,569,8,16,64,0,frame,sizeof(frame),
+                                     vram,sizeof(vram),palette,io,tall_layers,192,top_layers,NULL,NULL,0));
+    assert(canvas[8] != 0xff0000f8 && canvas[9] == 0xff0000f8);
+    native_untouched(8,16);
     reset(); assert(!Port_TitleCap_Draw(canvas,285,160,569,22,0,64,16,frame,sizeof(frame),
                                       vram,sizeof(vram),palette,io,4,NULL));
     assert(memcmp(canvas,before,sizeof(canvas)) == 0);

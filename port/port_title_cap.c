@@ -58,10 +58,18 @@ static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
                         const uint8_t* frame, size_t frame_size,
                         const uint8_t* vram, size_t vram_size,
                         const uint16_t* palette, const uint8_t* io, unsigned background_layer,
-                        const uint8_t* (*io_for_line)(int), const PortEffectSpan* spans, int span_count) {
+                        const uint8_t* (*io_for_line)(int), const PortEffectSpan* spans, int span_count,
+                        const uint8_t* background_layers, int layer_count, const uint8_t* top_layers) {
     if (!canvas || !vram || !palette || (background_layer > 3 && background_layer != 5) ||
         !Port_TitleCap_CanDraw(width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram_size, io))
         return false;
+    if (background_layers) {
+        if (layer_count < height) return false;
+        for (int y = 0; y < height; ++y)
+            if (background_layers[y] > 3 && background_layers[y] != 5) return false;
+    }
+    if (top_layers) for (int x = 0; x < 240; ++x)
+        if (top_layers[x] > 3 && top_layers[x] != 5) return false;
     if (spans) {
         if (span_count < height) return false;
         for (int y = 0; y < height; ++y)
@@ -87,6 +95,7 @@ static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
     if (first_x < 0) first_x = 0;
     if (last_x > width) last_x = width;
     for (int y = first_y; y < last_y; ++y) {
+        const unsigned row_layer = background_layers ? background_layers[y] : background_layer;
         const int sy = y - ny - top;
         if (sy < 0 || sy >= 32) continue;
         const uint8_t* line_io = io_for_line ? io_for_line(y - ny) : io;
@@ -106,6 +115,13 @@ static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
         if (evb > 16) evb = 16;
         for (int x = first_x; x < last_x; ++x) {
             if (spans && (x < spans[y].left || x >= spans[y].right)) continue;
+            unsigned pixel_layer = row_layer;
+            if (top_layers && y < ny) {
+                int edge_x = x - nx;
+                if (edge_x < 0) edge_x = 0;
+                if (edge_x > 239) edge_x = 239;
+                pixel_layer = top_layers[edge_x];
+            }
             int sx = x - nx;
             if (sx >= 0 && sx < 240 && y >= ny && y < ny + 160) continue;
             if (sx < 0) {
@@ -130,7 +146,7 @@ static bool draw_cap(uint32_t* canvas, int width, int height, int pitch,
             for (int ch = 0; ch < 3; ++ch) {
                 unsigned value = c[ch] << 3;
                 if ((window & 0x20) && (blend & 0x10) && ((blend >> 6) & 3) == 1 &&
-                    (blend & (1u << (8 + background_layer)))) {
+                    (blend & (1u << (8 + pixel_layer)))) {
                     value = (value * eva + ((back >> (ch * 8)) & 255u) * evb) >> 4;
                     if (value > 255) value = 255;
                 }
@@ -148,7 +164,7 @@ bool Port_TitleCap_Draw(uint32_t* canvas, int width, int height, int pitch, int 
                         const uint16_t* palette, const uint8_t* io, unsigned background_layer,
                         const uint8_t* (*io_for_line)(int)) {
     return draw_cap(canvas, width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram, vram_size,
-                    palette, io, background_layer, io_for_line, NULL, 0);
+                    palette, io, background_layer, io_for_line, NULL, 0, NULL, 0, NULL);
 }
 
 bool Port_TitleCap_DrawIris(uint32_t* canvas, int width, int height, int pitch, int nx, int ny, int hx, int hy,
@@ -157,5 +173,15 @@ bool Port_TitleCap_DrawIris(uint32_t* canvas, int width, int height, int pitch, 
                             const uint8_t* (*io_for_line)(int), const PortEffectSpan* spans, int span_count) {
     if (!spans) return false;
     return draw_cap(canvas, width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram, vram_size,
-                    palette, io, background_layer, io_for_line, spans, span_count);
+                    palette, io, background_layer, io_for_line, spans, span_count, NULL, 0, NULL);
+}
+
+bool Port_TitleCap_DrawResolved(uint32_t* canvas, int width, int height, int pitch, int nx, int ny, int hx, int hy,
+                                const uint8_t* frame, size_t frame_size, const uint8_t* vram, size_t vram_size,
+                                const uint16_t* palette, const uint8_t* io, const uint8_t* background_layers,
+                                int layer_count, const uint8_t* top_layers, const uint8_t* (*io_for_line)(int),
+                                const PortEffectSpan* spans, int span_count) {
+    if (!background_layers) return false;
+    return draw_cap(canvas, width, height, pitch, nx, ny, hx, hy, frame, frame_size, vram, vram_size,
+                    palette, io, 5, io_for_line, spans, span_count, background_layers, layer_count, top_layers);
 }

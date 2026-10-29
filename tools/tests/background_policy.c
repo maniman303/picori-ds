@@ -30,6 +30,31 @@ int main(void) {
     assert(Port_Background_EffectPolicy(PORT_BACKGROUND_LOCAL_MAP_HINT, &p));
     assert(Port_Background_ResolveEffect(&p, 8, 0x20, NULL, 0, 0x0088, 0, 8, 1, -1, NULL, &r));
     assert(!r.apply_palette_fade && r.layer_effect == PORT_LAYER_EFFECT_BRIGHTEN);
+    /* Corrected EU credits 02 has different palette owners at its edges.
+     * A masked fade must affect only the side whose source bank is faded. */
+    assert(Port_Background_EffectPolicy(PORT_BACKGROUND_CREDITS_02, &p));
+    const PortBackgroundArtworkEdges* edges = Port_Background_ArtworkEdges(PORT_BACKGROUND_CREDITS_02);
+    assert(edges);
+    for (int b = 0; b < 16; ++b) banks[b] = (PortPaletteFade){b == 7 ? 0 : 128, 0};
+    PortBackgroundComposeRow left[160], right[160];
+    int different = -1;
+    for (int y = 0; y < 160; ++y) {
+        unsigned l = edges->left[y], rr = edges->right[y];
+        assert(Port_Background_ResolveEffect(&p, 1u << (l >> 4), 1u << (l & 15),
+                                             banks, 0xffff, 0, 0, 0, 1, -1, NULL, &left[y]));
+        assert(Port_Background_ResolveEffect(&p, 1u << (rr >> 4), 1u << (rr & 15),
+                                             banks, 0xffff, 0, 0, 0, 1, -1, NULL, &right[y]));
+        if ((l & 15) == 7 && (rr & 15) != 7) different = y;
+    }
+    assert(different >= 0);
+    static uint32_t canvas[285 * 160];
+    memset(canvas, 0x55, sizeof(canvas));
+    PortBackgroundComposition composition = {{0,0,285,160}, {22,0,240,160}, NULL, 0,
+                                               {200,100,50}, left, 160};
+    assert(Port_Background_ComposeEdgeMargins(canvas,285,&composition,right,160,NULL,0,NULL,0,NULL));
+    assert(canvas[different * 285] == 0xff3264c8u);
+    assert(canvas[different * 285 + 284] == 0xff193264u);
+    assert(canvas[different * 285 + 22] == 0x55555555u);
     assert(Port_Background_EffectPolicy(PORT_BACKGROUND_FIGURINES, &p));
     assert(Port_Background_ResolveEffect(&p, 0x20, 1, NULL, 0, 0x2060, 0x0808, 0, 1, -1, NULL, &r));
     assert(!r.apply_palette_fade && r.layer_effect == PORT_LAYER_EFFECT_NONE);

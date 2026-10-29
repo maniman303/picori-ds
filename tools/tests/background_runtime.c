@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
     const PortBackgroundRuntimeSnapshot* snap = Port_BackgroundRuntime_Get();
     assert(snap->source == PORT_BACKGROUND_SOURCE_IMAGE && snap->width == 285 && snap->height == 160);
     assert(snap->effect_policy_valid && snap->effect_policy.layers == 8 && snap->effect_policy.banks == 0x20);
+    assert(snap->artwork_edges && snap->artwork_edges->left[0] == 0x35 && snap->artwork_edges->right[159] == 0x35);
     assert(snap->rgba && snap->rgba[0] == 55 && snap->native.x == 22);
     assert(snap->valid_palette_fades == (1u << 5) && snap->palette_fades[5].intensity == 64);
     PortBackgroundComposeRow resolved;
@@ -64,14 +65,21 @@ int main(int argc, char** argv) {
     assert(!snap->rgba);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_LIVE_WORLD, &g, 1, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_NONE && !snap->rgba && !snap->width && !snap->effect_policy_valid);
+    assert(!snap->artwork_edges);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_GAME_OVER, &g, 1, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_BLACK && !snap->rgba);
+    assert(!snap->artwork_edges);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
     assert(!snap->rgba); /* failed key remains cached after scene change */
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_IMAGE && !snap->rgba); /* failed new key */
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, true);
     assert(!snap->rgba);
+    assert(snap->artwork_edges);
+    Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, false);
+    assert(!snap->effect_policy_valid && !snap->artwork_edges);
+    Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, true);
+    assert(snap->artwork_edges);
     g.flags = PORT_VIEWPORT_PARITY;
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_NONE && !snap->rgba);

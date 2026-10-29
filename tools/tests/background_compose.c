@@ -7,6 +7,7 @@
 static uint32_t canvas[192 * 576];
 static uint8_t rgba[192 * 569 * 4];
 static PortBackgroundComposeRow rows[192], outside[192], right_rows[192];
+static PortBackgroundComposeRow top_rows[240], bottom_rows[240];
 static PortEffectSpan spans[192];
 static uint8_t curve[3][256];
 
@@ -42,6 +43,7 @@ int main(void) {
         for (int value = 0; value < 256; ++value) curve[channel][value] = value / 2;
     rows[3].brightness_curve = (const uint8_t (*)[256])curve;
     rows[2].forced_blank = true;
+    rows[2].layer_effect = PORT_LAYER_EFFECT_INVALID; /* not needed for forced blank */
     assert(Port_Background_ComposeMargins(canvas,576,&c));
     assert(canvas[0] == 0xff9da7b1u);
     assert(canvas[576] == 0xff3c3c3cu);
@@ -59,6 +61,32 @@ int main(void) {
     assert(canvas[0] == 0xff00000a && canvas[284] == 0xff0000c8);
     canvas[0] = 0x12345678; right_rows[159].second_valid = false;
     assert(!Port_Background_ComposeEdgeMargins(canvas,576,&c,right_rows,160,NULL,0,NULL,0,NULL));
+    assert(canvas[0] == 0x12345678);
+
+    /* Top/bottom ownership varies across columns; corners extend the edge
+     * endpoint, and no native pixel or pitch padding is changed. */
+    for (int y = 0; y < 192; ++y) {
+        rows[y] = right_rows[y] = (PortBackgroundComposeRow){0};
+        rows[y].layer_effect = right_rows[y].layer_effect = PORT_LAYER_EFFECT_NONE;
+    }
+    for (int x = 0; x < 240; ++x) {
+        top_rows[x] = bottom_rows[x] = (PortBackgroundComposeRow){0};
+        top_rows[x].layer_effect = bottom_rows[x].layer_effect = PORT_LAYER_EFFECT_NEEDS_ALPHA_INPUT;
+        top_rows[x].second_valid = bottom_rows[x].second_valid = true;
+        top_rows[x].coefficient = bottom_rows[x].coefficient = 0x1000;
+        top_rows[x].second_rgb[0] = (uint8_t)x;
+        bottom_rows[x].second_rgb[0] = (uint8_t)(239 - x);
+    }
+    for (int j = 0; j < 192*576; ++j) canvas[j] = 0x12345678;
+    PortBackgroundComposition tall = {{0,0,256,192},{8,16,240,160},NULL,0,{1,2,3},rows,192};
+    assert(Port_Background_ComposePerimeter(canvas,576,&tall,right_rows,192,top_rows,bottom_rows,240,
+                                             NULL,0,NULL,0,NULL));
+    assert(canvas[0] == 0xff000000 && canvas[8] == 0xff000000 && canvas[247] == 0xff0000ef);
+    assert(canvas[255] == 0xff0000ef && canvas[191*576] == 0xff0000ef && canvas[191*576+255] == 0xff000000);
+    assert(canvas[16*576+8] == 0x12345678 && canvas[255+256] == 0x12345678);
+    canvas[0] = 0x12345678; top_rows[239].second_valid = false;
+    assert(!Port_Background_ComposePerimeter(canvas,576,&tall,right_rows,192,top_rows,bottom_rows,240,
+                                              NULL,0,NULL,0,NULL));
     assert(canvas[0] == 0x12345678);
 
     /* Exercise the real published iris geometry at every native radius. */

@@ -49,6 +49,7 @@ void Port_BackgroundRuntime_Publish(PortBackgroundContext context, const PortVie
     sSnapshot.source = background->source;
     sSnapshot.effect_policy_valid = verified_effect_coverage && background->source != PORT_BACKGROUND_SOURCE_NONE &&
         Port_Background_EffectPolicy(context, &sSnapshot.effect_policy);
+    sSnapshot.artwork_edges = sSnapshot.effect_policy_valid ? Port_Background_ArtworkEdges(context) : NULL;
     if (!sSnapshot.effect_policy_valid) memset(&sSnapshot.effect_policy, 0, sizeof(sSnapshot.effect_policy));
     sSnapshot.canvas = g->canvas;
     sSnapshot.native = g->nativeContent;

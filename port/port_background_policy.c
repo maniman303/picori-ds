@@ -1,6 +1,14 @@
 #include "port_background_policy.h"
 #include <string.h>
 
+#include "port_background_edges.inc"
+
+const PortBackgroundArtworkEdges* Port_Background_ArtworkEdges(PortBackgroundContext c) {
+    if ((unsigned)c >= PORT_BACKGROUND_COUNT || !sArtworkEdgeValid[c])
+        return NULL;
+    return &sArtworkEdges[c];
+}
+
 bool Port_Background_EffectPolicy(PortBackgroundContext c, PortBackgroundEffectPolicy* out) {
     PortBackgroundEffectPolicy p = {0, 0, false};
     if (!out) return false;

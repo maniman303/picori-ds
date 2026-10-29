@@ -389,16 +389,21 @@ static void check_below_bg_edges(void) {
     PPUMemory p = geometry(160, 1);
     virtuappu_mode1_render_frame(&p);
     unsigned layer = 99; uint32_t color = 0;
-    assert(virtuappu_mode1_sample_below_bg(0, 0, 2, &layer, &color));
+    assert(virtuappu_mode1_sample_below_bg(0, 0, 2, 15, &layer, &color));
     assert(layer == 3 && color == 0xff0000f8);
-    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, &layer, &color));
+    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, 15, &layer, &color));
     assert(layer == 1 && color == 0xff00f800);
+    assert(virtuappu_mode1_sample_below_bg(0, 0, 2, 1u << 1, &layer, &color));
+    assert(layer == 1 && color == 0xff00f800);
+    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, 1u << 3, &layer, &color));
+    assert(layer == 5 && color == 0xff000000);
     io16(0x0a, (17 << 8)); /* BG1 is now above BG2 */
-    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, &layer, &color));
+    assert(virtuappu_mode1_sample_below_bg(0, 239, 2, 15, &layer, &color));
     assert(layer == 5 && color == 0xff000000);
     io16(0, 0x0e01);
-    assert(!virtuappu_mode1_sample_below_bg(0, 0, 2, &layer, &color));
+    assert(!virtuappu_mode1_sample_below_bg(0, 0, 2, 15, &layer, &color));
 }
+
 
 int main(void) {
     VirtuaPPUMode1GbaMemory mem = { io, vram, bgpal, objpal, oam };

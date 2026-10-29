@@ -54,7 +54,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 9 unchecked
+[the closure checklist](background-context-closure-checklist.md): 7 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -450,14 +450,36 @@ or tile alignment. Native-content centering continues to use floor offsets.
   snapshot. Record only banks actually uploaded by FadeVBlank; preserve
   untouched banks and invalidate unknown state on palette reset or quickload.
   Native fade and quicksave regressions cover selective upload and lifetime.
-- [ ] Publish source, native coverage and resolved effect data to a compositor
+- [x] Publish source, native coverage and resolved effect data to a compositor
   with no task IDs or config parsing in its pixel loops.
-  The VBlank descriptor now carries EU source-layer/bank unions checked against
-  all 33 current ROM recipes. The effect resolver rejects mixed/unavailable
-  palette state and requires an explicit actual alpha second layer and color.
-  Other regions fail closed. The title-cap consumer resolves scanline effects
-  and samples BG2's actual lower layer at the native edges; broader per-edge
-  coverage and renderer consumption remain to be connected and validated.
+  The VBlank descriptor carries EU source ownership for all four native edges,
+  regenerated from the current 33 ROM recipes in all five languages, including
+  the corrected credits offsets. Per-edge palette fades, brightness and actual
+  lower alpha inputs are resolved after rasterization, before margin pixels are
+  written; the cap uses the same background ownership. Unknown regional or
+  effect inputs fall back to black margins with the native crop centered. The
+  fixed-screen lower-layer sampler honors outside-window BG visibility; forced
+  blank bypasses unrelated effect inputs. Native/parity output is untouched.
+  Production-frame fixtures cover 16:9 and the 4:3 perimeter, mixed-bank fades,
+  alpha, hidden sources and fallback; independent kernel and cap tests cover
+  geometry and effects. Intermediate EU credits replays were interrupted at
+  frames 9,374 and 9,860; 241 common crops match, excluding one 240-wide
+  transition capture. A later replay of that transition returns 285 with an
+  identical native crop. EU logo/title
+  PPU parity and ARM64 build pass.
+  The five regenerated coverage JSON files and the transition captures are
+  retained in `.tmp/background-perimeter-2026-10-29/`; the capture executable
+  SHA256 is `4579d223457ba2fe5c70daa4a18c1ab45eb2e598816e119a78fabdb1d2264ed2`.
+  Taller canvases fail closed on unclassified HDMA, including iris DMA, until
+  its continuation has a separate verified publication policy.
+  Recheck the generated table with `python3 tools/generate_background_edge_coverage.py
+  .tmp/background-perimeter-2026-10-29/coverage --check`; the production-frame
+  regression is `python3 tools/background_frame_composition_regression_test.py`.
+  `tools/verify_background_perimeter_capture.py` compares the retained partial
+  replays using `--min-frame 755 --skip-frame 1057`; the excluded old capture is
+  replaced by the independently checked final transition pair.
+  This completes publication and composition; enabling 4:3/32:9 and the wider
+  scene, presenter and intermediate-effect acceptance matrix remain separate.
 
 - [x] Include the verified title-frame completion mask/pose in foreground
   composition above artwork, with no task IDs or live health reads in pixel loops.

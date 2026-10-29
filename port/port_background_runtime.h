@@ -26,6 +26,7 @@ typedef struct {
     uint8_t brightness[16];
     PortBackgroundEffectPolicy effect_policy;
     bool effect_policy_valid;
+    const PortBackgroundArtworkEdges* artwork_edges; /* EU audited native perimeter ownership */
 } PortBackgroundRuntimeSnapshot;
 
 bool Port_BackgroundRuntime_Init(const char* root);

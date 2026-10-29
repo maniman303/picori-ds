@@ -61,6 +61,16 @@ bool Port_Background_ComposeEdgeMargins(uint32_t* output, int pitch,
                                         const PortBackgroundComposeRow* outside_rows, int outside_count,
                                         const uint8_t outside_rgb[3]);
 
+/* Resolve top and bottom margins from the corresponding 240 native edge
+ * samples; corners extend the nearest endpoint. Native pixels are untouched. */
+bool Port_Background_ComposePerimeter(uint32_t* output, int pitch,
+                                      const PortBackgroundComposition* composition,
+                                      const PortBackgroundComposeRow* right_rows, int right_count,
+                                      const PortBackgroundComposeRow* top, const PortBackgroundComposeRow* bottom,
+                                      int edge_count, const PortEffectSpan* spans, int span_count,
+                                      const PortBackgroundComposeRow* outside_rows, int outside_count,
+                                      const uint8_t outside_rgb[3]);
+
 #ifdef __cplusplus
 }
 #endif
