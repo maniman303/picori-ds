@@ -281,6 +281,27 @@ bool Message_GetWindowRect(int* x, int* y, int* width, int* height) {
     return true;
 }
 
+bool Message_GetFinalWindowRect(int* x, int* y, int* width, int* height) {
+    int currentX, currentY, currentWidth, currentHeight;
+    int finalWidth = gTextRender.message.textWindowWidth;
+    int finalHeight = gTextRender.message.textWindowHeight;
+    int finalX = gTextRender.message.textWindowPosX;
+    int finalY = gTextRender.message.textWindowPosY;
+    if (!x || !y || !width || !height ||
+        !Message_GetWindowRect(&currentX, &currentY, &currentWidth, &currentHeight) ||
+        finalWidth == 0 || finalHeight == 0 || (finalWidth & 1) || (finalHeight & 1) ||
+        finalX + finalWidth + 2 > 32 || finalY + finalHeight + 2 > 32 ||
+        currentWidth > (finalWidth + 2) * 8 || currentHeight > (finalHeight + 2) * 8 ||
+        2 * currentX + currentWidth != (2 * finalX + finalWidth + 2) * 8 ||
+        2 * currentY + currentHeight != (2 * finalY + finalHeight + 2) * 8)
+        return false;
+    *x = finalX * 8;
+    *y = finalY * 8;
+    *width = (finalWidth + 2) * 8;
+    *height = (finalHeight + 2) * 8;
+    return true;
+}
+
 bool Message_CopyTextCanvas(u8* pixels, int capacity, int* x, int* y, int* width, int* height) {
     int row, col;
     if (!pixels || !gCurrentWindow.active || gTextRender._98.bytes.sizeScale != 8 ||

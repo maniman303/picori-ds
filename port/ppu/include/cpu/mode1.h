@@ -89,10 +89,12 @@ extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
 
 /* Runtime WIP widescreen HUD anchor. BG0 stays 32 tiles wide, but gameplay
  * HUD uses both left-anchored widgets (hearts/charge) and right-anchored
- * widgets (rupees/keys). When enabled by the port, render BG0 cols
- * MODE1_WS_HUD_RIGHT_NATIVE_X..239 at the far right of the wide viewport
- * instead of in the middle of the revealed world. */
+ * widgets (rupees/keys). When enabled by the port, move their normal BG0
+ * tile rectangles to the right edge; other BG0 pixels stay native. The
+ * relocation is disabled when BG0 scroll is nonzero. The published mask
+ * identifies the independently installed, visible widgets. */
 #define MODE1_WS_HUD_RIGHT_NATIVE_X 176
+enum { MODE1_WS_HUD_KEYS = 1, MODE1_WS_HUD_RUPEES = 2 };
 extern int virtuappu_mode1_ws_hud_right_anchor;
 
 /* Runtime WIP widescreen message-box centering. The engine composes the

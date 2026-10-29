@@ -401,6 +401,32 @@ or tile alignment. Native-content centering continues to use floor offsets.
   matrix remains a separate acceptance task.
 - [ ] Implement semantic corner HUD anchors and bottom dialogue geometry shared
   by BG/OAM, portrait, choices, cursor, arrows and HD text; keep banners separate.
+  The [live HUD source audit](live-hud-layout-source-audit.md) records normal
+  widget ownership, existing wide-path constraints and remaining classification.
+  A bounded semantic corner/center translation helper is available in the
+  viewport layer, and the existing button path uses its top-right rule with
+  the current room-capped width. This preserves existing behavior; BG0 widgets,
+  canvas-wide placement and dialogue integration remain outstanding.
+  Standard top/bottom dialogue has a tested stable translation policy for a
+  taller canvas; custom window geometry fails closed. The existing message and
+  banner horizontal shifts use the shared center anchor. The vertical policy
+  is not yet published to the renderers or dialogue OBJ/HD-text consumers.
+  The message adapter derives the final rectangle from restored engine state
+  and checks it against the installed animated frame before using the standard
+  policy; mismatched or custom windows retain the existing horizontal path.
+  HD dialogue uses the PPU's published horizontal message shift and verifies
+  that its text canvas lies inside the remapped band; fixed-screen text uses
+  the native-content centering transform. Vertical live remapping remains open.
+  Button sprites retain their live right anchor during hide animations instead
+  of sliding toward native X when any HUD hide flag is set.
+  Key and rupee BG0 ownership is published independently from their installed
+  state and hide flags; unrelated flags no longer disable both anchors.
+  In live wide scenes the software PPU now moves only the verified key and
+  rupee BG0 rectangles, preserving unrelated BG0 cells. Scrolled BG0 fails
+  closed to native placement. The regenerated Vulkan shader and GLES shader
+  match software pixels across the GPU parity harness, including HUD, scrolling
+  and message overlap at 285, 374 and 384 × 160 on local software drivers.
+  Taller HUD placement and real-device validation remain open.
 
 ## 5. Margin composition
 

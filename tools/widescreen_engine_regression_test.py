@@ -30,6 +30,7 @@ def main():
         'int Port_Widescreen_FallbackNative(void)',
         'int Port_Widescreen_IsActive(void)',
         'int Port_Widescreen_EffectiveViewWidth(void)',
+        'int Port_Widescreen_HudRightAnchor(void)',
         'int Port_Widescreen_CameraRestX(int target_x)',
         'static void Port_WidescreenShadow_Populate(',
         'static void Port_WidescreenShadow_PopulateOverlay(',
@@ -42,6 +43,8 @@ def main():
         'void Port_Widescreen_RoomLoaded(void)',
     ))
     functions.append(function(message, 'bool Message_GetWindowRect('))
+    functions.append(function(message, 'bool Message_GetFinalWindowRect('))
+    functions.append(function((ROOT / 'src/ui.c').read_text(), 'static s16 HudButtonTargetX('))
     functions.append(function(stubs, 'void Port_Widescreen_UpdateShadows(void)'))
     functions.append(function((ROOT / 'port/port_ppu.cpp').read_text(), 'int Port_PPU_VisibleFrameWidth(void)'))
     with tempfile.TemporaryDirectory(prefix='tmc-ws-engine-') as directory:

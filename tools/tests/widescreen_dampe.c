@@ -4,6 +4,7 @@
 RoomControls gRoomControls;
 static int viewWidth;
 int Port_Widescreen_EffectiveViewWidth(void) { return viewWidth; }
+int Port_Widescreen_EffectiveViewHeight(void) { return 160; }
 
 int main(void) {
     const int widths[] = { 240, 284, 384 };

@@ -28,6 +28,9 @@ extern Message gMessage;
 #ifdef PC_PORT
 /* Pixel rectangle of the current BG0 frame, including its border. */
 bool Message_GetWindowRect(int* x, int* y, int* width, int* height);
+/* Fully open frame corresponding to the current animated frame. Returns false
+ * if the current renderer state no longer describes the installed window. */
+bool Message_GetFinalWindowRect(int* x, int* y, int* width, int* height);
 /* Fully open, opaque dialogue canvas as palette indices; false means fallback. */
 bool Message_CopyTextCanvas(u8* pixels, int capacity, int* x, int* y, int* width, int* height);
 #endif

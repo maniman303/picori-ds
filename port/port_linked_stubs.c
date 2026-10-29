@@ -1074,10 +1074,12 @@ int Port_Widescreen_HudRightAnchor(void) {
     if (!Port_Widescreen_IsActive()) {
         return 0;
     }
-    if (gHUD.hideFlags != HUD_HIDE_NONE) {
-        return 0;
-    }
-    return 1;
+    int mask = 0;
+    if (!(gHUD.hideFlags & HUD_HIDE_KEYS) && gHUD.unk_10)
+        mask |= MODE1_WS_HUD_KEYS;
+    if (!(gHUD.hideFlags & HUD_HIDE_RUPEES) && gHUD.unk_a)
+        mask |= MODE1_WS_HUD_RUPEES;
+    return mask;
 }
 
 /* Touch-overlay helper: 1 when the R button currently has a CONTEXT
@@ -1457,7 +1459,16 @@ void Port_Widescreen_UpdateShadows(void) {
             virtuappu_mode1_ws_msg_x1 = x1;
             virtuappu_mode1_ws_msg_y0 = y0;
             virtuappu_mode1_ws_msg_y1 = y1;
-            virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
+            PortViewportRect finalRect;
+            PortUITranslation messageTranslation;
+            if (Message_GetFinalWindowRect(&finalRect.x, &finalRect.y, &finalRect.width, &finalRect.height) &&
+                Port_Viewport_StandardMessageTranslation(finalRect, Port_Widescreen_EffectiveViewWidth(),
+                                                         PORT_VIEWPORT_NATIVE_HEIGHT, &messageTranslation))
+                virtuappu_mode1_ws_msg_shift = messageTranslation.x;
+            else
+                virtuappu_mode1_ws_msg_shift =
+                    Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, Port_Widescreen_EffectiveViewWidth(),
+                                                PORT_VIEWPORT_NATIVE_HEIGHT).x;
         }
     } else {
         /* Location banners occupy BG0 rows 5 and 6 but do not set
@@ -1471,7 +1482,9 @@ void Port_Widescreen_UpdateShadows(void) {
             virtuappu_mode1_ws_msg_x1 = 240;
             virtuappu_mode1_ws_msg_y0 = 40 - (gScreen.bg0.yOffset & 0x1ff);
             virtuappu_mode1_ws_msg_y1 = 56 - (gScreen.bg0.yOffset & 0x1ff);
-            virtuappu_mode1_ws_msg_shift = (Port_Widescreen_EffectiveViewWidth() - 240) / 2;
+            virtuappu_mode1_ws_msg_shift =
+                Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, Port_Widescreen_EffectiveViewWidth(),
+                                            PORT_VIEWPORT_NATIVE_HEIGHT).x;
         }
     }
 

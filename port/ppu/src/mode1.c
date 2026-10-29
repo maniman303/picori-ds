@@ -523,7 +523,15 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     uint16_t* const ws_shadow = virtuappu_mode1_ws_shadow[bg_index];
     const bool ws_hud_right_anchor =
         (bg_index == 0) && (virtuappu_mode1_ws_hud_right_anchor != 0) && (frame_width > MODE1_GBA_BG_CLIP_X);
-    const int ws_hud_right_dst_x = frame_width - (MODE1_GBA_BG_CLIP_X - MODE1_WS_HUD_RIGHT_NATIVE_X);
+    /* The normal key and rupee HUD owns only these BG0 cells. Other BG0
+     * content on the same scanlines must remain at its native position. */
+    const int ws_hud_bit = line < 144 ? MODE1_WS_HUD_KEYS : MODE1_WS_HUD_RUPEES;
+    const bool ws_hud_cells = ws_hud_right_anchor && scroll_x == 0 && scroll_y == 0 &&
+                              line >= 128 && line < 160 &&
+                              (virtuappu_mode1_ws_hud_right_anchor & ws_hud_bit);
+    const int ws_hud_x0 = line < 144 ? 200 : 192;
+    const int ws_hud_x1 = 232;
+    const int ws_hud_shift = frame_width - MODE1_GBA_BG_CLIP_X;
     /* Message-box centering: on BG0 lines inside the published box band,
      * draw the box's native columns shifted right by ws_msg_shift and skip
      * them at their native position (see mode1.h). */
@@ -533,7 +541,7 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     const int ws_msg_x0 = virtuappu_mode1_ws_msg_x0;
     const int ws_msg_x1 = virtuappu_mode1_ws_msg_x1;
 
-    if (ws_hud_right_anchor || ws_msg_line) {
+    if (ws_hud_cells || ws_msg_line) {
         render_max_x = frame_width;
     }
     /* N64 perf: the tilemap screen-entry read + its address math are constant
@@ -612,7 +620,7 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
         }                                                                                                              \
     } while (0)
 
-    if (!ws_msg_line && !ws_hud_right_anchor) {
+    if (!ws_msg_line && !ws_hud_cells) {
         /* Fast path: no widescreen column remap, so sample_x == x. Hoists the
          * per-pixel remap dispatch (its two flags are per-line invariants) out
          * of the hot loop entirely — A53 win, zero added per-pixel branch. */
@@ -628,13 +636,15 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
             } else if (ws_msg_line && x >= ws_msg_x0 && x < ws_msg_x1) {
                 /* The box's native columns are suppressed (moved right). */
                 continue;
-            } else if (ws_hud_right_anchor && !ws_msg_line) {
+            } else if (ws_hud_cells && !ws_msg_line) {
                 /* Anchor is suspended on box lines: a top-anchored box overlaps
                  * the rupee rows, and remapping cols 176..239 there would draw a
                  * second copy of the box fragment at the far right. */
-                if (x >= ws_hud_right_dst_x) {
-                    sample_x = x - (frame_width - MODE1_GBA_BG_CLIP_X);
-                } else if (x >= MODE1_WS_HUD_RIGHT_NATIVE_X) {
+                if (x >= ws_hud_x0 + ws_hud_shift && x < ws_hud_x1 + ws_hud_shift) {
+                    sample_x = x - ws_hud_shift;
+                } else if (x >= ws_hud_x0 && x < ws_hud_x1) {
+                    continue;
+                } else if (x >= MODE1_GBA_BG_CLIP_X) {
                     continue;
                 }
             } else if (ws_msg_line && x >= MODE1_GBA_BG_CLIP_X) {

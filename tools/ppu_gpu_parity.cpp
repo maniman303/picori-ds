@@ -781,7 +781,7 @@ static void scene_ws_shadow_sentinel(Scene* s) {
     /* palbank 2 index 2 -> palette entry becomes the sentinel. */
     s->bgpal[2 * 16 + 2] = 0x7C1F;
 }
-/* HUD right-anchor: BG0 cols 176..239 drawn at the far right. */
+/* HUD right-anchor: normal key/rupee cells move; other BG0 remains native. */
 static void scene_ws_hud_anchor(Scene* s) {
     scene_clear(s, "ws_hud_anchor");
     set_io16(s, 0x00, 0x0100);
@@ -790,7 +790,31 @@ static void scene_ws_hud_anchor(Scene* s) {
     fill_palette_bank(s->bgpal, 2, 0x0421);
     write_tile_4bpp(s->vram, 0, 1);
     fill_screenblock(s->vram, 0x4000, (uint16_t)(1u | (2u << 12)));
-    virtuappu_mode1_ws_hud_right_anchor = 1;
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES;
+}
+static void scene_ws_hud_keys_only(Scene* s) {
+    scene_ws_hud_anchor(s);
+    s->name = "ws_hud_keys_only";
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS;
+}
+static void scene_ws_hud_rupees_only(Scene* s) {
+    scene_ws_hud_anchor(s);
+    s->name = "ws_hud_rupees_only";
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_RUPEES;
+}
+static void scene_ws_hud_scroll(Scene* s) {
+    scene_ws_hud_anchor(s);
+    s->name = "ws_hud_scroll";
+    set_io16(s, 0x10, 1);
+}
+static void scene_ws_hud_message(Scene* s) {
+    scene_ws_hud_anchor(s);
+    s->name = "ws_hud_message";
+    virtuappu_mode1_ws_msg_shift = (MODE1_GBA_WIDTH - 240) / 2;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 224;
+    virtuappu_mode1_ws_msg_y0 = 128;
+    virtuappu_mode1_ws_msg_y1 = 160;
 }
 /* Message-box centering: shift BG0 box band right by shift px. */
 static void scene_ws_msg_center(Scene* s) {
@@ -1010,6 +1034,10 @@ int main(int argc, char** argv) {
         scene_ws_shadow_reveal,
         scene_ws_shadow_sentinel,
         scene_ws_hud_anchor,
+        scene_ws_hud_keys_only,
+        scene_ws_hud_rupees_only,
+        scene_ws_hud_scroll,
+        scene_ws_hud_message,
         scene_ws_msg_center,
 #endif
     };

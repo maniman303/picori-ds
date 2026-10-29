@@ -1,6 +1,7 @@
 #include "port_hd_text.h"
 #include "port_hd_text_geometry.h"
 #include "port_viewport.h"
+#include "cpu/mode1.h"
 #include "imgui.h"
 
 extern "C" bool Message_CopyTextCanvas(uint8_t* pixels, int capacity, int* x, int* y, int* width, int* height);
@@ -18,8 +19,11 @@ extern "C" void Port_HDText_Draw(const uint32_t* frame, int frameWidth, int fram
     int x, y, width, height;
     if (!Message_CopyTextCanvas(pixels, sizeof(pixels), &x, &y, &width, &height))
         return;
-    x += (frameWidth - 240) / 2;
-    if (fixedCanvas) y += (frameHeight - 160) / 2;
+    if (!PortHDText::ResolveCanvasOrigin(frameWidth, frameHeight, fixedCanvas,
+                                         virtuappu_mode1_ws_msg_shift, virtuappu_mode1_ws_msg_x0,
+                                         virtuappu_mode1_ws_msg_x1, virtuappu_mode1_ws_msg_y0,
+                                         virtuappu_mode1_ws_msg_y1, width, height, x, y))
+        return;
     uint32_t colors[16] = {};
     if (!PortHDText::MatchCanvas(pixels, width, height, frame, frameWidth, frameHeight, pitchPixels, x, y, colors))
         return;

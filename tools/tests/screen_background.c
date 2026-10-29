@@ -40,6 +40,16 @@ static void CheckProfiles(void) {
         PortViewportRect rect = Port_Viewport_NativeContentRect(profile);
         assert(rect.x == cases[i].x && rect.y == cases[i].y);
         assert(rect.width == 240 && rect.height == 160);
+        PortUITranslation tl = Port_Viewport_UITranslation(PORT_UI_TOP_LEFT, profile->width, profile->height);
+        PortUITranslation tr = Port_Viewport_UITranslation(PORT_UI_TOP_RIGHT, profile->width, profile->height);
+        PortUITranslation bl = Port_Viewport_UITranslation(PORT_UI_BOTTOM_LEFT, profile->width, profile->height);
+        PortUITranslation br = Port_Viewport_UITranslation(PORT_UI_BOTTOM_RIGHT, profile->width, profile->height);
+        PortUITranslation tc = Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, profile->width, profile->height);
+        assert(tl.x == 0 && tl.y == 0);
+        assert(tr.x == profile->width - 240 && tr.y == 0);
+        assert(bl.x == 0 && bl.y == profile->height - 160);
+        assert(br.x == tr.x && br.y == bl.y);
+        assert(tc.x == rect.x && tc.y == 0);
         assert(rect.x + rect.width <= profile->width && rect.y + rect.height <= profile->height);
         assert(Port_Viewport_ProfileFits(profile, profile->width, profile->height));
         assert(!Port_Viewport_ProfileFits(profile, profile->width - 1, profile->height));
@@ -57,6 +67,35 @@ static void CheckProfiles(void) {
     assert(!Port_Viewport_ProfileFits(NULL, 569, 192));
     PortViewportRect native = Port_Viewport_NativeContentRect(NULL);
     assert(native.x == 0 && native.y == 0 && native.width == 240 && native.height == 160);
+    PortUITranslation invalid = Port_Viewport_UITranslation(PORT_UI_BOTTOM_RIGHT, 239, 192);
+    assert(invalid.x == 0 && invalid.y == 0);
+    invalid = Port_Viewport_UITranslation((PortUIAnchor)-1, 256, 192);
+    assert(invalid.x == 0 && invalid.y == 0);
+}
+
+static void CheckStandardMessageGeometry(void) {
+    const PortViewportRect top = { 8, 8, 224, 48 };
+    const PortViewportRect bottom = { 8, 96, 224, 48 };
+    PortUITranslation t = { -1, -1 };
+    assert(Port_Viewport_StandardMessageTranslation(top, 256, 192, &t));
+    assert(t.x == 8 && t.y == 120);
+    /* Every animation frame uses this same offset, including a smaller
+     * rectangle centered inside the fully open native window. */
+    assert(24 + t.y == 144 && 16 + t.y == 136);
+    assert(Port_Viewport_StandardMessageTranslation(bottom, 256, 192, &t));
+    assert(t.x == 8 && t.y == 32);
+    assert(Port_Viewport_StandardMessageTranslation(top, 285, 160, &t));
+    assert(t.x == 22 && t.y == 0);
+    assert(Port_Viewport_StandardMessageTranslation(bottom, 374, 160, &t));
+    assert(t.x == 67 && t.y == 0);
+    PortViewportRect custom = top;
+    custom.y = 16;
+    t.x = 7; t.y = 9;
+    assert(!Port_Viewport_StandardMessageTranslation(custom, 256, 192, &t));
+    assert(t.x == 7 && t.y == 9);
+    assert(!Port_Viewport_StandardMessageTranslation(top, 239, 192, &t));
+    assert(!Port_Viewport_StandardMessageTranslation(top, 256, 193, &t));
+    assert(!Port_Viewport_StandardMessageTranslation(top, 256, 192, NULL));
 }
 
 static void CheckPublication(void) {
@@ -220,6 +259,7 @@ static void CheckScenePublication(void) {
 
 int main(void) {
     CheckProfiles();
+    CheckStandardMessageGeometry();
     CheckPublication();
     CheckScenePublication();
     CheckFutureRoomAperture();

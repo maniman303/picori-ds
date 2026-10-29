@@ -38,6 +38,28 @@ typedef struct {
     int x, y, width, height;
 } PortViewportRect;
 
+/* Translations for native gameplay widgets within a logical UI extent.
+ * This describes geometry only: callers must establish widget ownership and
+ * live-gameplay context before applying it. Invalid extents fail closed. */
+typedef enum {
+    PORT_UI_TOP_LEFT,
+    PORT_UI_TOP_RIGHT,
+    PORT_UI_BOTTOM_LEFT,
+    PORT_UI_BOTTOM_RIGHT,
+    PORT_UI_TOP_CENTER
+} PortUIAnchor;
+typedef struct { int x, y; } PortUITranslation;
+PortUITranslation Port_Viewport_UITranslation(PortUIAnchor anchor, int width, int height);
+
+/* Resolve a stable translation for an ordinary gameplay message. `finalRect`
+ * describes the fully open native frame, including its border. Only the
+ * standard top/bottom positions are classified; custom windows fail closed.
+ * A 160-row canvas preserves the requested vertical position. On a taller
+ * canvas both standard positions use the normal bottom window's inset.
+ * The same translation must be applied to every animated rectangle and OBJ. */
+bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int width, int height,
+                                              PortUITranslation* translation);
+
 /* Activation-time lookup by canonical override directory, e.g. "43".
  * Unknown/NULL keys return NULL; do not silently substitute another ratio.
  * Profiles describe the asset contract, not current renderer capabilities. */

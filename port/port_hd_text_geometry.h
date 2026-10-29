@@ -7,6 +7,29 @@ namespace PortHDText {
 inline bool SupportedFrame(int width, int height) {
     return width >= 240 && width <= 512 && height == 160;
 }
+
+// Locate the text using the same installed BG0 message band as the PPU.
+// Fixed screens are composed as one native rectangle; live frames instead use
+// the published message shift, which can be zero even on a wide frame.
+inline bool ResolveCanvasOrigin(int frameWidth, int frameHeight, bool fixedCanvas,
+                                int shift, int x0, int x1, int y0, int y1,
+                                int width, int height, int& x, int& y) {
+    if (frameWidth < 240 || frameWidth > 569 || frameHeight < 160 || frameHeight > 192 ||
+        width <= 0 || width > 208 || height <= 0 || height > 32 ||
+        x < 0 || x > 240 - width || y < 0 || y > 160 - height)
+        return false;
+    if (fixedCanvas) {
+        x += (frameWidth - 240) / 2;
+        y += (frameHeight - 160) / 2;
+    } else if (shift != 0) {
+        if (shift < 0 || shift > frameWidth - 240 ||
+            x0 < 0 || x1 > 240 || x0 >= x1 || y0 < 0 || y1 > 160 || y0 >= y1 ||
+            x < x0 || x + width > x1 || y < y0 || y + height > y1)
+            return false;
+        x += shift;
+    }
+    return x <= frameWidth - width && y <= frameHeight - height;
+}
 constexpr int kMaxPixels = 208 * 32;
 constexpr int kMaxForeground = 2048;
 

@@ -19,6 +19,32 @@ static PortViewportGeometry sGeometry = {
     240, 160, 240, 0, 0
 };
 
+PortUITranslation Port_Viewport_UITranslation(PortUIAnchor anchor, int width, int height) {
+    PortUITranslation result = { 0, 0 };
+    if (width < 240 || width > 569 || height < 160 || height > 192)
+        return result;
+    switch (anchor) {
+        case PORT_UI_TOP_LEFT: break;
+        case PORT_UI_TOP_RIGHT: result.x = width - 240; break;
+        case PORT_UI_BOTTOM_LEFT: result.y = height - 160; break;
+        case PORT_UI_BOTTOM_RIGHT: result.x = width - 240; result.y = height - 160; break;
+        case PORT_UI_TOP_CENTER: result.x = (width - 240) / 2; break;
+        default: break;
+    }
+    return result;
+}
+
+bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int width, int height,
+                                              PortUITranslation* translation) {
+    if (!translation || width < 240 || width > 569 || height < 160 || height > 192 ||
+        finalRect.x != 8 || (finalRect.y != 8 && finalRect.y != 96) ||
+        finalRect.width != 224 || finalRect.height != 48)
+        return false;
+    translation->x = (width - 240) / 2;
+    translation->y = height == 160 ? 0 : height - 160 + 96 - finalRect.y;
+    return true;
+}
+
 PortViewportRect Port_Viewport_ResolveWorldRect(PortViewportRect canvas, PortViewportScene scene) {
     PortViewportRect world = { 0, 0, 240, 160 };
     const uint32_t wide = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;

@@ -69,6 +69,42 @@ int main(void) {
         }
         if (failures) break;
     }
+    /* The right HUD remap owns only the normal key/rupee cells. Fill BG0
+     * with opaque pixels so accidental movement of unrelated UI is visible. */
+    virtuappu_mode1_ws_shadow[3] = NULL;
+    memset(io, 0, sizeof(io));
+    io[1] = 1; /* BG0 only */
+    io[8] = 4; io[9] = 0x1e; /* char base 1, screen base 30 */
+    for (int i = 0; i < 32 * 32; ++i) screen[i] = 1;
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES;
+    p.frame_width = 284;
+    virtuappu_mode1_render_frame(&p);
+    expect("non-HUD upper right stays native", virtuappu_frame_buffer[80 * MODE1_GBA_WIDTH + 180], 0xff0000f8);
+    expect("non-HUD lower right stays native", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 192], 0xff0000f8);
+    expect("key original suppressed", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 200], 0xff00f800);
+    expect("key moved", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 244], 0xff0000f8);
+    expect("rupee original suppressed", virtuappu_frame_buffer[152 * MODE1_GBA_WIDTH + 192], 0xff00f800);
+    expect("rupee moved", virtuappu_frame_buffer[152 * MODE1_GBA_WIDTH + 236], 0xff0000f8);
+    expect("right margin remains clear", virtuappu_frame_buffer[152 * MODE1_GBA_WIDTH + 278], 0xff00f800);
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS;
+    virtuappu_mode1_render_frame(&p);
+    expect("visible key still moved", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 244], 0xff0000f8);
+    expect("unowned rupee cells stay native", virtuappu_frame_buffer[152 * MODE1_GBA_WIDTH + 192], 0xff0000f8);
+    expect("unowned rupee cells not copied", virtuappu_frame_buffer[152 * MODE1_GBA_WIDTH + 244], 0xff00f800);
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES;
+    /* Message lines take ownership of BG0 before the HUD rectangle remap. */
+    virtuappu_mode1_ws_msg_shift = 22;
+    virtuappu_mode1_ws_msg_x0 = 8; virtuappu_mode1_ws_msg_x1 = 224;
+    virtuappu_mode1_ws_msg_y0 = 128; virtuappu_mode1_ws_msg_y1 = 160;
+    virtuappu_mode1_render_frame(&p);
+    expect("message overlap takes priority", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 210], 0xff0000f8);
+    expect("HUD absent on message line", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 260], 0xff00f800);
+    virtuappu_mode1_ws_msg_shift = 0;
+    /* An unknown scrolling BG0 must fail closed rather than move arbitrary cells. */
+    io[0x10] = 1;
+    virtuappu_mode1_render_frame(&p);
+    expect("scrolled BG0 stays native", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 200], 0xff0000f8);
+    expect("scrolled BG0 is clipped", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 244], 0xff00f800);
     if (!failures) puts("widescreen CPU PPU: PASS");
     return failures != 0;
 }

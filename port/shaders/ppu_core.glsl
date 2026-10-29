@@ -96,15 +96,21 @@ uint bg_text_pixel(int bg, int x, int line, out uint pal_index) {
     int render_max_x = (map_w >= 64) ? fw : (has_shadow ? fw : clip);
     if (render_max_x > fw) render_max_x = fw;
     bool hud_anchor = (bg == 0) && (params.ws.z != 0) && (fw > clip);
-    int hud_native_x = params.ws.w; /* 176 */
-    int hud_dst_x = fw - (clip - hud_native_x);
+    int scroll_x = int(io_u16(line, IO_BG0HOFS + bg * 4)) & 0x1FF;
+    int scroll_y = int(io_u16(line, IO_BG0VOFS + bg * 4)) & 0x1FF;
+    int hud_bit = line < 144 ? 1 : 2; /* MODE1_WS_HUD_KEYS / MODE1_WS_HUD_RUPEES */
+    bool hud_cells = hud_anchor && scroll_x == 0 && scroll_y == 0 && line >= 128 && line < 160 &&
+                     (params.ws.z & hud_bit) != 0;
+    int hud_x0 = line < 144 ? 200 : 192;
+    int hud_x1 = 232;
+    int hud_shift = fw - clip;
     int shift = params.wsmsg.x;
     int msg_x0 = params.wsmsg.y;
     int msg_x1 = params.wsmsg.z;
     int msg_y0 = params.wsmsg.w >> 16;
     int msg_y1 = params.wsmsg.w & 0xFFFF;
     bool msg_line = (bg == 0) && (shift != 0) && (fw > clip) && (line >= msg_y0) && (line < msg_y1);
-    if (hud_anchor || msg_line) render_max_x = fw;
+    if (hud_cells || msg_line) render_max_x = fw;
     if (x >= render_max_x) return 0u;
 
     int sample_x = x;
@@ -112,15 +118,14 @@ uint bg_text_pixel(int bg, int x, int line, out uint pal_index) {
         sample_x = x - shift;
     } else if (msg_line && x >= msg_x0 && x < msg_x1) {
         return 0u;
-    } else if (hud_anchor && !msg_line) {
-        if (x >= hud_dst_x) { sample_x = x - (fw - clip); }
-        else if (x >= hud_native_x) { return 0u; }
+    } else if (hud_cells && !msg_line) {
+        if (x >= hud_x0 + hud_shift && x < hud_x1 + hud_shift) { sample_x = x - hud_shift; }
+        else if (x >= hud_x0 && x < hud_x1) { return 0u; }
+        else if (x >= clip) { return 0u; }
     } else if (msg_line && x >= clip) {
         return 0u;
     }
 
-    int scroll_x = int(io_u16(line, IO_BG0HOFS + bg * 4)) & 0x1FF;
-    int scroll_y = int(io_u16(line, IO_BG0VOFS + bg * 4)) & 0x1FF;
     uint mosaic_reg = io_u16(line, IO_MOSAIC);
     int mh = mosaic_on ? int((mosaic_reg & 0xFu) + 1u) : 1;
     int mv = mosaic_on ? int(((mosaic_reg >> 4u) & 0xFu) + 1u) : 1;

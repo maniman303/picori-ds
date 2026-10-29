@@ -5,6 +5,18 @@
 
 int main() {
     using namespace PortHDText;
+    int x = 16, y = 104;
+    assert(ResolveCanvasOrigin(285, 160, false, 22, 8, 232, 96, 144, 208, 32, x, y));
+    assert(x == 38 && y == 104);
+    x = 16; y = 104;
+    assert(ResolveCanvasOrigin(285, 160, false, 0, 0, 0, 0, 0, 208, 32, x, y));
+    assert(x == 16 && y == 104);
+    x = 16; y = 104;
+    assert(ResolveCanvasOrigin(256, 192, true, 0, 0, 0, 0, 0, 208, 32, x, y));
+    assert(x == 24 && y == 120);
+    x = 16; y = 104;
+    assert(!ResolveCanvasOrigin(285, 160, false, 22, 8, 200, 96, 144, 208, 32, x, y));
+    assert(!ResolveCanvasOrigin(285, 160, false, 46, 8, 232, 96, 144, 208, 32, x, y));
     const uint8_t pixels[] = {15, 1, 15, 1};
     uint32_t frame[] = {0xff002244, 0xff88aaff, 0xff002244, 0xff88aaff};
     uint32_t colors[16] = {};

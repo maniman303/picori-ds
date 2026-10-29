@@ -12,12 +12,19 @@ typedef int32_t s32;
 typedef uint16_t u16;
 typedef uint32_t u32;
 #define MODE1_GBA_WIDTH 384
+#define PC_PORT 1
 #define MODE1_GBA_BG_CLIP_X 240
 #define MODE1_WS_SHADOW_COLS 32
 #define MODE1_WS_SHADOW_ROWS 32
+#define MODE1_WS_HUD_KEYS 1
+#define MODE1_WS_HUD_RUPEES 2
+#define HUD_HIDE_KEYS 0x80
+#define HUD_HIDE_RUPEES 0x40
 static struct { int scroll_x, scroll_y, origin_x, origin_y, width, height, scrollAction, area, room;
                 int aff_y, shake_duration, shake_magnitude, reload_flags; } gRoomControls;
 static struct { unsigned active, xPos, yPos, width, height; } gCurrentWindow;
+static struct { s16 buttonX[3]; unsigned hideFlags, unk_10, unk_a; } gHUD;
+static struct { struct { unsigned textWindowWidth, textWindowHeight, textWindowPosX, textWindowPosY; } message; } gTextRender;
 static int virtuappu_mode1_ws_shadow_base_tile[4];
 static u16* virtuappu_mode1_ws_shadow[4];
 static uint64_t sWsContentKey = UINT64_MAX;
@@ -66,7 +73,6 @@ static u16 vram[0x18000/2];
 static int virtuappu_mode1_ws_hud_right_anchor, virtuappu_mode1_ws_msg_shift;
 static int virtuappu_mode1_ws_msg_x0, virtuappu_mode1_ws_msg_x1;
 static int virtuappu_mode1_ws_msg_y0, virtuappu_mode1_ws_msg_y1;
-static int Port_Widescreen_HudRightAnchor(void) { return 0; }
 typedef struct { int action; } Entity;
 static Entity* FindEntityByID(int kind, int id, int list) { (void)kind; (void)id; (void)list; return NULL; }
 #include "widescreen_helpers.h"
@@ -77,6 +83,30 @@ int main(void) {
     Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 384);
     gRoomControls.width = 1024;
     gRoomControls.height = 1024;
+    PortViewportScene live = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD, 1024, 1024 };
+    Port_Viewport_PublishScene(live);
+    gHUD.unk_10 = 2; gHUD.unk_a = 2;
+    CHECK(Port_Widescreen_HudRightAnchor() == (MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES));
+    gHUD.hideFlags = HUD_HIDE_KEYS;
+    CHECK(Port_Widescreen_HudRightAnchor() == MODE1_WS_HUD_RUPEES);
+    gHUD.hideFlags = HUD_HIDE_RUPEES;
+    CHECK(Port_Widescreen_HudRightAnchor() == MODE1_WS_HUD_KEYS);
+    gHUD.hideFlags = 1; /* unrelated button hide flag */
+    CHECK(Port_Widescreen_HudRightAnchor() == (MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES));
+    gHUD.hideFlags = 0; gHUD.unk_10 = 0;
+    CHECK(Port_Widescreen_HudRightAnchor() == MODE1_WS_HUD_RUPEES);
+    gHUD.buttonX[0] = 208;
+    CHECK(HudButtonTargetX(0) == 342);
+    /* Hiding a widget animates it vertically; it must not also drift left. */
+    gHUD.hideFlags = 255;
+    CHECK(HudButtonTargetX(0) == 342);
+    gHUD.buttonX[0] = -16;
+    CHECK(HudButtonTargetX(0) == -16);
+    live.capabilities = PORT_SCENE_FIXED_SCREEN;
+    Port_Viewport_PublishScene(live);
+    gHUD.buttonX[0] = 208;
+    CHECK(HudButtonTargetX(0) == 208);
+    gHUD.hideFlags = 0;
     static u16 map[128*128], shadow[MODE1_WS_SHADOW_COLS*32];
     for (int i=0; i<128*128; ++i) map[i] = (u16)(i+1);
     gRoomControls.scroll_y = 16;
@@ -166,6 +196,34 @@ int main(void) {
     int x,y,w,h;
     gCurrentWindow.active=0;
     CHECK(!Message_GetWindowRect(&x,&y,&w,&h));
+    gTextRender.message.textWindowWidth = 26;
+    gTextRender.message.textWindowHeight = 4;
+    gTextRender.message.textWindowPosX = 1;
+    gTextRender.message.textWindowPosY = 12;
+    for (int scale = 1; scale <= 8; ++scale) {
+        int innerWidth = (scale * 26) / 8;
+        int innerHeight = (scale * 4) / 8;
+        innerWidth += innerWidth & 1;
+        innerHeight += innerHeight & 1;
+        gCurrentWindow.active = 1;
+        gCurrentWindow.xPos = 14 - innerWidth / 2;
+        gCurrentWindow.yPos = 14 - innerHeight / 2;
+        gCurrentWindow.width = innerWidth;
+        gCurrentWindow.height = innerHeight;
+        CHECK(Message_GetFinalWindowRect(&x, &y, &w, &h));
+        CHECK(x == 8 && y == 96 && w == 224 && h == 48);
+    }
+    gCurrentWindow.active = 1; gCurrentWindow.xPos = 13; gCurrentWindow.yPos = 14;
+    gCurrentWindow.width = 2; gCurrentWindow.height = 0;
+    CHECK(Message_GetFinalWindowRect(&x, &y, &w, &h));
+    CHECK(x == 8 && y == 96 && w == 224 && h == 48);
+    gTextRender.message.textWindowPosY = 1;
+    CHECK(!Message_GetFinalWindowRect(&x, &y, &w, &h));
+    gCurrentWindow.yPos = 3;
+    CHECK(Message_GetFinalWindowRect(&x, &y, &w, &h));
+    CHECK(y == 8);
+    CHECK(!Message_GetFinalWindowRect(NULL, &y, &w, &h));
+    gCurrentWindow.active = 0;
     gCurrentWindow.active=1; gCurrentWindow.xPos=5; gCurrentWindow.yPos=1;
     gCurrentWindow.width=18; gCurrentWindow.height=2;
     CHECK(Message_GetWindowRect(&x,&y,&w,&h));

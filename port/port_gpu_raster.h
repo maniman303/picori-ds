@@ -54,7 +54,7 @@ typedef struct PortGpuRasterFrame {
      * NULL / -1 at native 240; the shader's reveal branches then stay inert. */
     int ws_bg_clip_x;           /* MODE1_GBA_BG_CLIP_X (240) */
     int ws_cols;                /* MODE1_WS_SHADOW_COLS */
-    int ws_hud_right_anchor;    /* 0/1 */
+    int ws_hud_right_anchor;    /* MODE1_WS_HUD_* ownership mask */
     int ws_hud_right_native_x;  /* MODE1_WS_HUD_RIGHT_NATIVE_X (176) */
     int ws_msg_shift;           /* px */
     int ws_msg_x0, ws_msg_x1;   /* native box rect */
