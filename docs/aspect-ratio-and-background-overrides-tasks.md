@@ -474,8 +474,17 @@ or tile alignment. Native-content centering continues to use floor offsets.
   Evidence is retained in `.tmp/procedural-composition-2026-10-29/`. Other
   regions retain the existing fail-closed effect policy pending regional
   verification; presenter and profile acceptance remain separate tasks.
-- [ ] Retire the old ImGui menu side-art path as its supported screens migrate;
-  verify software/GPU presentation and raster fallbacks, filters and persistence.
+- [x] Remove the old ImGui menu side-art overlay and its obsolete setting.
+  Fixed screens now use only the shared contextual compositor; legacy
+  `menu_art_background` keys are discarded on the next config save. The
+  configuration and margin/presentation geometry regressions cover the removal.
+- [x] Verify composed margin pixels through the production color-correction
+  and LCD-persistence routines, including repeated presents, geometry changes
+  and selection of the composed frame. The ROM-free regression uses the real
+  margin kernel and native-frame expansion at 16:9 and test-only 4:3 geometry.
+  Run `ASAN_OPTIONS=detect_leaks=0 python3 tools/presentation_postprocess_regression_test.py`.
+- [ ] Verify software/GPU presentation and raster fallbacks and filters for
+  the shared fixed-screen compositor, including runtime LCD persistence.
 
 ## 6. Artwork loading
 

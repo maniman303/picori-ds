@@ -591,7 +591,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='tmc-background-audit-') as temporary:
             config = dict(aspect_mode='native', window_scale=1, internal_scale=1, upscale_method='nearest',
                           render_backend='software', color_correction=False, lcd_persistence=False,
-                          hd_dialogue=False, menu_art_background=False, vsync=False, frame_time_ns=0,
+                          hd_dialogue=False, vsync=False, frame_time_ns=0,
                           decouple_render=False, ra_enabled=False, discord_rpc=False, autosave_enabled=False,
                           preferred_language=args.language)
             (Path(temporary) / 'config.json').write_text(json.dumps(config))

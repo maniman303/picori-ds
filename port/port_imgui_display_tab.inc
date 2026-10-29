@@ -449,12 +449,6 @@ static void DrawRibbonDisplayTab(void) {
     RandoUi_HelpTooltip("Smooths the contours of the original ROM lettering at the window's resolution. "
                        "Preserves text timing and layout; unsupported effects retain the original text. "
                        "Default off. Presentation filters, shader presets and 3D view retain original text.");
-    bool menuArt = Port_Config_GetMenuArtBackground();
-    if (ImGui::Checkbox("Widescreen menu artwork", &menuArt)) {
-        Port_Config_SetMenuArtBackground(menuArt);
-    }
-    RandoUi_HelpTooltip("Extends supported menus' decorative backgrounds into the side margins. "
-                       "Requires widescreen. LCD persistence, filters, shader presets and 3D view retain the selected fill.");
     ImGui::EndDisabled();
 
     bool holdAdv = Port_Config_GetHoldToAdvanceText();

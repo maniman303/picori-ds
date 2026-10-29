@@ -53,7 +53,6 @@ extern "C" void Port_ApplyLanguage(void);
 #include "port_prelaunch_logo.h"
 #include "port_ppu.h"
 #include "port_hd_text.h"
-#include "port_menu_background.h"
 #include "port_reborn.h"
 #include "port_discord_rpc.h" /* Port_DiscordRpc_IsEnabled / SetEnabled */
 #include "port_tts.h"         /* Port_TTS_* — accessibility tab + focus reader */
@@ -1344,10 +1343,6 @@ extern "C" bool Port_ImGui_Render(void) {
         int width = 0, height = 0, pitch = 0;
         const uint32_t* pixels = Port_PPU_GetOverlayFrame(stage, frame, &width, &height, &pitch);
         if (pixels) {
-            if (Port_Config_GetMenuArtBackground() && Port_Viewport_Get()->canvas.width > 240 &&
-                !Port_PPU_LcdPersistenceEnabled())
-                Port_MenuBackground_Render(stage[0], stage[1], stage[2], stage[3],
-                                           frame[0], frame[1], frame[2], frame[3]);
             if (Port_Config_GetHdDialogue())
                 Port_HDText_Draw(pixels, width, height, pitch, frame[0], frame[1], frame[2], frame[3]);
         }

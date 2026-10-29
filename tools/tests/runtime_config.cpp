@@ -15,7 +15,7 @@ static void load(const char* path, const char* json) {
 }
 
 static void CheckAspectConfig(const char* path) {
-    load(path, R"({"aspect_mode":"16:9","widescreen_enabled":false,"keep":17})");
+    load(path, R"({"aspect_mode":"16:9","widescreen_enabled":false,"menu_art_background":false,"keep":17})");
     assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
     assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
     Port_Config_PublishViewport();
@@ -39,6 +39,7 @@ static void CheckAspectConfig(const char* path) {
     nlohmann::json saved;
     std::ifstream(path) >> saved;
     assert(!saved.contains("widescreen_enabled"));
+    assert(!saved.contains("menu_art_background"));
     assert(saved["aspect_mode"] == "21:9" && saved["keep"] == 17);
 
     load(path, R"({"aspect_mode":"native","widescreen_enabled":true})");
@@ -111,13 +112,10 @@ int main(int argc, char** argv) {
     assert(Port_Config_BindingCount(PORT_INPUT_QUIT_SAVE) == 0);
     load(path, "{}");
     assert(!Port_Config_GetHdDialogue());
-    assert(Port_Config_GetMenuArtBackground());
     load(path, R"({"hd_dialogue":true,"menu_art_background":true,"console_parity":true})");
     assert(!Port_Config_GetHdDialogue());
-    assert(!Port_Config_GetMenuArtBackground());
     Port_Config_SetConsoleParity(false);
     assert(Port_Config_GetHdDialogue());
-    assert(Port_Config_GetMenuArtBackground());
     // Layout affects physical controller bindings, including custom ones, but
     // leaves keyboard inputs alone and survives a save/load cycle.
     load(path, "{}");

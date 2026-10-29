@@ -114,7 +114,7 @@ def main():
                           hd_dialogue=args.profile == 'hd',
                           window_scale=3, internal_scale=1, upscale_method='nearest', render_backend=args.backend,
                           color_correction=False, lcd_persistence=False, vsync=False,
-                          menu_art_background=args.profile != 'original', menu_hint_seen=True,
+                          menu_hint_seen=True,
                           decouple_render=False, show_fps=False, ra_enabled=False, discord_rpc=False)
             (cwd / 'config.json').write_text(json.dumps(config))
             # A clean environment prevents unrelated repro/autoplay/config switches leaking in.

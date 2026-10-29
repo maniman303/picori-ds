@@ -230,8 +230,6 @@ bool Port_Config_GetHoldToAdvanceText(void);
 void Port_Config_SetHoldToAdvanceText(bool on);
 bool Port_Config_GetHdDialogue(void);
 void Port_Config_SetHdDialogue(bool on);
-bool Port_Config_GetMenuArtBackground(void);
-void Port_Config_SetMenuArtBackground(bool on);
 bool Port_Config_GetRollAttackMacroEnabled(void);
 void Port_Config_SetRollAttackMacroEnabled(bool on);
 float Port_Config_GetMasterVolume(void);

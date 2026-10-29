@@ -158,7 +158,6 @@ bool sMenuHintSeen = false;    /* set once the F8/settings menu is first opened 
 float sMasterVolume = 1.0f;    /* game master volume [0,1]; 1.0 = unchanged */
 bool sHoldAdvanceText = false; /* hold an advance key to keep paging text */
 bool sHdDialogue = false;
-bool sMenuArtBackground = true;
 bool sRollAttackMacroEnabled = true;
 bool sFullscreen = false;
 bool sFullscreenHideCursor = true; /* hide the OS cursor while fullscreen */
@@ -294,7 +293,6 @@ const BoolCfg kBoolCfg[] = {
     { "menu_hint_seen", &sMenuHintSeen, false },
     { "hold_advance_text", &sHoldAdvanceText, false },
     { "hd_dialogue", &sHdDialogue, false },
-    { "menu_art_background", &sMenuArtBackground, true },
     { "roll_attack_macro", &sRollAttackMacroEnabled, true },
     { "fullscreen", &sFullscreen, false },
     { "fullscreen_hide_cursor", &sFullscreenHideCursor, true },
@@ -405,6 +403,7 @@ void LoadBinds(PortInput input, const nlohmann::json& v) {
 void SaveConfig(void) {
     try {
         sConfigJson.erase("widescreen_enabled"); // obsolete; aspect_mode owns geometry
+        sConfigJson.erase("menu_art_background"); // replaced by contextual backgrounds
         std::ofstream(sConfigPath) << sConfigJson.dump(4) << '\n';
     } catch (...) {}
 }
@@ -1965,14 +1964,6 @@ extern "C" bool Port_Config_GetHdDialogue(void) {
 extern "C" void Port_Config_SetHdDialogue(bool on) {
     sHdDialogue = on;
     sConfigJson["hd_dialogue"] = on;
-    SaveConfig();
-}
-extern "C" bool Port_Config_GetMenuArtBackground(void) {
-    return sMenuArtBackground && !sConsoleParity;
-}
-extern "C" void Port_Config_SetMenuArtBackground(bool on) {
-    sMenuArtBackground = on;
-    sConfigJson["menu_art_background"] = on;
     SaveConfig();
 }
 extern "C" void Port_Config_SetHoldToAdvanceText(bool on) {
