@@ -39,6 +39,8 @@ void MemFill32(u32 value, void* dest, u32 size) {
  * while the independent camera/map paths are checked at future DS geometry. */
 int Port_Widescreen_EffectiveViewWidth(void) { return viewWidth; }
 int Port_Widescreen_EffectiveViewHeight(void) { return viewHeight; }
+int Port_Widescreen_RegionViewWidth(void) { return viewWidth; }
+int Port_Widescreen_RegionViewHeight(void) { return viewHeight; }
 void Port_Widescreen_PublishScene(void) {}
 void Port_Widescreen_BeforePresent(void) {}
 void Port_Widescreen_RoomLoaded(void) {}

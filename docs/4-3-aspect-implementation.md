@@ -1,6 +1,7 @@
 # Plan: finish proper 4:3 (256 × 192)
 
-Status: WP1 + WP2 implemented; release profile still gated by WP3–WP5  
+Status: WP1–WP4 implemented; release profile still gated by WP5 and multi-group
+streaming/effect acceptance
 Scope owner: code/geometry/streaming/validation/composition/tests  
 Artwork: the user supplies 4:3 artwork. This plan does not create, edit or
 export PNGs.
@@ -111,9 +112,10 @@ Still deliberately disabled:
   `PORT_VIEWPORT_TEST_TALL` test build or a build that sets
   `PORT_VIEWPORT_RELEASE_TALL=1`. The production value remains `0` until
   WP3–WP5 pass.
-- Tall world admission remains default-deny for managers, dynamic entities,
-  unclassified shake/transitions and unverified OAM. Normal manager-backed
-  rooms therefore still resolve to the safe aperture/fallback.
+- Tall world admission still fails closed for the explicitly denied manager
+  families, multi-group Minish Village views, unclassified shake/transitions
+  and untagged OAM. Normal manager-backed rooms on the allow-list now render
+  tall when their residency proof passes.
 - GPU raster supports only 160 rows (CPU fallback exists; tall canvases use the
   CPU raster, wide 160-row canvases keep the GPU path).
 - 4:3 artwork is incomplete by design; black fallback is the contract.
@@ -298,6 +300,67 @@ The user owns:
 The code must only guarantee the `43` contract, context/effect-aware margin
 composition, black fallback and no cross-profile/family aliasing.
 
+## WP3/WP4 capability audit
+
+Manager and entity admission is now an explicit, frame-evaluated policy in
+`port/port_tall_scene.c`; `port/port_linked_stubs.c` scans the live engine
+pools. A normal aperture always admits.
+
+### Managers
+
+Allowed (logic, entity spawning, HUD text, audio, tile edits, BG3 overlays and
+parallax backgrounds whose source spans the aperture):
+
+`MINISH_PORTAL`, `DIGGING_CAVE_ENTRANCE`, `BRIDGE`, `SPECIAL_WARP`, `EZLO_HINT`,
+`FIGHT`, `TILE_CHANGE_OBSERVE`, `ENTITY_SPAWN`, `MISC`, `WEATHER_CHANGE`,
+`FLAG_AND_OPERATOR`, `HOUSE_SIGN`, `DELAYED_ENTITY_LOAD`, `FALLING_ITEM`,
+`HOLE`, `REGION_TRIGGER`, `RAIL_INTERSECTION`, `MOVEABLE_OBJECT`,
+`MINISH_SIZED_ENTRANCE`, `BOMBABLE_WALL`, `FLAME`, `PUSHABLE_FURNITURE`,
+`ARMOS_INTERIOR`, `ENEMY_INTERACTION`, `MANAGER_29`,
+`DESTRUCTIBLE_TILE_OBSERVE`, `ANGRY_STATUE`, `WATERFALL_BOTTOM`, `SECRET`,
+`TILE_PUZZLE`, `GORON_MERCHANT_SHOP`, `VAATI_APPARATE`, `HYRULE_TOWN_BELL`,
+`CAMERA_TARGET`, `REPEATED_SOUND`, `FLOATING_PLATFORM`, `ENTER_ROOM_TEXTBOX`,
+`CLOUD_OVERLAY`, `STEAM_OVERLAY`, `RAINFALL`, `ANIMATED_BACKGROUND`,
+`STATIC_BACKGROUND`, `POW_BACKGROUND`, `HORIZONTAL_MINISH_PATH_BACKGROUND`,
+`VERTICAL_MINISH_PATH_BACKGROUND`, `MINISH_RAFTERS_BACKGROUND`.
+
+Conditionally allowed (must prove one region group covers the candidate view):
+
+- `HYRULE_TOWN_TILESET`: each region list must select at most one group.
+- `MINISH_VILLAGE`: one region group **and** the eight-step streaming sequence
+  must be complete (`timer >= 8`) before the tall aperture is admitted.
+
+Explicitly native-only (unverified effects/streamers):
+
+`LIGHT_RAY`, `LIGHT`, `LIGHT_LEVEL_SET`, `TEMPLE_OF_DROPLETS`,
+`ROLLING_BARREL`, `CLOUD_STAIRCASE_TRANSITION`, `VAATI3_BACKGROUND`,
+`VAATI3_INSIDE_ARM`, `VAATI3_START`, and any unknown manager id.
+
+The Minish path/rafter backgrounds generate 32-row (256 px) maps from the full
+room source; their parallax normalization now uses the candidate aperture
+(`Port_Widescreen_RegionViewWidth/Height`) instead of the native 160/240 extent.
+
+### Entities
+
+Allowed with signed OAM metadata: `PLAYER`, `NPC`, `ENEMY`, `PROJECTILE`,
+`OBJECT`, `PLAYER_ITEM` (players/projectiles/drops/common objects/actors).
+Native-only exceptions: `BARREL_SPIDERWEB`, `PARALLAX_ROOM_VIEW`,
+`MINISH_PORTAL_CLOSEUP` objects and the `SPIDER_WEB` projectile. Unknown kinds
+fail closed. Every visible OAM slot must be signed/tagged
+(`Port_Oam_VisibleSlotsTagged`) before tall admission.
+
+### Evidence
+
+EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
+
+- full-height tall: field (`0x03/0x08`), festival town (`0x15/0x00`), dungeon
+  (`0x49/0x00`), Minish path (`0x11/0x00`), Mount Crenel (`0x06/0x00`), Cloud
+  Tops (`0x08/0x00`);
+- Minish Village `0x01/0x00` is a multi-region view: the manager cannot keep
+  two groups resident in the shared eight-span stream, so the policy keeps that
+  view native/centered. This is the remaining known normal-room fallback and is
+  why the release capability stays off.
+
 ## Progress log
 
 - **WP1 implemented.** `Port_Viewport_Composition()` is now the single
@@ -334,10 +397,16 @@ composition, black fallback and no cross-profile/family aliasing.
   16-row fill band above and below, canvas-anchored top and bottom HUD, and no
   artwork in the margins. Artifact:
   `.tmp/wp1-wp2/eu-field-area03-room08-256x192.png`.
-- **Remaining.** WP3 manager/tileset residency, WP4 entity/OAM allow-lists,
-  WP5 effect/window classification, then flip the release capability and run
-  WP6–WP8 acceptance. Until then towns/dungeons/effects may still resolve to
-  the safe native aperture/fallback.
+- **WP3/WP4 implemented.** Manager/entity admission is a per-id/class policy.
+  Town and village region groups are proven against the candidate aperture;
+  village streaming completes before admission. Minish path/rafter parallax
+  normalizes against the rendered aperture. Common entity classes are allowed;
+  special affine/portal painters and the spiderweb remain native. EU captures
+  cover field, town, dungeon, Minish path, Mount Crenel and Cloud Tops at
+  256 × 192. See the capability audit above.
+- **Remaining.** WP5 effect/window classification (and a residency design for
+  multi-group village views if they must become tall), then flip the release
+  capability and run WP6–WP8 acceptance.
 
 ## Sequencing
 

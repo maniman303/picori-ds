@@ -72,7 +72,11 @@ void Port_Widescreen_SetTallValidated(int validated);
 void Port_Widescreen_MapFilled(unsigned mode);
 void Port_Widescreen_MapUploaded(void);
 void Port_Widescreen_BeforePresent(void);
-void Port_Widescreen_ManagerCreated(void);
+/* Manager residency policy. View-dependent graphics managers call
+ * NoteManagerResidency() every update to prove a single region group covers
+ * the candidate aperture. */
+void Port_Widescreen_ManagerCreated(unsigned id);
+void Port_Widescreen_NoteManagerResidency(unsigned id, int safe);
 void Port_Widescreen_EntityCreated(void);
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
@@ -86,6 +90,11 @@ int Port_Widescreen_EffectiveViewWidth(void);
  * capabilities are published together. Camera/tile callers use this accessor
  * so future validated taller apertures do not require more engine edits. */
 int Port_Widescreen_EffectiveViewHeight(void);
+/* View extents used by view-dependent region/streaming managers. During tall
+ * staging these describe the candidate aperture so the manager loads the rows
+ * that will be published; otherwise they match EffectiveView*. */
+int Port_Widescreen_RegionViewWidth(void);
+int Port_Widescreen_RegionViewHeight(void);
 unsigned Port_Widescreen_MapBufferSize(void);
 int Port_Widescreen_HudRightAnchor(void);
 /* True while the map BGs are what the PPU renders (>=1 shadow registered);

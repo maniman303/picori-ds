@@ -9,6 +9,9 @@
 #include "room.h"
 #include "game.h"
 #include "vram.h"
+#ifdef PC_PORT
+#include "port_widescreen.h"
+#endif
 
 void MinishRaftersBackgroundManager_OnEnterRoom(MinishRaftersBackgroundManager*);
 void sub_08058210(MinishRaftersBackgroundManager*);
@@ -47,10 +50,30 @@ u32 sub_08058244(int i) {
     s32 tmp2;
     u32 tmp3;
     s32 tmp4;
+#ifdef PC_PORT
+    /* Parallax must normalize against the aperture actually rendered. A tall
+     * view would otherwise divide by the native 160/240 range and compress
+     * the background too early. Small rooms have no parallax range. */
+    const int viewHeight = Port_Widescreen_RegionViewHeight();
+    const int viewWidth = Port_Widescreen_RegionViewWidth();
+    /* Native and existing wide profiles keep the historical 240/160
+     * normalization; only the tall canvas changes the parallax range. */
+    const int parallaxHeight = viewHeight > PORT_VIEWPORT_NATIVE_HEIGHT ? viewHeight : DISPLAY_HEIGHT;
+    const int parallaxWidth = viewHeight > PORT_VIEWPORT_NATIVE_HEIGHT ? viewWidth : DISPLAY_WIDTH;
+    if (gRoomControls.height <= parallaxHeight || gRoomControls.width <= parallaxWidth)
+        return 0;
+    tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x20) / (gRoomControls.height - parallaxHeight);
+#else
     tmp = ((gRoomControls.scroll_y - gRoomControls.origin_y) * 0x20) / (gRoomControls.height - DISPLAY_HEIGHT);
+#endif
     gScreen.bg1.yOffset = gRoomControls.origin_y + tmp;
+#ifdef PC_PORT
+    tmp = (((gRoomControls.scroll_x - gRoomControls.origin_x) * gUnk_081081EC[i]) /
+           (gRoomControls.width - parallaxWidth));
+#else
     tmp = (((gRoomControls.scroll_x - gRoomControls.origin_x) * gUnk_081081EC[i]) /
            (gRoomControls.width - DISPLAY_WIDTH));
+#endif
     gScreen.bg1.xOffset = tmp & 0xf;
     return tmp;
 }

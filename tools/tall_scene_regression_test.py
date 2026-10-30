@@ -13,8 +13,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='tmc-tall-scene-') as directory:
         binary = Path(directory) / 'test'
         command = shlex.split(os.environ.get('CC', 'cc')) + [
-            '-std=c11', '-Wall', '-Wextra', '-Werror',
-            '-I' + str(ROOT / 'port'),
+            '-std=c11', '-Wall', '-Wextra', '-Werror', '-DPC_PORT', '-DMULTI_REGION', '-DUSA',
+            '-I' + str(ROOT / 'port'), '-I' + str(ROOT / 'include'), '-I' + str(ROOT),
             str(ROOT / 'tools/tests/tall_scene.c'),
             str(ROOT / 'port/port_viewport.c'),
             str(ROOT / 'port/port_tall_scene.c'),

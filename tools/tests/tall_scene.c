@@ -2,6 +2,10 @@
  * single validation decision. No game state or ROM data is involved. */
 #include "port_tall_scene.h"
 
+#include "manager.h"
+#include "object.h"
+#include "projectile.h"
+
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -168,6 +172,56 @@ int main(void) {
     assert(Port_TallScene_IsValidated(Port_TallScene_Evaluate(&in)));
 
     assert(!Port_TallScene_IsValidated(Port_TallScene_Evaluate(NULL)));
-    puts("tall scene validation: aperture, rows and every gate PASS");
+
+    /* Manager capability list: logic/HUD/overlay managers are allowed; the
+     * view-dependent streamers require a single-group proof; genuinely
+     * effect/streaming-owned managers stay native. */
+    assert(Port_TallScene_ManagerIdAllowed(MISC_MANAGER, 192, false));
+    assert(Port_TallScene_ManagerIdAllowed(ENTER_ROOM_TEXTBOX_MANAGER, 192, false));
+    assert(Port_TallScene_ManagerIdAllowed(CLOUD_OVERLAY_MANAGER, 192, false));
+    assert(Port_TallScene_ManagerIdAllowed(ANIMATED_BACKGROUND_MANAGER, 192, false));
+    assert(!Port_TallScene_ManagerIdAllowed(ROLLING_BARREL_MANAGER, 192, true));
+    assert(Port_TallScene_ManagerIdAllowed(HORIZONTAL_MINISH_PATH_BACKGROUND_MANAGER, 192, false));
+    assert(Port_TallScene_ManagerIdAllowed(VERTICAL_MINISH_PATH_BACKGROUND_MANAGER, 162, false));
+    assert(Port_TallScene_ManagerIdAllowed(MINISH_RAFTERS_BACKGROUND_MANAGER, 192, false));
+    assert(!Port_TallScene_ManagerIdAllowed(TEMPLE_OF_DROPLETS_MANAGER, 192, true));
+    assert(!Port_TallScene_ManagerIdAllowed(VAATI3_BACKGROUND_MANAGER, 192, true));
+    assert(!Port_TallScene_ManagerIdAllowed(LIGHT_MANAGER, 162, true));
+    assert(!Port_TallScene_ManagerIdAllowed(HYRULE_TOWN_TILESET_MANAGER, 192, false));
+    assert(Port_TallScene_ManagerIdAllowed(HYRULE_TOWN_TILESET_MANAGER, 192, true));
+    assert(!Port_TallScene_ManagerIdAllowed(MINISH_VILLAGE_MANAGER, 162, false));
+    assert(Port_TallScene_ManagerIdAllowed(MINISH_VILLAGE_MANAGER, 162, true));
+    assert(Port_TallScene_ManagerIdAllowed(ROLLING_BARREL_MANAGER, 160, true));
+    assert(!Port_TallScene_ManagerIdAllowed(0xFF, 192, true));
+
+    Port_TallScene_InvalidateManagerResidency();
+    assert(!Port_TallScene_ManagerResidencyProven(HYRULE_TOWN_TILESET_MANAGER));
+    assert(!Port_TallScene_ManagerResidencyProven(MINISH_VILLAGE_MANAGER));
+    assert(Port_TallScene_ManagerResidencyProven(MISC_MANAGER));
+    Port_TallScene_NoteManagerResidency(HYRULE_TOWN_TILESET_MANAGER, 1);
+    assert(Port_TallScene_ManagerResidencyProven(HYRULE_TOWN_TILESET_MANAGER));
+    Port_TallScene_NoteManagerResidency(HYRULE_TOWN_TILESET_MANAGER, 0);
+    assert(!Port_TallScene_ManagerResidencyProven(HYRULE_TOWN_TILESET_MANAGER));
+    Port_TallScene_ManagerCreated(MINISH_VILLAGE_MANAGER);
+    assert(!Port_TallScene_ManagerResidencyProven(MINISH_VILLAGE_MANAGER));
+    Port_TallScene_InvalidateManagerResidency();
+
+    /* Entity classes: common gameplay is admitted; unique affine/special
+     * painters stay native. Native apertures always admit. */
+    assert(Port_TallScene_EntityIdAllowed(PLAYER, 0, 192));
+    assert(Port_TallScene_EntityIdAllowed(NPC, 0, 192));
+    assert(Port_TallScene_EntityIdAllowed(ENEMY, 0, 192));
+    assert(Port_TallScene_EntityIdAllowed(PROJECTILE, 0, 192));
+    assert(Port_TallScene_EntityIdAllowed(OBJECT, 0, 192));
+    assert(Port_TallScene_EntityIdAllowed(PLAYER_ITEM, 0, 192));
+    assert(!Port_TallScene_EntityIdAllowed(OBJECT, BARREL_SPIDERWEB, 192));
+    assert(!Port_TallScene_EntityIdAllowed(OBJECT, PARALLAX_ROOM_VIEW, 192));
+    assert(!Port_TallScene_EntityIdAllowed(OBJECT, MINISH_PORTAL_CLOSEUP, 192));
+    assert(!Port_TallScene_EntityIdAllowed(PROJECTILE, SPIDER_WEB, 192));
+    assert(!Port_TallScene_EntityIdAllowed(0, 0, 192));
+    assert(!Port_TallScene_EntityIdAllowed(2, 0, 192));
+    assert(Port_TallScene_EntityIdAllowed(OBJECT, BARREL_SPIDERWEB, 160));
+
+    puts("tall scene validation: aperture, rows, managers, entities and gates PASS");
     return 0;
 }

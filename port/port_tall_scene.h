@@ -90,6 +90,18 @@ enum {
 unsigned Port_TallScene_Evaluate(const PortTallSceneInputs* inputs);
 bool Port_TallScene_IsValidated(unsigned status);
 
+/* Manager/entity residency policy. These are pure decisions; the engine-side
+ * scanners in port_linked_stubs.c supply the live manager/entity state. */
+bool Port_TallScene_ManagerIdAllowed(unsigned id, int apertureHeight, bool residencyProven);
+bool Port_TallScene_EntityIdAllowed(unsigned kind, unsigned id, int apertureHeight);
+
+/* Per-manager residency proof. Only managers that stream char/palette data
+ * from a view-dependent group need to call NoteManagerResidency() each update. */
+void Port_TallScene_ManagerCreated(unsigned id);
+void Port_TallScene_NoteManagerResidency(unsigned id, int safe);
+bool Port_TallScene_ManagerResidencyProven(unsigned id);
+void Port_TallScene_InvalidateManagerResidency(void);
+
 #ifdef __cplusplus
 }
 #endif

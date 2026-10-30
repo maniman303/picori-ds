@@ -29,9 +29,8 @@ static struct { struct { unsigned textWindowWidth, textWindowHeight, textWindowP
 static int virtuappu_mode1_ws_shadow_base_tile[4];
 static u16* virtuappu_mode1_ws_shadow[4];
 static uint64_t sWsContentKey = UINT64_MAX;
-static int sWsContentPx, sWsStageHeight, sWsManagerDirty, sWsEntityDirty, sWsFixedInstalled;
+static int sWsContentPx, sWsStageHeight, sWsFixedInstalled;
 static u16 gOamMem[512];
-static int Port_Widescreen_HasDynamicEntities(void) { return 0; }
 static bool Port_Oam_VisibleSlotsTagged(const u16* p) { (void)p; return true; }
 static uint64_t sWsValidatedKey = UINT64_MAX;
 static PortViewportUpload sWsUpload;
@@ -75,7 +74,15 @@ static int virtuappu_mode1_ws_hud_right_anchor, virtuappu_mode1_ws_msg_shift;
 static int virtuappu_mode1_ws_hud_shift_y, virtuappu_mode1_ws_msg_shift_y;
 static int virtuappu_mode1_ws_msg_x0, virtuappu_mode1_ws_msg_x1;
 static int virtuappu_mode1_ws_msg_y0, virtuappu_mode1_ws_msg_y1;
-typedef struct { int action; } Entity;
+typedef struct Entity { struct Entity* next; u8 kind, id, type, type2, action; } Entity;
+typedef struct GenericEntity { Entity base; } GenericEntity;
+typedef struct Manager { struct Manager* prev; struct Manager* next; u8 kind, id, type, type2; } Manager;
+typedef Manager Temp;
+static GenericEntity gEntities[72], gAuxPlayerEntities[7];
+static u8 gUnk_02033290[32 * 0x80];
+#define MANAGER 9
+#define MAX_ENTITIES 72
+#define MAX_AUX_PLAYER_ENTITIES 7
 static Entity* testBanner;
 static Entity* FindEntityByID(int kind, int id, int list) { (void)kind; (void)id; (void)list; return testBanner; }
 #include "widescreen_helpers.h"
@@ -281,7 +288,8 @@ int main(void) {
     CHECK(!(geometry->scene.capabilities & PORT_SCENE_NATIVE_CONTENT));
     /* Banner rows wrap with the 256-pixel BG0 map, then clip to the native
      * raster. Offscreen bands must not reach the GPU as negative bounds. */
-    Entity banner = { 1 };
+    Entity banner = { 0 };
+    banner.action = 1;
     testBanner = &banner;
     gCurrentWindow.active = 0;
     const struct { int scroll, y0, y1; } bannerCases[] = {

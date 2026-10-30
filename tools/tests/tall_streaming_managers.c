@@ -24,6 +24,10 @@ static unsigned selection, townSelections[3], selectionIndex, palettes;
 static int actualRegions, viewHeight = 160;
 int Port_Widescreen_EffectiveViewWidth(void) { return 240; }
 int Port_Widescreen_EffectiveViewHeight(void) { return viewHeight; }
+int Port_Widescreen_RegionViewWidth(void) { return 240; }
+int Port_Widescreen_RegionViewHeight(void) { return viewHeight; }
+static int lastManagerSafe = -1;
+void Port_Widescreen_NoteManagerResidency(unsigned id, int safe) { (void)id; lastManagerSafe = safe; }
 #include "region_intersection.inc"
 extern const u16 gUnk_08108050_eu[];
 
@@ -66,9 +70,13 @@ static void check_village(void) {
     gRoomControls.area = 0xff;
     for (selection = 0; selection < 5; ++selection) {
         memset(vram, 0xee, sizeof(vram));
+        lastManagerSafe = -1;
         for (int phase = 0; phase < 8; ++phase) {
             MinishVillageTileSetManager_Main(&m);
             assert(m.base.timer == phase + 1);
+            /* The first seven steps are not a resident tall aperture; the
+             * eighth chunk completes the group. */
+            assert(lastManagerSafe == (phase == 7));
             for (int chunk = 0; chunk < 8; ++chunk) {
                 u32 dest = gUnk_081080A4_eu[selection * 16 + chunk * 2 + 1];
                 u8* actual = port_resolve_addr(dest);
@@ -76,6 +84,7 @@ static void check_village(void) {
                 else for (int i = 0; i < 0x1000; ++i) assert(actual[i] == 0xee);
             }
         }
+        assert(lastManagerSafe == 1); /* complete group is tall-safe */
         assert(palettes == selection + 1);
     }
     /* A region switch in the middle of streaming starts the new sequence. */
@@ -169,9 +178,45 @@ static void check_town(void) {
     HyruleTownTileSetManager_UpdateLoadGfxGroups(&m);
     assert(gRoomVars.graphicsGroups[0] == 1 && memcmp(copy, vram, sizeof(vram)) != 0);
 }
+static void check_tall_group_selection(int height) {
+    actualRegions = 1;
+    gRoomControls.origin_x = gRoomControls.origin_y = 0;
+    int found = 0;
+    for (int x = 0; x < 1024 && !found; x += 16) {
+        for (int y = 0; y < 1024 && !found; y += 16) {
+            gRoomControls.scroll_x = x; gRoomControls.scroll_y = y;
+            viewHeight = height;
+            u32 tall = CheckRegionsOnScreen(gUnk_08108050_eu);
+            const u32 mask = CheckRegionsOnScreenMask(gUnk_08108050_eu);
+            if (tall == 0xff || (mask & (mask - 1)) != 0)
+                continue;
+            MinishVillageTileSetManager m = {0};
+            m.base.action = 1; m.base.timer = 8; m.unk_20 = 0xff;
+            palettes = 0;
+            memset(vram, 0xee, sizeof(vram));
+            for (int phase = 0; phase < 8; ++phase) {
+                MinishVillageTileSetManager_Main(&m);
+                assert(m.base.timer == phase + 1);
+                for (int chunk = 0; chunk <= phase; ++chunk) {
+                    u32 dest = gUnk_081080A4_eu[tall * 16 + chunk * 2 + 1];
+                    assert(memcmp(port_resolve_addr(dest),
+                                  source + gUnk_081080A4_eu[tall * 16 + chunk * 2], 0x1000) == 0);
+                }
+            }
+            assert(m.unk_20 == tall);
+            assert(lastManagerSafe == 1);
+            found = 1;
+        }
+    }
+    assert(found); /* a single-group tall selection is resident and safe */
+    actualRegions = 0;
+    viewHeight = 160;
+}
+
 int main(void) {
     for (size_t i = 0; i < sizeof(source); ++i) source[i] = (u8)((i >> 12) ^ (i >> 20));
-    check_village(); check_other_region_tables(); check_town_groups(); check_town(); check_region_boundaries();
+    check_village(); check_other_region_tables(); check_town_groups(); check_town();
+    check_region_boundaries(); check_tall_group_selection(162); check_tall_group_selection(192);
     puts("Town and village manager immediate upload timing: PASS");
     return 0;
 }

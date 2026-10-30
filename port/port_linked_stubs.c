@@ -18,6 +18,7 @@
 #include "kinstone.h"
 #include "main.h"
 #include "map.h"
+#include "manager.h"
 #include "manager/diggingCaveEntranceManager.h"
 #include "menu.h"
 #include "message.h"
@@ -1001,8 +1002,6 @@ static uint64_t sWsContentKey = UINT64_MAX;
 static s32 sWsContentPx = 0;
 static PortViewportUpload sWsUpload;
 static int sWsStageHeight;
-static int sWsManagerDirty;
-static int sWsEntityDirty;
 static int sWsFixedInstalled;
 static uint64_t sWsValidatedKey = UINT64_MAX;
 
@@ -1271,23 +1270,60 @@ static int Port_Widescreen_MapTileY(void) {
     return (u16)(gRoomControls.scroll_y - gRoomControls.origin_y) >> 4;
 }
 
-static int Port_Widescreen_HasDynamicEntities(void) {
-    for (int i = 0; i < MAX_ENTITIES; ++i)
-        if (gEntities[i].base.next != NULL) return 1;
-    for (int i = 0; i < MAX_AUX_PLAYER_ENTITIES; ++i)
-        if (gAuxPlayerEntities[i].base.next != NULL) return 1;
-    return 0;
+/* Every live manager must be on the explicit capability list. Managers that
+ * stream view-dependent char/palette groups additionally prove that a single
+ * group covers the candidate aperture (port_tall_scene.c). */
+static int Port_WidescreenManagersSafe(int apertureHeight) {
+    extern u8 gUnk_02033290[];
+    /* Keep the layout independent of the private Temp type in entity.c:
+       two pointers followed by the PC (64-bit) manager payload. */
+    const size_t slotBytes = 2u * sizeof(void*) + 0x70u;
+    int found = 0;
+    for (int i = 0; i < 32; ++i) {
+        Manager* manager = (Manager*)(gUnk_02033290 + (size_t)i * slotBytes);
+        if (manager->prev == NULL || manager->kind != MANAGER)
+            continue;
+        ++found;
+        if (!Port_TallScene_ManagerIdAllowed(manager->id, apertureHeight,
+                                             Port_TallScene_ManagerResidencyProven(manager->id)))
+            return 0;
+    }
+    /* A count without a scan hit means the pool and count disagree; fail
+     * closed instead of assuming the room is manager-free. */
+    return !(gManagerCount != 0 && found == 0);
 }
 
-void Port_Widescreen_EntityCreated(void) { sWsEntityDirty = 1; }
+/* Common gameplay entity classes are allowed in tall rooms. Unique native-only
+ * painters are denied by kind/id; signed OAM metadata is verified separately. */
+static int Port_WidescreenEntitiesSafe(int apertureHeight) {
+    for (int i = 0; i < MAX_ENTITIES; ++i) {
+        GenericEntity* entity = &gEntities[i];
+        if (entity->base.next == NULL)
+            continue;
+        if (!Port_TallScene_EntityIdAllowed(entity->base.kind, entity->base.id, apertureHeight))
+            return 0;
+    }
+    for (int i = 0; i < MAX_AUX_PLAYER_ENTITIES; ++i) {
+        GenericEntity* entity = &gAuxPlayerEntities[i];
+        if (entity->base.next == NULL)
+            continue;
+        if (!Port_TallScene_EntityIdAllowed(entity->base.kind, entity->base.id, apertureHeight))
+            return 0;
+    }
+    return 1;
+}
 
-void Port_Widescreen_ManagerCreated(void) {
-    /* A transient manager can upload graphics and disappear before the next
-     * snapshot. Keep the room blocked until a fresh room load. */
-    sWsManagerDirty = 1;
-    /* Any manager may own char/palette residency, so a previously validated
-     * room can no longer prove its added rows. */
+void Port_Widescreen_EntityCreated(void) { /* entity admission is a per-frame policy scan */ }
+
+void Port_Widescreen_ManagerCreated(unsigned id) {
+    /* Any graphics manager may own char/palette residency, so a previously
+     * validated room can no longer prove its added rows. */
     sWsValidatedKey = UINT64_MAX;
+    Port_TallScene_ManagerCreated(id);
+}
+
+void Port_Widescreen_NoteManagerResidency(unsigned id, int safe) {
+    Port_TallScene_NoteManagerResidency(id, safe);
 }
 
 /* Candidate live-world aperture for the published canvas and current room. */
@@ -1353,11 +1389,12 @@ void Port_Widescreen_MapFilled(unsigned mode) {
 }
 
 void Port_Widescreen_MapUploaded(void) {
-    if (sWsStageHeight > PORT_VIEWPORT_NATIVE_HEIGHT)
+    if (sWsStageHeight > PORT_VIEWPORT_NATIVE_HEIGHT) {
         Port_Viewport_UploadCompleted(&sWsUpload, Port_WidescreenRoomKey(), Port_Widescreen_MapTileX(),
                                       Port_Widescreen_MapTileY(), Port_Widescreen_MapBufferSize() / 64);
-    /* Real production validation boundary: the staged rows now live in VRAM. */
-    Port_Widescreen_SetTallValidated(1);
+        /* Real production validation boundary: the staged rows now live in VRAM. */
+        Port_Widescreen_SetTallValidated(1);
+    }
 }
 
 /* Classify only on the simulation side. Content width is sampled once at
@@ -1411,6 +1448,7 @@ void Port_Widescreen_PublishScene(void) {
             sWsValidatedKey = UINT64_MAX;
             sWsStageHeight = 0;
             Port_Viewport_UploadReset(&sWsUpload);
+            Port_TallScene_InvalidateManagerResidency();
         }
         /* Check the whole sequence before any camera or map copy sees it. */
         if (tallAperture > PORT_VIEWPORT_NATIVE_HEIGHT &&
@@ -1448,14 +1486,10 @@ void Port_Widescreen_PublishScene(void) {
              port_hdma_has_active_channels() ||
              (gIoMem[0] & 7) == 1 || (gIoMem[0] & 7) == 2))
             scene.capabilities |= PORT_SCENE_NATIVE_FALLBACK;
-        /* Every manager is conservatively unverified for tall residency. PC
-         * LoadResourceAsync copies immediately, and managers update after map
-         * fill, so timer==complete alone cannot certify a wider view. */
-        if (gManagerCount != 0)
-            sWsManagerDirty = 1;
-        if (sWsValidatedKey == Port_WidescreenRoomKey() && Port_Widescreen_HasDynamicEntities())
-            sWsEntityDirty = 1;
-        if (!sWsEntityDirty)
+        /* Manager and entity admission is a per-id/class policy. Managers that
+         * stream view-dependent groups must have proved single-group coverage;
+         * common entities are allowed unless a native-only painter is live. */
+        if (Port_WidescreenEntitiesSafe(tallAperture))
             scene.capabilities |= PORT_SCENE_TALL_ENTITIES_EMPTY;
         if (sWsValidatedKey == Port_WidescreenRoomKey() && Port_Oam_VisibleSlotsTagged(gOamMem))
             scene.capabilities |= PORT_SCENE_TALL_OAM_VERIFIED;
@@ -1469,7 +1503,7 @@ void Port_Widescreen_PublishScene(void) {
              !(gScreen.lcd.displayControl & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON)) &&
              !(gIoMem[1] & 0xe0) && /* already-latched WIN0/WIN1/OBJWIN */
              !port_hdma_has_active_channels());
-        if (!sWsManagerDirty && gManagerCount == 0 && gUnk_03003DE0 == 0 &&
+        if (Port_WidescreenManagersSafe(tallAperture) && gUnk_03003DE0 == 0 &&
             gMain.state == GAMETASK_MAIN && steadyOrBlackArrival &&
             !gRoomControls.reload_flags && gRoomControls.scrollAction == 1 &&
             ((gMapBottom.bgSettings != NULL &&
@@ -1512,9 +1546,19 @@ void Port_Widescreen_PublishScene(void) {
             UpdateScrollVram();
         }
     } else if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT) {
-        scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
         sWsStageHeight = 0;
-        Port_Viewport_UploadReset(&sWsUpload);
+        /* Keep a verified fill/upload so a transient entity/manager gate can
+         * recover without discarding residency. A camera change or a wider
+         * shake envelope invalidates it and forces a fresh staging pass. */
+        if (sWsUpload.filled && sWsUpload.uploaded &&
+            sWsUpload.roomKey == Port_WidescreenRoomKey() &&
+            sWsUpload.tileX == Port_Widescreen_MapTileX() &&
+            sWsUpload.tileY == Port_Widescreen_MapTileY() &&
+            sWsUpload.height == targetHeight && sWsUpload.rows >= Port_WidescreenTallRows()) {
+            scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
+        } else {
+            Port_Viewport_UploadReset(&sWsUpload);
+        }
     } else {
         sWsStageHeight = 0;
         Port_Viewport_UploadReset(&sWsUpload);
@@ -1534,7 +1578,7 @@ void Port_Widescreen_PublishScene(void) {
     tall.shadowRowsReady = Port_WidescreenCandidateWidth() <= PORT_VIEWPORT_NATIVE_WIDTH ||
                            Port_WidescreenMapShadowsLive();
     tall.managersSafe = (scene.capabilities & PORT_SCENE_TALL_MANAGER_FREE) != 0;
-    tall.entitiesSafe = !sWsEntityDirty;
+    tall.entitiesSafe = Port_WidescreenEntitiesSafe(tallAperture);
     tall.oamVerified = (scene.capabilities & PORT_SCENE_TALL_OAM_VERIFIED) != 0;
     tall.uploadRoomKey = sWsUpload.roomKey;
     tall.uploadTileX = sWsUpload.tileX;
@@ -1545,8 +1589,25 @@ void Port_Widescreen_PublishScene(void) {
     tall.uploadUploaded = sWsUpload.uploaded;
     tall.residencyCommitted = gMain.task == TASK_GAME &&
         sWsValidatedKey == tall.roomKey;
-    if (!Port_TallScene_IsValidated(Port_TallScene_Evaluate(&tall)))
+    const unsigned tallStatus = Port_TallScene_Evaluate(&tall);
+    if (!Port_TallScene_IsValidated(tallStatus))
         scene.capabilities &= ~PORT_SCENE_TALL_VALIDATED;
+    {
+        static int trace = -1;
+        static uint32_t lastCaps;
+        static unsigned tick;
+        if (trace < 0)
+            trace = getenv("TMC_WS_TRACE") != NULL;
+        if (trace && (scene.capabilities != lastCaps || (++tick % 120) == 0)) {
+            fprintf(stderr,
+                    "[ws] area=0x%02x room=0x%02x canvas=%dx%d world=%dx%d+%d,%d caps=0x%04x tall=0x%02x\n",
+                    (unsigned)gRoomControls.area, (unsigned)gRoomControls.room,
+                    geometry->canvas.width, geometry->canvas.height,
+                    geometry->world.width, geometry->world.height,
+                    geometry->world.x, geometry->world.y, scene.capabilities, tallStatus);
+            lastCaps = scene.capabilities;
+        }
+    }
     Port_Viewport_PublishScene(scene);
 }
 
@@ -1559,12 +1620,12 @@ void Port_Widescreen_BeforePresent(void) {
 }
 
 void Port_Widescreen_RoomLoaded(void) {
-    sWsManagerDirty = gManagerCount != 0;
-    sWsEntityDirty = Port_Widescreen_HasDynamicEntities();
     sWsValidatedKey = UINT64_MAX;
     sWsStageHeight = 0;
     Port_Viewport_UploadReset(&sWsUpload);
     sWsContentKey = UINT64_MAX;
+    /* Every view-dependent manager must re-prove its group coverage. */
+    Port_TallScene_InvalidateManagerResidency();
     Port_Widescreen_PublishScene();
     if (Port_Widescreen_TargetViewWidth() > 240 && getenv("TMC_WS_TRACE") != NULL) {
         fprintf(stderr, "[ws] area=0x%02x room=0x%02x width=%d content_px=%d -> %s\n",
@@ -1685,13 +1746,28 @@ void Port_Widescreen_UpdateShadows(void) {
         Port_WidescreenShadow_PopulateOverlay((const u16*)(gVram + 0xf000), sWsShadowOverlay);
     }
 }
+
+int Port_Widescreen_RegionViewWidth(void) {
+    if (sWsStageHeight > PORT_VIEWPORT_NATIVE_HEIGHT && gMain.task == TASK_GAME)
+        return Port_WidescreenCandidateWidth();
+    return Port_Widescreen_EffectiveViewWidth();
+}
+
+int Port_Widescreen_RegionViewHeight(void) {
+    if (sWsStageHeight > PORT_VIEWPORT_NATIVE_HEIGHT && gMain.task == TASK_GAME)
+        return sWsStageHeight;
+    return Port_Widescreen_EffectiveViewHeight();
+}
 #else
 void Port_Widescreen_SetTallValidated(int validated) { (void)validated; }
-void Port_Widescreen_ManagerCreated(void) {}
+void Port_Widescreen_ManagerCreated(unsigned id) { (void)id; }
+void Port_Widescreen_NoteManagerResidency(unsigned id, int safe) { (void)id; (void)safe; }
 void Port_Widescreen_EntityCreated(void) {}
 void Port_Widescreen_BeforePresent(void) {}
 void Port_Widescreen_MapFilled(unsigned mode) { (void)mode; }
 void Port_Widescreen_MapUploaded(void) {}
+int Port_Widescreen_RegionViewWidth(void) { return 240; }
+int Port_Widescreen_RegionViewHeight(void) { return 160; }
 void Port_Widescreen_PublishScene(void) {
     PortViewportScene scene = { gMain.task == TASK_GAME ? PORT_SCENE_WORLD : 0,
                                 gRoomControls.width, gRoomControls.height };

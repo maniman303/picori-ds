@@ -17,6 +17,7 @@ void sub_08057E7C(u32);
 
 #ifdef PC_PORT
 extern const u8* gGlobalGfxAndPalettes;
+#include "port_widescreen.h"
 #else
 extern const u8 gGlobalGfxAndPalettes[];
 #endif
@@ -191,6 +192,16 @@ void MinishVillageTileSetManager_Main(MinishVillageTileSetManager* this) {
     } else {
         MinishVillageTileSetManager_Main_USA(this);
     }
+#ifdef PC_PORT
+    /* The eight-step stream temporarily mixes outgoing and incoming chunks.
+     * Keep the tall aperture native until the selected group is complete and
+     * only one region group is visible. */
+    const u16* sel = REGION_IS_EU ? gUnk_08108050_eu : gUnk_08108050;
+    const u32 mask = CheckRegionsOnScreenMask(sel);
+    const int singleGroup = (mask & (mask - 1)) == 0;
+    const int streamComplete = this->unk_20 <= 4 && this->base.timer >= 8;
+    Port_Widescreen_NoteManagerResidency(MINISH_VILLAGE_MANAGER, singleGroup && streamComplete);
+#endif
 }
 #else
 void MinishVillageTileSetManager_Main(MinishVillageTileSetManager* this) {

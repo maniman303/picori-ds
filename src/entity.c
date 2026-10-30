@@ -888,7 +888,7 @@ void AppendEntityToList(Entity* entity, u32 listIndex) {
     } else {
         gManagerCount++;
 #ifdef PC_PORT
-        Port_Widescreen_ManagerCreated();
+        Port_Widescreen_ManagerCreated(entity->id);
 #endif
     }
     InitDefaultPriority(entity);

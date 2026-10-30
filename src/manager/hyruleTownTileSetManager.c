@@ -50,6 +50,29 @@ static const u16 gHyruleTownTileSetManager_festivalRegions2[] = {
 };
 // clang-format on
 
+#ifdef PC_PORT
+#include "port_widescreen.h"
+
+/* A tall view is safe only when every region list selects at most one group.
+ * The manager loads one group per index into shared VRAM destinations; two
+ * simultaneously visible groups for the same index cannot both be resident. */
+static int HyruleTownRegionListSafe(const u16* regions) {
+    const u32 mask = CheckRegionsOnScreenMask(regions);
+    return (mask & (mask - 1)) == 0;
+}
+
+static int HyruleTownRegionSelectionSafe(void) {
+    if (gRoomControls.area != AREA_FESTIVAL_TOWN) {
+        return HyruleTownRegionListSafe(gHyruleTownTileSetManager_regions0) &&
+               HyruleTownRegionListSafe(gHyruleTownTileSetManager_regions1) &&
+               HyruleTownRegionListSafe(gHyruleTownTileSetManager_regions2);
+    }
+    return HyruleTownRegionListSafe(gHyruleTownTileSetManager_festivalRegions0) &&
+           HyruleTownRegionListSafe(gHyruleTownTileSetManager_festivalRegions1) &&
+           HyruleTownRegionListSafe(gHyruleTownTileSetManager_festivalRegions2);
+}
+#endif
+
 void HyruleTownTileSetManager_LoadGfxGroup(u32, u32);
 void HyruleTownTileSetManager_BuildSecondOracleHouse(void);
 
@@ -109,6 +132,9 @@ void HyruleTownTileSetManager_OnEnterRoom(HyruleTownTileSetManager* this) {
 }
 
 void HyruleTownTileSetManager_UpdateLoadGfxGroups(HyruleTownTileSetManager* this) {
+#ifdef PC_PORT
+    Port_Widescreen_NoteManagerResidency(HYRULE_TOWN_TILESET_MANAGER, HyruleTownRegionSelectionSafe());
+#endif
     if (gRoomControls.area != AREA_FESTIVAL_TOWN) {
         if (HyruleTownTileSetManager_UpdateRoomGfxGroup(this, 0, &this->gfxGroup0,
                                                         gHyruleTownTileSetManager_regions0) != 0) {

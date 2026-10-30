@@ -222,5 +222,6 @@ extern u16 gPaletteBuffer[];
 
 extern u32 CheckRegionOnScreen(u32 x0, u32 y0, u32 x1, u32 y1);
 extern u32 CheckRegionsOnScreen(const u16* arr);
+extern u32 CheckRegionsOnScreenMask(const u16* arr);
 
 #endif // MAIN_H

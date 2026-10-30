@@ -13,6 +13,8 @@
 #include "port_widescreen.h"
 #include "port_tall_scene.h"
 #include "port_oam.h"
+#include "manager.h"
+#include "object.h"
 #undef static_assert
 #include <assert.h>
 #include <stdint.h>
@@ -34,13 +36,14 @@ u16 gOamMem[512];
 GenericEntity gEntities[MAX_ENTITIES], gAuxPlayerEntities[MAX_AUX_PLAYER_ENTITIES];
 u16 gMapDataBottomSpecial[0x4000], gMapDataTopSpecial[0x4000];
 u8 gEwram[0x40000];
+u8 gUnk_02033290[32 * 0x80];
 u8 gIoMem[0x400];
 static BgSettings bg;
 static uint64_t sWsContentKey = UINT64_MAX;
 static s32 sWsContentPx;
 static PortViewportUpload sWsUpload;
 static int sWsStageHeight;
-static int sWsManagerDirty, sWsEntityDirty, sWsFixedInstalled;
+static int sWsFixedInstalled;
 static uint64_t sWsValidatedKey = UINT64_MAX;
 static int Port_WidescreenScanContentPx(void) { return 0; }
 static int Port_WidescreenPpuBgForControl(u32 c) { (void)c; return 1; }
@@ -94,9 +97,7 @@ int main(void) {
     assert(Port_Viewport_Get()->world.height == 160);
     gFadeControl.type = FADE_INSTANT;
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160 && sWsUpload.filled && !sWsUpload.uploaded);
-    Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 192);
+    assert(Port_Viewport_Get()->world.height == 192); /* residency retained */
     gScreen.lcd.displayControl |= DISPCNT_WIN0_ON;
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 160);
@@ -127,38 +128,32 @@ int main(void) {
     Port_Oam_Record(0, gOamMem[0], gOamMem[1], 0, 0, false);
     Port_Oam_Latch(1);
     Port_Widescreen_PublishScene();
-    assert(sWsUpload.filled && !sWsUpload.uploaded);
-    Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 192);
+    assert(Port_Viewport_Get()->world.height == 192); /* residency retained */
     Port_Oam_InvalidateLatchedRange(0, 2); /* even a byte-identical raw write */
     Port_Widescreen_BeforePresent();
     assert(Port_Viewport_Get()->world.height == 160);
     gOamMem[0] = 0x200; /* hardware-disabled slot is safe */
-    Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
+    Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
     gUnk_03003DE0 = 1; /* unknown pending native upload is not resident proof */
     Port_Widescreen_BeforePresent();
     assert(Port_Viewport_Get()->world.height == 160);
     gUnk_03003DE0 = 0;
     Port_Widescreen_PublishScene();
-    assert(sWsUpload.filled && !sWsUpload.uploaded);
-    Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
-    gManagerCount = 1;
+    gManagerCount = 1; /* pool/count disagreement fails closed */
     Port_Widescreen_BeforePresent();
-    assert(Port_Viewport_Get()->world.height == 160 && !sWsUpload.requested);
+    assert(Port_Viewport_Get()->world.height == 160);
     assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 192);
     gManagerCount = 0;
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160); /* deleted manager still blocks */
-    sWsManagerDirty = 0; /* emulate a fresh manager-free room load */
-    Port_Widescreen_PublishScene();
-    assert(sWsUpload.filled && !sWsUpload.uploaded);
+    assert(Port_Viewport_Get()->world.height == 192); /* per-frame policy recovers */
     gRoomControls.scroll_y += 16; /* stale fill must not authorize new camera */
     Port_Widescreen_MapUploaded();
-    assert(!sWsUpload.uploaded);
     Port_Widescreen_PublishScene();
-    assert(sWsUpload.filled && !sWsUpload.uploaded && Port_Viewport_Get()->world.height == 160);
+    assert(Port_Viewport_Get()->world.height == 160 && !sWsUpload.uploaded);
+    Port_Widescreen_PublishScene();
+    assert(sWsUpload.filled && !sWsUpload.uploaded);
     Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
     gShakeOffsets[15] = (u8)-9;
@@ -170,30 +165,40 @@ int main(void) {
     assert(sWsUpload.filled && !sWsUpload.uploaded && Port_Widescreen_MapBufferSize() == 28 * 64);
     Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
-    gEntities[0].base.next = (Entity*)&gEntities[0]; /* live unclassified entity */
+    /* A common entity class is admitted; a native-only painter is not. */
+    gEntities[0].base.next = (Entity*)&gEntities[0];
+    gEntities[0].base.kind = ENEMY;
+    gEntities[0].base.id = 0;
+    Port_Widescreen_BeforePresent();
+    assert(Port_Viewport_Get()->world.height == 192);
+    gEntities[0].base.kind = OBJECT;
+    gEntities[0].base.id = BARREL_SPIDERWEB;
     Port_Widescreen_BeforePresent();
     assert(Port_Viewport_Get()->world.height == 160);
     gEntities[0].base.next = NULL;
     Port_Widescreen_BeforePresent();
-    assert(Port_Viewport_Get()->world.height == 160); /* sticky after deletion */
-    sWsEntityDirty = 0;
-    Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 192);
+    assert(Port_Viewport_Get()->world.height == 192); /* per-frame policy recovers */
     gAuxPlayerEntities[0].base.next = (Entity*)&gAuxPlayerEntities[0];
+    gAuxPlayerEntities[0].base.kind = OBJECT;
+    gAuxPlayerEntities[0].base.id = BARREL_SPIDERWEB;
     Port_Widescreen_BeforePresent();
     assert(Port_Viewport_Get()->world.height == 160);
-    gAuxPlayerEntities[0].base.next = NULL; sWsEntityDirty = 0;
+    gAuxPlayerEntities[0].base.next = NULL;
+    Port_Widescreen_BeforePresent();
+    assert(Port_Viewport_Get()->world.height == 192);
+    /* A live manager must be on the explicit capability list. */
+    Manager* manager = (Manager*)&gUnk_02033290[0];
+    manager->prev = (Manager*)1;
+    manager->kind = MANAGER;
+    manager->id = ROLLING_BARREL_MANAGER;
+    gManagerCount = 1;
+    Port_Widescreen_ManagerCreated(manager->id);
+    Port_Widescreen_BeforePresent();
+    assert(Port_Viewport_Get()->world.height == 160);
+    manager->prev = NULL;
+    gManagerCount = 0;
     Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
-    Port_Widescreen_EntityCreated(); /* appeared and vanished within this tick */
-    Port_Widescreen_BeforePresent();
-    assert(Port_Viewport_Get()->world.height == 160);
-    sWsEntityDirty = 0; /* emulate a fresh empty room */
-    Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 192);
-    Port_Widescreen_ManagerCreated(); /* appeared and vanished within this tick */
-    Port_Widescreen_BeforePresent();
-    assert(Port_Viewport_Get()->world.height == 160);
     ++gRoomControls.room;
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 160); /* certification is room-specific */

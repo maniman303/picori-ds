@@ -352,10 +352,10 @@ void SetSleepMode(void) {
 u32 CheckRegionOnScreen(u32 x0, u32 y0, u32 x1, u32 y1) {
     u32 result;
 #ifdef PC_PORT
-    /* Room-managed objects (including house doors) must spawn throughout
-     * the rendered viewport, including its widescreen margins. */
-    u32 width = Port_Widescreen_EffectiveViewWidth();
-    u32 height = Port_Widescreen_EffectiveViewHeight();
+    /* View-dependent managers stage the candidate tall aperture before it is
+     * published. Native/wide profiles keep the published extents. */
+    u32 width = Port_Widescreen_RegionViewWidth();
+    u32 height = Port_Widescreen_RegionViewHeight();
 #else
     u32 width = DISPLAY_WIDTH;
     u32 height = DISPLAY_HEIGHT;
@@ -380,6 +380,18 @@ u32 CheckRegionsOnScreen(const u16* arr) {
             return *arr;
     }
     return 0xff;
+}
+
+/* All region groups touched by the current (candidate) view. Used by
+ * view-dependent graphics managers to prove that one group covers the
+ * aperture instead of silently loading the first match. */
+u32 CheckRegionsOnScreenMask(const u16* arr) {
+    u32 mask = 0;
+    for (; *arr != 0xff; arr += 5) {
+        if (CheckRegionOnScreen(arr[1], arr[2], arr[3], arr[4]))
+            mask |= 1u << (arr[0] & 31);
+    }
+    return mask;
 }
 
 void PlayerItemNulled2(Entity* this) {
