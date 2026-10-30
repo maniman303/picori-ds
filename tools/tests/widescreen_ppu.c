@@ -14,6 +14,9 @@ static void expect(const char* name, uint32_t got, uint32_t want) {
         failures++;
     }
 }
+static uint32_t abgr(uint16_t color) {
+    return virtuappu_mode1_rgb555_to_abgr8888(color);
+}
 int main(void) {
     VirtuaPPUMode1GbaMemory mem = {io, vram, bgpal, objpal, oam};
     virtuappu_mode1_bind_gba_memory(&mem);
@@ -105,6 +108,69 @@ int main(void) {
     virtuappu_mode1_render_frame(&p);
     expect("scrolled BG0 stays native", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 200], 0xff0000f8);
     expect("scrolled BG0 is clipped", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 244], 0xff00f800);
+
+    /* Tall canvas: message and lower-right HUD keep native tiles but move to
+     * the canvas corners. Each two-row band uses a separate palette bank. */
+    memset(io, 0, sizeof(io));
+    io[1] = 1; /* BG0 only */
+    io[8] = 4; io[9] = 0x1e; /* char base 1, screen base 30 */
+    for (int bank = 2; bank < 16; ++bank) {
+        bgpal[bank * 16 + 1] = (uint16_t)(0x001f | ((bank & 0x1f) << 5));
+        bgpal[bank * 16 + 2] = (uint16_t)(0x03e0 | ((bank & 0x1f) << 10));
+    }
+    memset(vram + 0x4020, 0x11, 32); /* tile 1: every pixel is color index 1 */
+    for (int row = 0; row < 32; ++row) {
+        uint16_t entry = (uint16_t)(1u | ((uint16_t)(2 + (row / 2) % 14) << 12));
+        for (int col = 0; col < 32; ++col) screen[row * 32 + col] = entry;
+    }
+    p.frame_width = 256; p.frame_height = 192;
+    virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_hud_shift_y = 0;
+    virtuappu_mode1_ws_msg_shift = 8;
+    virtuappu_mode1_ws_msg_shift_y = 32;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 232;
+    virtuappu_mode1_ws_msg_y0 = 96;
+    virtuappu_mode1_ws_msg_y1 = 144;
+    virtuappu_mode1_render_frame(&p);
+    /* Source row 100 (bank 8) -> destination row 132; x 100 -> 108. */
+    expect("tall message moved down/right", virtuappu_frame_buffer[132 * MODE1_GBA_WIDTH + 108],
+           abgr(bgpal[8 * 16 + 1]));
+    expect("tall native message band suppressed", virtuappu_frame_buffer[100 * MODE1_GBA_WIDTH + 100],
+           abgr(bgpal[0]));
+    expect("tall BG0 outside message band stays native", virtuappu_frame_buffer[100 * MODE1_GBA_WIDTH + 4],
+           abgr(bgpal[8 * 16 + 1]));
+    /* A top-requested window uses the same final bottom anchor. */
+    virtuappu_mode1_ws_msg_shift_y = 120;
+    virtuappu_mode1_ws_msg_y0 = 8;
+    virtuappu_mode1_ws_msg_y1 = 56;
+    virtuappu_mode1_render_frame(&p);
+    expect("tall top message shares bottom anchor", virtuappu_frame_buffer[132 * MODE1_GBA_WIDTH + 108],
+           abgr(bgpal[2 * 16 + 1]));
+    expect("tall top source band suppressed", virtuappu_frame_buffer[12 * MODE1_GBA_WIDTH + 100],
+           abgr(bgpal[0]));
+
+    virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
+    virtuappu_mode1_ws_msg_x0 = 0;
+    virtuappu_mode1_ws_msg_x1 = 0;
+    virtuappu_mode1_ws_msg_y0 = 0;
+    virtuappu_mode1_ws_msg_y1 = 0;
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES;
+    virtuappu_mode1_ws_hud_shift_y = 32;
+    virtuappu_mode1_render_frame(&p);
+    expect("tall key moved down/right", virtuappu_frame_buffer[168 * MODE1_GBA_WIDTH + 216],
+           abgr(bgpal[10 * 16 + 1]));
+    expect("tall native key cells suppressed", virtuappu_frame_buffer[136 * MODE1_GBA_WIDTH + 200],
+           abgr(bgpal[0]));
+    expect("tall rupee moved down/right", virtuappu_frame_buffer[184 * MODE1_GBA_WIDTH + 208],
+           abgr(bgpal[11 * 16 + 1]));
+    /* An uninstalled counter keeps its native cells instead of blanking them. */
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS;
+    virtuappu_mode1_render_frame(&p);
+    expect("tall uninstalled rupee stays native", virtuappu_frame_buffer[152 * MODE1_GBA_WIDTH + 192],
+           abgr(bgpal[11 * 16 + 1]));
+
     if (!failures) puts("widescreen CPU PPU: PASS");
     return failures != 0;
 }

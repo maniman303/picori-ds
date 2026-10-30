@@ -30,9 +30,11 @@ verifying each step before marking its corresponding checklist item complete:
    the composed margins, including missing-image and effect cases. Complete the
    title-frame and direct-OBJ/presentation checks for supported profiles and
    presenters, preserving native and parity goldens.
-5. **Live layout.** Separate gameplay from installed fixed-screen contexts, then
-   implement the semantic HUD and dialogue anchors. Fast travel remains a fixed
-   screen with its own background and centered native foreground.
+5. **Live layout (completed).** Separate gameplay from installed fixed-screen
+   contexts, then implement the semantic HUD and dialogue anchors. Fast travel
+   remains a fixed screen with its own background and centered native
+   foreground. The implementation and ROM-free renderer evidence are recorded
+   in section 4; production tall profiles stay behind their own gates.
 6. **Acceptance and release.** Run the fast-travel and full EU visual matrices,
    renderer and profile-switch checks, RG performance/memory/thread measurements,
    and packaging checks where packaging changed. Unsupported profiles remain
@@ -54,7 +56,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 6 unchecked
+[the closure checklist](background-context-closure-checklist.md): 2 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -418,38 +420,37 @@ or tile alignment. Native-content centering continues to use floor offsets.
   are in `.tmp/fast-travel-composition-2026-10-28/` and
   `tools/verify_fast_travel_composition.py`. The complete travel/profile/backend
   matrix remains a separate acceptance task.
-- [ ] Implement semantic corner HUD anchors and bottom dialogue geometry shared
+- [x] Implement semantic corner HUD anchors and bottom dialogue geometry shared
   by BG/OAM, portrait, choices, cursor, arrows and HD text; keep banners separate.
-  The [live HUD source audit](live-hud-layout-source-audit.md) records normal
-  widget ownership, existing wide-path constraints and remaining classification.
-  A bounded semantic corner/center translation helper is available in the
-  viewport layer, and the existing button path uses its top-right rule with
-  the current room-capped width. This preserves existing behavior; BG0 widgets,
-  canvas-wide placement and dialogue integration remain outstanding.
-  Location-banner scanline publication now wraps the gameplay BG0 scroll at
-  its 256-pixel map height and clips to the visible raster. Fully offscreen
-  banners publish no band, avoiding negative packed GPU bounds and keeping
-  software/GPU banner ownership consistent during vertical scrolling.
-  Standard top/bottom dialogue has a tested stable translation policy for a
-  taller canvas; custom window geometry fails closed. The existing message and
-  banner horizontal shifts use the shared center anchor. The vertical policy
-  is not yet published to the renderers or dialogue OBJ/HD-text consumers.
-  The message adapter derives the final rectangle from restored engine state
-  and checks it against the installed animated frame before using the standard
-  policy; mismatched or custom windows retain the existing horizontal path.
-  HD dialogue uses the PPU's published horizontal message shift and verifies
-  that its text canvas lies inside the remapped band; fixed-screen text uses
-  the native-content centering transform. Vertical live remapping remains open.
-  Button sprites retain their live right anchor during hide animations instead
-  of sliding toward native X when any HUD hide flag is set.
-  Key and rupee BG0 ownership is published independently from their installed
-  state and hide flags; unrelated flags no longer disable both anchors.
-  In live wide scenes the software PPU now moves only the verified key and
-  rupee BG0 rectangles, preserving unrelated BG0 cells. Scrolled BG0 fails
-  closed to native placement. The regenerated Vulkan shader and GLES shader
-  match software pixels across the GPU parity harness, including HUD, scrolling
-  and message overlap at 285, 374 and 384 × 160 on local software drivers.
-  Taller HUD placement and real-device validation remain open.
+  The [live HUD source audit](live-hud-layout-source-audit.md) records widget
+  ownership and the implemented translation rules.
+  `Port_Widescreen_LayoutActive` gates on the functional scene and logical
+  canvas, so a narrow room's native aperture no longer suppresses the corner
+  layout. Button OAM X, Ezlo's lower-left OAM offset and the key/rupee BG0
+  rectangles use that gate; hearts and the charge bar remain at the native
+  top-left position.
+  Location-banner publication still wraps the gameplay BG0 scroll at its
+  256-pixel map height, clips to the visible raster, and publishes
+  `shift_y == 0` independently of dialogue.
+  Standard top/bottom dialogue derives one stable bottom anchor from the final
+  rectangle; custom window geometry retains only the horizontal policy.
+  The current animated rectangle and both shift axes are published to software
+  PPU, Vulkan, GLES and HD text. Opening/closing keeps the final destination
+  center, while choice text, the continuation cursor and arrow tiles ride the
+  same BG0 band.
+  The software PPU and shader sample the moved message/HUD cells from their
+  native scanlines and suppress the native copies without moving unrelated BG0
+  content. ROM-free 256 × 192 tests use distinct per-row palette banks and
+  cover top/bottom requests, animation, key/rupee movement, uninstalled
+  counters, message/HUD overlap, banner separation, fixed-screen clearing and
+  160-line preservation. Software, Vulkan and GLES agree byte-for-byte in
+  `tools/ppu_gpu_parity.cpp`, with independent CPU expectations in
+  `tools/tests/widescreen_ppu.c` and publication checks in
+  `tools/widescreen_engine_regression_test.py`.
+  Production 4:3/32:9 remain runtime-disabled behind their independent world,
+  scene and profile gates; tall rendering is test-only. Item-get/special-
+  minigame visual captures and real-device 4:3 validation remain open, and no
+  physical RG acceptance is implied.
 
 ## 5. Margin composition
 

@@ -104,20 +104,51 @@ uint bg_text_pixel(int bg, int x, int line, out uint pal_index) {
     int hud_x0 = line < 144 ? 200 : 192;
     int hud_x1 = 232;
     int hud_shift = fw - clip;
+    int hud_dy = int((params.misc.w >> 8u) & 0xFFu);
+    bool hud_src_line = hud_anchor && scroll_x == 0 && scroll_y == 0 && hud_dy > 0 &&
+                        line >= 128 && line < 160;
+    bool hud_dst_line = hud_anchor && scroll_x == 0 && scroll_y == 0 && hud_dy > 0 &&
+                        line >= 128 + hud_dy && line < 160 + hud_dy;
     int shift = params.wsmsg.x;
     int msg_x0 = params.wsmsg.y;
     int msg_x1 = params.wsmsg.z;
     int msg_y0 = params.wsmsg.w >> 16;
     int msg_y1 = params.wsmsg.w & 0xFFFF;
-    bool msg_line = (bg == 0) && (shift != 0) && (fw > clip) && (line >= msg_y0) && (line < msg_y1);
-    if (hud_cells || msg_line) render_max_x = fw;
+    int msg_dy = int(params.misc.w & 0xFFu);
+    bool msg_active = (bg == 0) && (shift != 0 || msg_dy != 0) && (fw > clip) &&
+                      (msg_y1 > msg_y0) && (msg_y0 >= 0) && (msg_y1 <= 160) &&
+                      (msg_y1 + msg_dy <= params.geom.y);
+    bool msg_src_line = msg_active && line >= msg_y0 && line < msg_y1;
+    bool msg_dst_line = msg_active && line >= msg_y0 + msg_dy && line < msg_y1 + msg_dy;
+    bool msg_line = msg_src_line || msg_dst_line;
+    if (msg_line || hud_cells || hud_src_line || hud_dst_line) render_max_x = fw;
     if (x >= render_max_x) return 0u;
 
     int sample_x = x;
-    if (msg_line && x >= msg_x0 + shift && x < msg_x1 + shift) {
-        sample_x = x - shift;
-    } else if (msg_line && x >= msg_x0 && x < msg_x1) {
-        return 0u;
+    int sample_line = line;
+    if (msg_line) {
+        if (msg_dst_line && x >= msg_x0 + shift && x < msg_x1 + shift) {
+            sample_x = x - shift;
+            sample_line = line - msg_dy;
+        } else if (msg_line && x >= msg_x0 && x < msg_x1) {
+            return 0u;
+        } else if (msg_line && x >= clip) {
+            return 0u;
+        }
+    } else if (hud_dst_line) {
+        int source_line = line - hud_dy;
+        int source_bit = source_line < 144 ? 1 : 2;
+        int source_x0 = source_line < 144 ? 200 : 192;
+        bool installed = (params.ws.z & source_bit) != 0;
+        if (installed && x >= source_x0 + hud_shift && x < hud_x1 + hud_shift) {
+            sample_x = x - hud_shift;
+            sample_line = source_line;
+        } else if ((x >= source_x0 && x < hud_x1) || x >= clip) {
+            return 0u;
+        }
+    } else if (hud_src_line) {
+        bool installed = (params.ws.z & hud_bit) != 0;
+        if ((installed && x >= hud_x0 && x < hud_x1) || x >= clip) { return 0u; }
     } else if (hud_cells && !msg_line) {
         if (x >= hud_x0 + hud_shift && x < hud_x1 + hud_shift) { sample_x = x - hud_shift; }
         else if (x >= hud_x0 && x < hud_x1) { return 0u; }
@@ -130,7 +161,7 @@ uint bg_text_pixel(int bg, int x, int line, out uint pal_index) {
     int mh = mosaic_on ? int((mosaic_reg & 0xFu) + 1u) : 1;
     int mv = mosaic_on ? int(((mosaic_reg >> 4u) & 0xFu) + 1u) : 1;
 
-    int eff_line = (mv == 1) ? line : (line / mv) * mv;
+    int eff_line = (mv == 1) ? sample_line : (sample_line / mv) * mv;
     int src_y = (eff_line + scroll_y) & (map_h * 8 - 1);
     int tile_row = src_y / 8;
     int pixel_y = src_y % 8;

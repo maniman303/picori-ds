@@ -1050,6 +1050,26 @@ int Port_Widescreen_IsActive(void) {
            !Port_Widescreen_FallbackNative();
 }
 
+/* Live-gameplay layout follows the canvas, not the room aperture. A narrow
+ * room may publish PORT_SCENE_NATIVE_CONTENT while the HUD and dialogue still
+ * occupy the selected canvas corners. Only a complete fixed-screen composition
+ * fails closed here. */
+int Port_Widescreen_LayoutActive(void) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    return (geometry->scene.capabilities & PORT_SCENE_WORLD) &&
+           !(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+           (geometry->canvas.width > PORT_VIEWPORT_NATIVE_WIDTH ||
+            geometry->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT);
+}
+
+int Port_Widescreen_LayoutWidth(void) {
+    return Port_Viewport_Get()->canvas.width;
+}
+
+int Port_Widescreen_LayoutHeight(void) {
+    return Port_Viewport_Get()->canvas.height;
+}
+
 int Port_Widescreen_EffectiveViewWidth(void) {
     return Port_Viewport_Get()->world.width;
 }
@@ -1071,7 +1091,7 @@ int Port_Widescreen_ShadowsLive(void) {
 }
 
 int Port_Widescreen_HudRightAnchor(void) {
-    if (!Port_Widescreen_IsActive()) {
+    if (!Port_Widescreen_LayoutActive()) {
         return 0;
     }
     int mask = 0;
@@ -1430,14 +1450,21 @@ void Port_Widescreen_UpdateShadows(void) {
     for (int i = 0; i < MODE1_GBA_BG_COUNT; i++)
         virtuappu_mode1_ws_shadow[i] = NULL;
     virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_hud_shift_y = 0;
     virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
 
     Port_Widescreen_PublishScene();
 
-    if (!Port_Widescreen_IsActive()) {
+    if (!Port_Widescreen_LayoutActive()) {
         return;
     }
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    const int canvasWidth = geometry->canvas.width;
+    const int canvasHeight = geometry->canvas.height;
     virtuappu_mode1_ws_hud_right_anchor = Port_Widescreen_HudRightAnchor();
+    virtuappu_mode1_ws_hud_shift_y =
+        Port_Viewport_UITranslation(PORT_UI_BOTTOM_RIGHT, canvasWidth, canvasHeight).y;
 
     /* Use the window actually drawn into BG0: text tokens may move it,
      * opening/closing animates its size, and gMessage can already describe
@@ -1462,13 +1489,16 @@ void Port_Widescreen_UpdateShadows(void) {
             PortViewportRect finalRect;
             PortUITranslation messageTranslation;
             if (Message_GetFinalWindowRect(&finalRect.x, &finalRect.y, &finalRect.width, &finalRect.height) &&
-                Port_Viewport_StandardMessageTranslation(finalRect, Port_Widescreen_EffectiveViewWidth(),
-                                                         PORT_VIEWPORT_NATIVE_HEIGHT, &messageTranslation))
+                Port_Viewport_StandardMessageTranslation(finalRect, canvasWidth, canvasHeight,
+                                                         &messageTranslation)) {
                 virtuappu_mode1_ws_msg_shift = messageTranslation.x;
-            else
+                virtuappu_mode1_ws_msg_shift_y = messageTranslation.y;
+            } else {
+                /* Custom windows keep the existing horizontal centering and
+                 * retain their native Y until their layout is classified. */
                 virtuappu_mode1_ws_msg_shift =
-                    Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, Port_Widescreen_EffectiveViewWidth(),
-                                                PORT_VIEWPORT_NATIVE_HEIGHT).x;
+                    Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, canvasWidth, canvasHeight).x;
+            }
         }
     } else {
         /* Location banners occupy BG0 rows 5 and 6 but do not set
@@ -1496,12 +1526,16 @@ void Port_Widescreen_UpdateShadows(void) {
                 virtuappu_mode1_ws_msg_y0 = y0;
                 virtuappu_mode1_ws_msg_y1 = y1;
                 virtuappu_mode1_ws_msg_shift =
-                    Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, Port_Widescreen_EffectiveViewWidth(),
-                                                PORT_VIEWPORT_NATIVE_HEIGHT).x;
+                    Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, canvasWidth, canvasHeight).x;
             }
         }
     }
 
+    /* Shadows reveal world columns/tiles only; canvas-wide HUD/dialogue
+     * mapping above stays valid when the room aperture falls back to native. */
+    if (!Port_Widescreen_IsActive()) {
+        return;
+    }
     if (gMapBottom.bgSettings != NULL) {
         int bg = Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control);
         if (bg >= 0)
@@ -1541,6 +1575,15 @@ int Port_Widescreen_FallbackNative(void) {
 }
 int Port_Widescreen_IsActive(void) {
     return 0;
+}
+int Port_Widescreen_LayoutActive(void) {
+    return 0;
+}
+int Port_Widescreen_LayoutWidth(void) {
+    return 240;
+}
+int Port_Widescreen_LayoutHeight(void) {
+    return 160;
 }
 int Port_Widescreen_EffectiveViewWidth(void) {
     return 240;

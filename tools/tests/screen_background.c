@@ -67,6 +67,14 @@ static void CheckProfiles(void) {
     assert(!Port_Viewport_ProfileFits(NULL, 569, 192));
     PortViewportRect native = Port_Viewport_NativeContentRect(NULL);
     assert(native.x == 0 && native.y == 0 && native.width == 240 && native.height == 160);
+    PortUITranslation tallTopRight = Port_Viewport_UITranslation(PORT_UI_TOP_RIGHT, 256, 192);
+    PortUITranslation tallBottomRight = Port_Viewport_UITranslation(PORT_UI_BOTTOM_RIGHT, 256, 192);
+    PortUITranslation tallBottomLeft = Port_Viewport_UITranslation(PORT_UI_BOTTOM_LEFT, 256, 192);
+    PortUITranslation tallTopCenter = Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, 256, 192);
+    assert(tallTopRight.x == 16 && tallTopRight.y == 0);
+    assert(tallBottomRight.x == 16 && tallBottomRight.y == 32);
+    assert(tallBottomLeft.x == 0 && tallBottomLeft.y == 32);
+    assert(tallTopCenter.x == 8 && tallTopCenter.y == 0);
     PortUITranslation invalid = Port_Viewport_UITranslation(PORT_UI_BOTTOM_RIGHT, 239, 192);
     assert(invalid.x == 0 && invalid.y == 0);
     invalid = Port_Viewport_UITranslation((PortUIAnchor)-1, 256, 192);

@@ -24,6 +24,9 @@ compilers/CPUs/GPUs):
    semi-transparent OBJ, backdrop-as-2nd-target); affine BG2 (identity, scale,
    rotate, wrap, OOB-transparent); and — in a 384-wide build — the widescreen
    shadow reveal, sentinel force-black, HUD right-anchor, and message centering.
+   A separate 256 × 192 tall-canvas group covers vertical message/HUD remapping,
+   native-band suppression, message/HUD overlap and a top message that leaves
+   the lower-right HUD anchored.
 
    Run:
    ```bash

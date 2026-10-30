@@ -29,6 +29,9 @@ def main():
         'int Port_Widescreen_TargetViewWidth(void)',
         'int Port_Widescreen_FallbackNative(void)',
         'int Port_Widescreen_IsActive(void)',
+        'int Port_Widescreen_LayoutActive(void)',
+        'int Port_Widescreen_LayoutWidth(void)',
+        'int Port_Widescreen_LayoutHeight(void)',
         'int Port_Widescreen_EffectiveViewWidth(void)',
         'int Port_Widescreen_HudRightAnchor(void)',
         'int Port_Widescreen_CameraRestX(int target_x)',
@@ -52,7 +55,8 @@ def main():
         generated.write_text('\n'.join(functions))
         binary = Path(directory) / 'test'
         command = shlex.split(os.environ.get('CC', 'cc')) + [
-            '-std=c11', '-Wall', '-Wextra', '-Werror', '-I' + directory, '-I' + str(ROOT / 'port'),
+            '-std=c11', '-Wall', '-Wextra', '-Werror', '-DPORT_VIEWPORT_TEST_TALL',
+            '-I' + directory, '-I' + str(ROOT / 'port'),
             str(ROOT / 'tools/tests/widescreen_engine.c'), str(ROOT / 'port/port_viewport.c'), '-o', str(binary)]
         subprocess.run(command, check=True)
         subprocess.run([str(binary)], check=True)

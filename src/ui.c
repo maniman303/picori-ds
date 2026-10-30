@@ -66,14 +66,12 @@ void EraseChargeBar(void);
 static s16 HudButtonTargetX(u32 type) {
     s16 x = (s16)gHUD.buttonX[type];
 #ifdef PC_PORT
-#if defined(MODE1_GBA_WIDTH) && (MODE1_GBA_WIDTH > 240)
-    if (Port_Widescreen_IsActive() && x >= 0 && x < 240) {
-        /* Right-anchor to the LIVE view width (window-aspect driven), not
-         * the framebuffer capacity. */
-        x += Port_Viewport_UITranslation(PORT_UI_TOP_RIGHT, Port_Widescreen_EffectiveViewWidth(),
-                                         PORT_VIEWPORT_NATIVE_HEIGHT).x;
+    if (Port_Widescreen_LayoutActive() && x >= 0 && x < 240) {
+        /* Right-anchor to the logical canvas, not the room-capped world
+         * aperture or the framebuffer capacity. */
+        x += Port_Viewport_UITranslation(PORT_UI_TOP_RIGHT, Port_Widescreen_LayoutWidth(),
+                                         Port_Widescreen_LayoutHeight()).x;
     }
-#endif
 #endif
     return x;
 }
@@ -97,6 +95,26 @@ void UpdateUIElements(void) {
     }
 }
 
+#ifdef PC_PORT
+/* Live-gameplay OAM widgets that belong to a canvas corner. Buttons already
+ * resolve their X in HudButtonTargetX; lower-left widgets need the same
+ * canvas-relative translation without changing their animation coordinates. */
+static void HudElementLayoutOffset(const UIElement* element, s32* dx, s32* dy) {
+    *dx = 0;
+    *dy = 0;
+    if (!Port_Widescreen_LayoutActive()) {
+        return;
+    }
+    if (element->type == UI_ELEMENT_EZLONAGSTART || element->type == UI_ELEMENT_EZLONAGACTIVE) {
+        PortUITranslation translation =
+            Port_Viewport_UITranslation(PORT_UI_BOTTOM_LEFT, Port_Widescreen_LayoutWidth(),
+                                        Port_Widescreen_LayoutHeight());
+        *dx = translation.x;
+        *dy = translation.y;
+    }
+}
+#endif
+
 void DrawUIElements(void) {
     u32 index;
     UIElement* element;
@@ -109,9 +127,14 @@ void DrawUIElements(void) {
             if (element->type > UI_ELEMENT_TEXT_B) {
                 continue;
             }
-#endif
+            s32 layoutX, layoutY;
+            HudElementLayoutOffset(element, &layoutX, &layoutY);
+            gOamCmd.x = element->x + layoutX;
+            gOamCmd.y = element->y + layoutY;
+#else
             gOamCmd.x = element->x;
             gOamCmd.y = element->y;
+#endif
             definition = &gUIElementDefinitions[element->type];
             gOamCmd._4 = definition->unk_0;
             gOamCmd._6 = definition->unk_2;

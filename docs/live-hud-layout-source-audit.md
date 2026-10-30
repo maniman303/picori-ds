@@ -1,20 +1,21 @@
 # Live HUD layout: source audit
 
-This is a source-level starting point for the outstanding semantic HUD and
-dialogue task. Coordinates below are native BG0 tile coordinates unless stated
-otherwise; they are not evidence of rendered 4:3 behavior. BG0 has a 32-tile
+This is the source-level ownership record for the semantic HUD and dialogue
+layout. Coordinates below are native BG0 tile coordinates unless stated
+otherwise. Production 4:3 is still disabled; the tall path is exercised through
+the test-only geometry rather than a released profile. BG0 has a 32-tile
 stride, so an index is `(row * 32 + column)`.
 
-| Owner in `src/ui.c` | Native footprint or position | Proposed anchor / constraints |
+| Owner in `src/ui.c` | Native footprint or position | Implemented anchor / constraints |
 | --- | --- | --- |
-| `DrawHearts` / `EraseHearts` | Row 1, columns 0–10; row 2 when max health exceeds 10 hearts. Erasure clears 12 columns. | Top left. The animated heart OBJ is separate and must stay with these tiles. |
-| `DrawChargeBar` / `EraseChargeBar` | Columns 0–11, row 2 or 3 depending on max health. | Top left; the row changes with the second heart row and the hide flag. |
-| `DrawKeys` | Rows 16–17, columns 25–28. | Bottom right; present only when keys are allowed and the area has keys. |
-| `DrawRupees` | Rows 18–19, columns 24–28. | Bottom right; wallet icon and three digit tiles move together. |
-| A/B/R button elements | Initial centers A (208,28), B (184,28), R (216,14); animated vertically when hidden or a message is active. | Top right. Apply a common translation to the button and its dependent elements without changing the animation. |
-| Item and action-text elements | `ItemUIElement` and `TextUIElement` copy the corresponding button element's position. | Follow the button once; do not apply the translation a second time. Item-count graphics are part of the item sprite's tile data. |
-| Heart OBJ | `HeartUIElement` derives its position from health, with a second-row adjustment above ten hearts. | Top left; retain health-dependent positioning and message/hide behavior. |
-| Ezlo nag OBJ | Starts at (16,144) and changes type during its animation. | Candidate bottom-left widget, requiring visual and lifecycle validation before assigning a translation. |
+| `DrawHearts` / `EraseHearts` | Row 1, columns 0–10; row 2 when max health exceeds 10 hearts. Erasure clears 12 columns. | Top left, unchanged. The animated heart OBJ is separate and stays with these tiles. |
+| `DrawChargeBar` / `EraseChargeBar` | Columns 0–11, row 2 or 3 depending on max health. | Top left, unchanged; the row still changes with the second heart row and the hide flag. |
+| `DrawKeys` | Rows 16–17, columns 25–28. | Bottom right; the BG0 rectangle moves by `(canvasW-240, canvasH-160)` only when installed and visible. |
+| `DrawRupees` | Rows 18–19, columns 24–28. | Bottom right; wallet icon and three digit tiles move together under the same installed/hide gates. |
+| A/B/R button elements | Initial centers A (208,28), B (184,28), R (216,14); animated vertically when hidden or a message is active. | Top right; X comes from the logical canvas even when the room aperture falls back to 240. Y animation is untouched. |
+| Item and action-text elements | `ItemUIElement` and `TextUIElement` copy the corresponding button element's position. | Follow the button once; no second translation. Item-count graphics remain part of the item sprite's tile data. |
+| Heart OBJ | `HeartUIElement` derives its position from health, with a second-row adjustment above ten hearts. | Top left, unchanged; health-dependent positioning and message/hide behavior are retained. |
+| Ezlo nag OBJ | Starts at (16,144) and changes type during its animation. | Bottom left; the OAM draw adds `(0, canvasH-160)` for both nag element types without mutating animation coordinates. |
 
 These footprints identify the normal HUD writers, not exclusive ownership of
 the cells. Messages and other UI can overwrite BG0; position alone cannot
@@ -34,17 +35,27 @@ independently each frame would move its center. `DeleteWindow` clears the
 original BG0 cells and calls `RecoverUI` / `RefreshUI`, so those writes must
 remain in native coordinates.
 
-The existing VBlank shadow publication identifies the live message rectangle
-and separately centers the room banner's BG0 rows 5–6. It currently publishes
-only a horizontal shift. `Port_Widescreen_IsActive` requires a world scene and
-a world width greater than 240; it is therefore insufficient by itself as the
-gate for a 256 × 192 canvas whose room aperture has fallen back to native
-width. The layout needs the published functional scene and canvas geometry,
-with fixed-screen handoffs kept on their native composition.
+The VBlank publication now gates on `Port_Widescreen_LayoutActive`, which uses
+the published functional scene and canvas rather than the room aperture. Fixed
+screens and native handoffs publish no anchors. `Port_Widescreen_UpdateShadows`
+publishes the live BG0 rectangle, the final-rect translation, both shift axes,
+and the independent lower-right HUD shift. Banners continue to publish only
+their top-center X shift and keep `shift_y == 0`.
 
-Before marking the task complete, trace and validate special minigame and
-item-get writers, script-positioned windows, portraits and choice indicators,
-HD text and touch/capture consumers. Exercise native and wide profiles as well
-as a test-only taller profile, including hide flags, two heart rows, animation,
-dialogue overlap and fixed-screen transitions. The production 4:3 safety gates
-must remain in force until their independent acceptance work is complete.
+`port/ppu/src/mode1.c` and `port/shaders/ppu_core.glsl` both sample the moved
+message band and key/rupee rectangles from their native scanlines, suppress the
+native copies, and leave unrelated BG0 cells on the same line alone. The choice
+cursor, continuation arrows and choice text are BG0 pixels inside the same
+window rectangle, so they follow that transform. HD text consumes the same X
+and Y translation and validates the text canvas against the source band before
+drawing. There are no portrait OAM parts in this engine's normal dialogue path.
+
+ROM-free coverage renders a 256 × 192 canvas with distinct per-row palette
+banks: top and bottom message requests, opening/closing publication, key and
+rupee movement, uninstalled counter behavior, message/HUD overlap, banner
+separation, fixed-screen clearing, and 160-line preservation. Software, Vulkan
+and GLES agree byte-for-byte in `tools/ppu_gpu_parity.cpp`; the CPU expectations
+are asserted independently in `tools/tests/widescreen_ppu.c`. Production 4:3
+and 32:9 remain disabled by their independent world, scene and profile gates.
+Item-get/special-minigame visual captures and physical-device acceptance remain
+open; touch overlays do not consume HUD coordinates.

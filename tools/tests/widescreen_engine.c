@@ -71,6 +71,7 @@ static u16 sWsShadowBG1[32*32], sWsShadowBG2[32*32], sWsShadowOverlay[32*32];
 static u16 vram[0x18000/2];
 #define gVram ((unsigned char*)vram)
 static int virtuappu_mode1_ws_hud_right_anchor, virtuappu_mode1_ws_msg_shift;
+static int virtuappu_mode1_ws_hud_shift_y, virtuappu_mode1_ws_msg_shift_y;
 static int virtuappu_mode1_ws_msg_x0, virtuappu_mode1_ws_msg_x1;
 static int virtuappu_mode1_ws_msg_y0, virtuappu_mode1_ws_msg_y1;
 typedef struct { int action; } Entity;
@@ -373,6 +374,89 @@ int main(void) {
     uint64_t roomKey = Port_WidescreenRoomKey();
     gRoomControls.origin_x = 4; gRoomControls.origin_y = 0;
     CHECK(Port_WidescreenRoomKey() != roomKey);
+
+    /* Tall live canvas: layout follows the canvas even when the room aperture
+     * stays 240x160, and standard dialogue is published with a bottom anchor. */
+    CHECK(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 569, 192, 569));
+    CHECK(geometry->canvas.width == 256 && geometry->canvas.height == 192);
+    gMain.task = TASK_GAME;
+    gMain.substate = GAMEMAIN_UPDATE;
+    gUI.nextToLoad = 0;
+    sWsContentPx = 0;
+    gRoomControls.width = 240;
+    gRoomControls.height = 160;
+    gMapBottom.bgSettings = NULL;
+    PortViewportScene tallLive = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD, 240, 160 };
+    Port_Viewport_PublishScene(tallLive);
+    CHECK(geometry->world.width == 240 && geometry->world.height == 160);
+    CHECK(Port_Widescreen_LayoutActive());
+    CHECK(Port_Widescreen_LayoutWidth() == 256 && Port_Widescreen_LayoutHeight() == 192);
+    /* A narrow room's native world fallback does not shrink the corner layout. */
+    PortViewportScene nativeContent = { PORT_SCENE_WORLD | PORT_SCENE_NATIVE_CONTENT, 240, 160 };
+    Port_Viewport_PublishScene(nativeContent);
+    CHECK(Port_Widescreen_LayoutActive());
+    Port_Viewport_PublishScene(tallLive);
+    CHECK(Port_Widescreen_LayoutActive());
+    gHUD.hideFlags = 0; gHUD.unk_10 = 2; gHUD.unk_a = 2;
+    CHECK(Port_Widescreen_HudRightAnchor() == (MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES));
+    gHUD.buttonX[0] = 208;
+    CHECK(HudButtonTargetX(0) == 224);
+    gTextRender.message.textWindowWidth = 26;
+    gTextRender.message.textWindowHeight = 4;
+    gTextRender.message.textWindowPosX = 1;
+    gTextRender.message.textWindowPosY = 12;
+    gCurrentWindow.active = 1;
+    gCurrentWindow.xPos = 1; gCurrentWindow.yPos = 12;
+    gCurrentWindow.width = 26; gCurrentWindow.height = 4;
+    Port_Widescreen_UpdateShadows();
+    CHECK(virtuappu_mode1_ws_msg_x0 == 8 && virtuappu_mode1_ws_msg_x1 == 232);
+    CHECK(virtuappu_mode1_ws_msg_y0 == 96 && virtuappu_mode1_ws_msg_y1 == 144);
+    CHECK(virtuappu_mode1_ws_msg_shift == 8 && virtuappu_mode1_ws_msg_shift_y == 32);
+    CHECK(virtuappu_mode1_ws_hud_shift_y == 32);
+    /* Top-requested dialogue moves to the same final bottom anchor. */
+    gTextRender.message.textWindowPosY = 1;
+    gCurrentWindow.yPos = 1;
+    Port_Widescreen_UpdateShadows();
+    CHECK(virtuappu_mode1_ws_msg_y0 == 8 && virtuappu_mode1_ws_msg_y1 == 56);
+    CHECK(virtuappu_mode1_ws_msg_shift_y == 120);
+    /* Custom window geometry keeps only the tested horizontal policy. */
+    gTextRender.message.textWindowPosY = 2;
+    gCurrentWindow.yPos = 2;
+    Port_Widescreen_UpdateShadows();
+    CHECK(virtuappu_mode1_ws_msg_shift == 8 && virtuappu_mode1_ws_msg_shift_y == 0);
+    /* Opening/closing publishes the current animated rect with the final
+     * translation, so the destination center stays fixed. */
+    gTextRender.message.textWindowPosY = 12;
+    gCurrentWindow.xPos = 13; gCurrentWindow.yPos = 14;
+    gCurrentWindow.width = 2; gCurrentWindow.height = 0;
+    Port_Widescreen_UpdateShadows();
+    CHECK(virtuappu_mode1_ws_msg_y0 == 112 && virtuappu_mode1_ws_msg_y1 == 128);
+    CHECK(virtuappu_mode1_ws_msg_shift_y == 32);
+    CHECK(virtuappu_mode1_ws_msg_y0 + virtuappu_mode1_ws_msg_shift_y == 144);
+    CHECK(virtuappu_mode1_ws_msg_y1 + virtuappu_mode1_ws_msg_shift_y == 160);
+    /* Location banners stay on their independent top-center rule. */
+    gCurrentWindow.active = 0;
+    testBanner = (Entity*)&(Entity){ .action = 1 };
+    gScreen.bg0.yOffset = 0;
+    Port_Widescreen_UpdateShadows();
+    CHECK(virtuappu_mode1_ws_msg_y0 == 40 && virtuappu_mode1_ws_msg_y1 == 56);
+    CHECK(virtuappu_mode1_ws_msg_shift == 8 && virtuappu_mode1_ws_msg_shift_y == 0);
+    testBanner = NULL;
+    /* Fixed screens retain their native composition and publish no anchors. */
+    gMain.state = GAMETASK_MAIN;
+    gMain.substate = GAMEMAIN_SUBTASK;
+    gUI.lastState = SUBTASK_PAUSEMENU;
+    gUI.nextToLoad = 2;
+    Port_Widescreen_UpdateShadows();
+    CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
+    CHECK(!Port_Widescreen_LayoutActive());
+    gCurrentWindow.active = 1;
+    gTextRender.message.textWindowPosY = 12;
+    gCurrentWindow.yPos = 12;
+    Port_Widescreen_UpdateShadows();
+    CHECK(virtuappu_mode1_ws_msg_shift == 0 && virtuappu_mode1_ws_msg_shift_y == 0);
+    CHECK(virtuappu_mode1_ws_hud_shift_y == 0 && virtuappu_mode1_ws_hud_right_anchor == 0);
+    gCurrentWindow.active = 0;
     if (!errors) puts("widescreen engine: scene publication, frozen presentation, room aperture, transitions and shadows passed");
     return errors != 0;
 }

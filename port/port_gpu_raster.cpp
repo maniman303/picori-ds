@@ -80,7 +80,7 @@ struct PortGpuRaster {
 /* std140 mirror of ppu_raster.frag's Params (five 16-byte vectors). */
 struct RasterParams {
     int32_t geom[4];   /* width, height, mode, affine */
-    uint32_t misc[4];  /* frame_dispcnt, pad, pad, pad */
+    uint32_t misc[4];  /* frame_dispcnt, io_uniform, scale, (msg_dy<<8|hud_dy) */
     int32_t ws[4];     /* bg_clip_x, ws_cols, hud_right_anchor, hud_right_native_x */
     int32_t wsmsg[4];  /* msg_shift, msg_x0, msg_x1, (msg_y0<<16|msg_y1) */
     int32_t wsbase[4]; /* per-BG shadow_base_tile (<0 = none) */
@@ -362,6 +362,8 @@ static bool record_frame(PortGpuRaster* r, const PortGpuRasterFrame* f, SDL_GPUC
     p.misc[0] = f->frame_dispcnt;
     p.misc[1] = f->io_uniform ? 1u : 0u;
     p.misc[2] = (uint32_t)(f->scale > 1 ? f->scale : 1);
+    p.misc[3] = (uint32_t)(f->ws_msg_shift_y & 0xFF) |
+                ((uint32_t)(f->ws_hud_shift_y & 0xFF) << 8);
     p.ws[0] = f->ws_bg_clip_x ? f->ws_bg_clip_x : 240;
     p.ws[1] = f->ws_cols;
     p.ws[2] = f->ws_hud_right_anchor;

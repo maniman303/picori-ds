@@ -56,7 +56,9 @@ typedef struct PortGpuRasterFrame {
     int ws_cols;                /* MODE1_WS_SHADOW_COLS */
     int ws_hud_right_anchor;    /* MODE1_WS_HUD_* ownership mask */
     int ws_hud_right_native_x;  /* MODE1_WS_HUD_RIGHT_NATIVE_X (176) */
+    int ws_hud_shift_y;         /* lines (tall canvas lower-right anchor) */
     int ws_msg_shift;           /* px */
+    int ws_msg_shift_y;         /* lines (tall canvas bottom anchor) */
     int ws_msg_x0, ws_msg_x1;   /* native box rect */
     int ws_msg_y0, ws_msg_y1;   /* box line band */
     int ws_shadow_base_tile[4]; /* per-BG; <0 = no shadow for that BG */

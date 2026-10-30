@@ -1562,7 +1562,9 @@ static bool Port_PPU_TryGpuRaster(void) {
     f.ws_cols = MODE1_WS_SHADOW_COLS;
     f.ws_hud_right_native_x = MODE1_WS_HUD_RIGHT_NATIVE_X;
     f.ws_hud_right_anchor = virtuappu_mode1_ws_hud_right_anchor;
+    f.ws_hud_shift_y = virtuappu_mode1_ws_hud_shift_y;
     f.ws_msg_shift = virtuappu_mode1_ws_msg_shift;
+    f.ws_msg_shift_y = virtuappu_mode1_ws_msg_shift_y;
     f.ws_msg_x0 = virtuappu_mode1_ws_msg_x0;
     f.ws_msg_x1 = virtuappu_mode1_ws_msg_x1;
     f.ws_msg_y0 = virtuappu_mode1_ws_msg_y0;

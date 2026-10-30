@@ -105,11 +105,17 @@ extern int virtuappu_mode1_ws_hud_right_anchor;
  * box rect (native BG0 pixel coords) + a shift; render_text_bg_line then
  * draws those BG0 pixels shifted right by `shift` px ((W-240)/2 = centered)
  * and suppresses them at their native columns. Zero shift = off. */
-extern int virtuappu_mode1_ws_msg_shift; /* px to move the box right   */
-extern int virtuappu_mode1_ws_msg_x0;    /* native box rect, inclusive */
-extern int virtuappu_mode1_ws_msg_x1;    /* native box rect, exclusive */
-extern int virtuappu_mode1_ws_msg_y0;    /* first box line             */
-extern int virtuappu_mode1_ws_msg_y1;    /* one past last box line     */
+extern int virtuappu_mode1_ws_msg_shift;   /* px to move the box right   */
+extern int virtuappu_mode1_ws_msg_shift_y; /* lines to move the box down */
+extern int virtuappu_mode1_ws_msg_x0;      /* native box rect, inclusive */
+extern int virtuappu_mode1_ws_msg_x1;      /* native box rect, exclusive */
+extern int virtuappu_mode1_ws_msg_y0;      /* first box line             */
+extern int virtuappu_mode1_ws_msg_y1;      /* one past last box line     */
+
+/* Tall-canvas lower-right HUD anchor. Keys/rupees keep their native BG0
+ * rectangles and move by (frame_width - 240, hud_shift_y). Zero shift while
+ * the canvas is 160 lines preserves the existing horizontal-only path. */
+extern int virtuappu_mode1_ws_hud_shift_y;
 
 enum {
     MODE1_IO_DISPCNT = 0x00,

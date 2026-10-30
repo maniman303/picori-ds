@@ -2,17 +2,20 @@
 #include <cstdint>
 
 namespace PortHDText {
-// Expanded canvases retain the original raster text until their shared
-// dialogue/HUD layout is implemented. This is a layout gate, not storage.
+// Expanded canvases use the same BG0 message/HUD layout as the PPU. This is
+// the geometry gate, not storage: tall canvases are accepted here even while
+// the production 4:3 profile remains disabled behind its own acceptance gate.
 inline bool SupportedFrame(int width, int height) {
-    return width >= 240 && width <= 512 && height == 160;
+    return width >= 240 && width <= 569 && height >= 160 && height <= 192;
 }
 
 // Locate the text using the same installed BG0 message band as the PPU.
 // Fixed screens are composed as one native rectangle; live frames instead use
-// the published message shift, which can be zero even on a wide frame.
+// the published message shift, which can be zero even on a wide frame. The
+// vertical shift moves a standard top/bottom window to the shared bottom
+// anchor, so opening/closing frames keep their stable destination.
 inline bool ResolveCanvasOrigin(int frameWidth, int frameHeight, bool fixedCanvas,
-                                int shift, int x0, int x1, int y0, int y1,
+                                int shift, int shiftY, int x0, int x1, int y0, int y1,
                                 int width, int height, int& x, int& y) {
     if (frameWidth < 240 || frameWidth > 569 || frameHeight < 160 || frameHeight > 192 ||
         width <= 0 || width > 208 || height <= 0 || height > 32 ||
@@ -21,12 +24,15 @@ inline bool ResolveCanvasOrigin(int frameWidth, int frameHeight, bool fixedCanva
     if (fixedCanvas) {
         x += (frameWidth - 240) / 2;
         y += (frameHeight - 160) / 2;
-    } else if (shift != 0) {
-        if (shift < 0 || shift > frameWidth - 240 ||
+    } else if (shift != 0 || shiftY != 0) {
+        if (shift < 0 || shift > frameWidth - 240 || shiftY < 0 ||
+            x0 + shift < 0 || x1 + shift > frameWidth ||
+            y0 + shiftY < 0 || y1 + shiftY > frameHeight ||
             x0 < 0 || x1 > 240 || x0 >= x1 || y0 < 0 || y1 > 160 || y0 >= y1 ||
             x < x0 || x + width > x1 || y < y0 || y + height > y1)
             return false;
         x += shift;
+        y += shiftY;
     }
     return x <= frameWidth - width && y <= frameHeight - height;
 }

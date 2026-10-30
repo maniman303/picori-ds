@@ -152,9 +152,10 @@ static void check_optional_paths(void) {
             rasterHeight = height;
             signedPositions = false;
             const bool legacy = width <= 512 && height == 160;
+            const bool hdText = width >= 240 && width <= 569 && height >= 160 && height <= 192;
             assert(ScreenGeometrySupported() == legacy);
             assert(Port_GPU_PresetGeometrySupported() == legacy);
-            assert(PortHDText::SupportedFrame(width, height) == legacy);
+            assert(PortHDText::SupportedFrame(width, height) == hdText);
             // A native raster fallback inside an expanded canvas is still
             // unsupported by the voxel layer stack/projection.
             rasterHeight = 160;

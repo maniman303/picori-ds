@@ -59,7 +59,9 @@ static void scene_clear(Scene* s, const char* name) {
         virtuappu_mode1_ws_shadow_base_tile[b] = 0;
     }
     virtuappu_mode1_ws_hud_right_anchor = 0;
+    virtuappu_mode1_ws_hud_shift_y = 0;
     virtuappu_mode1_ws_msg_shift = 0;
+    virtuappu_mode1_ws_msg_shift_y = 0;
     virtuappu_mode1_ws_msg_x0 = 0;
     virtuappu_mode1_ws_msg_x1 = 0;
     virtuappu_mode1_ws_msg_y0 = 0;
@@ -149,7 +151,9 @@ static void build_frame(Scene* s, int w, int h, PortGpuRasterFrame* fout, std::v
     f.ws_cols = MODE1_WS_SHADOW_COLS;
     f.ws_hud_right_anchor = virtuappu_mode1_ws_hud_right_anchor;
     f.ws_hud_right_native_x = MODE1_WS_HUD_RIGHT_NATIVE_X;
+    f.ws_hud_shift_y = virtuappu_mode1_ws_hud_shift_y;
     f.ws_msg_shift = virtuappu_mode1_ws_msg_shift;
+    f.ws_msg_shift_y = virtuappu_mode1_ws_msg_shift_y;
     f.ws_msg_x0 = virtuappu_mode1_ws_msg_x0;
     f.ws_msg_x1 = virtuappu_mode1_ws_msg_x1;
     f.ws_msg_y0 = virtuappu_mode1_ws_msg_y0;
@@ -816,6 +820,16 @@ static void scene_ws_hud_message(Scene* s) {
     virtuappu_mode1_ws_msg_y0 = 128;
     virtuappu_mode1_ws_msg_y1 = 160;
 }
+/* A top message must not disable lower-right HUD anchoring. */
+static void scene_ws_hud_message_top(Scene* s) {
+    scene_ws_hud_anchor(s);
+    s->name = "ws_hud_message_top";
+    virtuappu_mode1_ws_msg_shift = (MODE1_GBA_WIDTH - 240) / 2;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 224;
+    virtuappu_mode1_ws_msg_y0 = 8;
+    virtuappu_mode1_ws_msg_y1 = 56;
+}
 /* Message-box centering: shift BG0 box band right by shift px. */
 static void scene_ws_msg_center(Scene* s) {
     scene_clear(s, "ws_msg_center");
@@ -830,6 +844,58 @@ static void scene_ws_msg_center(Scene* s) {
     virtuappu_mode1_ws_msg_x1 = 216;
     virtuappu_mode1_ws_msg_y0 = 112;
     virtuappu_mode1_ws_msg_y1 = 152;
+}
+/* Tall canvas: every two BG0 rows use a different palette bank so a vertical
+ * remap is visible and independently checkable. */
+static void fill_tall_bg0(Scene* s) {
+    set_io16(s, 0x00, 0x0100);
+    set_io16(s, 0x08, (uint16_t)(8u << 8));
+    s->bgpal[0] = 0x0421;
+    for (int bank = 2; bank < 16; ++bank) {
+        fill_palette_bank(s->bgpal, bank, 0x0421);
+    }
+    write_tile_4bpp(s->vram, 0, 1);
+    for (int row = 0; row < 32; ++row) {
+        uint16_t entry = (uint16_t)(1u | ((uint16_t)(2 + (row / 2) % 14) << 12));
+        for (int col = 0; col < 32; ++col) {
+            uint32_t a = 0x4000u + (uint32_t)(row * 32 + col) * 2u;
+            s->vram[a] = (uint8_t)(entry & 0xFF);
+            s->vram[a + 1] = (uint8_t)(entry >> 8);
+        }
+    }
+}
+static uint32_t tall_expected(const Scene* s, int row, int x) {
+    const int tile_row = (row / 8) % 32;
+    const int bank = 2 + (tile_row / 2) % 14;
+    const int py = row % 8;
+    const int px = x % 8;
+    const int ci = ((px + py * 2) % 15) + 1;
+    return rgb555_to_abgr(s->bgpal[bank * 16 + ci]);
+}
+static void scene_tall_msg(Scene* s) {
+    scene_clear(s, "tall_msg");
+    fill_tall_bg0(s);
+    virtuappu_mode1_ws_msg_shift = 8;
+    virtuappu_mode1_ws_msg_shift_y = 32;
+    virtuappu_mode1_ws_msg_x0 = 8;
+    virtuappu_mode1_ws_msg_x1 = 232;
+    virtuappu_mode1_ws_msg_y0 = 96;
+    virtuappu_mode1_ws_msg_y1 = 144;
+}
+static void scene_tall_hud(Scene* s) {
+    scene_clear(s, "tall_hud");
+    fill_tall_bg0(s);
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES;
+    virtuappu_mode1_ws_hud_shift_y = 32;
+}
+static void scene_tall_both(Scene* s) {
+    scene_tall_msg(s);
+    s->name = "tall_both";
+    virtuappu_mode1_ws_msg_y0 = 8;
+    virtuappu_mode1_ws_msg_y1 = 56;
+    virtuappu_mode1_ws_msg_shift_y = 120;
+    virtuappu_mode1_ws_hud_right_anchor = MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES;
+    virtuappu_mode1_ws_hud_shift_y = 32;
 }
 #endif
 
@@ -1038,6 +1104,7 @@ int main(int argc, char** argv) {
         scene_ws_hud_rupees_only,
         scene_ws_hud_scroll,
         scene_ws_hud_message,
+        scene_ws_hud_message_top,
         scene_ws_msg_center,
 #endif
     };
@@ -1066,6 +1133,62 @@ int main(int argc, char** argv) {
             total_diffs += diff(cpu.data(), gles.data(), W, H, label);
         }
     }
+
+#if MODE1_GBA_WIDTH > 240
+    /* Tall canvas (test-only 4:3 geometry): the message and lower-right HUD
+     * keep native tiles but shift to the canvas corners. Both software and GPU
+     * must produce the same pixels, including the suppressed native bands. */
+    const int TW = 256, TH = 192;
+    std::vector<uint32_t> tcpu((size_t)TW * TH), tgpu((size_t)TW * TH), tgles((size_t)TW * TH);
+    SceneFn tall_scenes[] = { scene_tall_msg, scene_tall_hud, scene_tall_both };
+    for (SceneFn fn : tall_scenes) {
+        fn(&scene);
+        render_cpu(&scene, tcpu.data(), TW, TH);
+        render_vk(r, &scene, tgpu.data(), TW, TH);
+        std::snprintf(label, sizeof(label), "%s [vk]", scene.name);
+        total_diffs += diff(tcpu.data(), tgpu.data(), TW, TH, label);
+        if (rgl) {
+            render_gles(rgl, &scene, tgles.data(), TW, TH);
+            std::snprintf(label, sizeof(label), "%s [gles]", scene.name);
+            total_diffs += diff(tcpu.data(), tgles.data(), TW, TH, label);
+        }
+        if (fn == scene_tall_msg) {
+            /* Source row 100 -> destination row 132, source x 100 -> x 108. */
+            uint32_t want = tall_expected(&scene, 100, 100);
+            if (tcpu[(size_t)132 * TW + 108] != want || tgpu[(size_t)132 * TW + 108] != want) {
+                std::fprintf(stderr, "tall_msg: vertical message sample mismatch\n");
+                ++total_diffs;
+            }
+            if (tcpu[(size_t)100 * TW + 100] != rgb555_to_abgr(scene.bgpal[0])) {
+                std::fprintf(stderr, "tall_msg: native message band not suppressed\n");
+                ++total_diffs;
+            }
+        } else if (fn == scene_tall_hud) {
+            /* Key row 136 -> 168; native x 200 -> 216. */
+            uint32_t want = tall_expected(&scene, 136, 200);
+            if (tcpu[(size_t)168 * TW + 216] != want || tgpu[(size_t)168 * TW + 216] != want) {
+                std::fprintf(stderr, "tall_hud: vertical HUD sample mismatch\n");
+                ++total_diffs;
+            }
+            if (tcpu[(size_t)136 * TW + 200] != rgb555_to_abgr(scene.bgpal[0])) {
+                std::fprintf(stderr, "tall_hud: native key cells not suppressed\n");
+                ++total_diffs;
+            }
+        } else if (fn == scene_tall_both) {
+            /* Top message owns 128..176; rupees stay anchored below at 184. */
+            uint32_t msgWant = tall_expected(&scene, 12, 100);
+            if (tcpu[(size_t)132 * TW + 108] != msgWant || tgpu[(size_t)132 * TW + 108] != msgWant) {
+                std::fprintf(stderr, "tall_both: message did not take priority\n");
+                ++total_diffs;
+            }
+            uint32_t hudWant = tall_expected(&scene, 152, 192);
+            if (tcpu[(size_t)184 * TW + 208] != hudWant || tgpu[(size_t)184 * TW + 208] != hudWant) {
+                std::fprintf(stderr, "tall_both: lower HUD missing below message\n");
+                ++total_diffs;
+            }
+        }
+    }
+#endif
 
     if (rgl) {
         Port_GpuRasterGl_Destroy(rgl);

@@ -360,6 +360,8 @@ extern "C" bool Port_GpuRasterGl_RenderReadback(PortGpuRasterGl* r, const PortGp
     p.geom[3] = f->affine ? 1 : 0;
     p.misc[0] = f->frame_dispcnt;
     p.misc[1] = f->io_uniform ? 1u : 0u;
+    p.misc[3] = (uint32_t)(f->ws_msg_shift_y & 0xFF) |
+                ((uint32_t)(f->ws_hud_shift_y & 0xFF) << 8);
     p.ws[0] = f->ws_bg_clip_x ? f->ws_bg_clip_x : 240;
     p.ws[1] = f->ws_cols;
     p.ws[2] = f->ws_hud_right_anchor;

@@ -73,6 +73,11 @@ void Port_Widescreen_ManagerCreated(void);
 void Port_Widescreen_EntityCreated(void);
 int Port_Widescreen_FallbackNative(void);
 int Port_Widescreen_IsActive(void);
+/* Canvas-wide live-gameplay HUD/dialogue layout, independent of room width.
+ * Fixed screens and native handoffs return false. */
+int Port_Widescreen_LayoutActive(void);
+int Port_Widescreen_LayoutWidth(void);
+int Port_Widescreen_LayoutHeight(void);
 int Port_Widescreen_EffectiveViewWidth(void);
 /* Vertical world reveal remains native until streaming, OAM and raster
  * capabilities are published together. Camera/tile callers use this accessor
