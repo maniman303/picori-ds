@@ -9,7 +9,9 @@ extern "C" bool Message_CopyTextCanvas(uint8_t* pixels, int capacity, int* x, in
 extern "C" void Port_HDText_Draw(const uint32_t* frame, int frameWidth, int frameHeight, int pitchPixels,
                                   float viewportX, float viewportY, float viewportWidth, float viewportHeight) {
     const PortViewportGeometry* geometry = Port_Viewport_Get();
-    const bool fixedCanvas = (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+    const bool fixedCanvas =
+        (geometry->scene.capabilities &
+         (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) &&
         frameWidth == geometry->canvas.width && frameHeight == geometry->canvas.height &&
         frameWidth >= 240 && frameWidth <= 569 && frameHeight >= 160 && frameHeight <= 192;
     if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 ||

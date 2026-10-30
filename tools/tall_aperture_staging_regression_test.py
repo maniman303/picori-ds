@@ -13,7 +13,11 @@ with tempfile.TemporaryDirectory(prefix='tmc-tall-stage-') as directory:
     signatures = ('static uint64_t Port_WidescreenRoomKey(void)',
                   'static int Port_Widescreen_MapTileX(void)', 'static int Port_Widescreen_MapTileY(void)',
                   'static int Port_Widescreen_HasDynamicEntities(void)', 'void Port_Widescreen_EntityCreated(void)',
-                  'void Port_Widescreen_ManagerCreated(void)', 'void Port_Widescreen_SetTallValidated(int validated)',
+                  'void Port_Widescreen_ManagerCreated(void)',
+                  'static int Port_WidescreenTallAperture(void)', 'static int Port_WidescreenTallRows(void)',
+                  'static int Port_WidescreenCandidateWidth(void)',
+                  'static int Port_WidescreenMapShadowsLive(void)',
+                  'void Port_Widescreen_SetTallValidated(int validated)',
                   'void Port_Widescreen_MapFilled(unsigned mode)', 'void Port_Widescreen_MapUploaded(void)',
                   'static void ram_sub_080B197C_c(', 'void UpdateScrollVram(void)',
                   'void Port_Widescreen_PublishScene(void)', 'void Port_Widescreen_BeforePresent(void)',
@@ -27,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='tmc-tall-stage-') as directory:
         '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-DPC_PORT', '-DMULTI_REGION',
         '-DUSA', '-DMODE1_GBA_WIDTH=569', '-DPORT_VIEWPORT_TEST_TALL', '-I.', '-Iinclude', '-Iport',
         '-Iport/ppu/include', '-I' + directory, 'tools/tests/tall_aperture_staging.c',
-        'port/port_viewport.c', 'port/port_oam.c', '-o', str(tmp / 'test')]
+        'port/port_viewport.c', 'port/port_tall_scene.c', 'port/port_oam.c', '-o', str(tmp / 'test')]
     subprocess.run(cmd, cwd=ROOT, check=True)
     env = os.environ.copy(); env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')
     subprocess.run([str(tmp / 'test')], cwd=ROOT, env=env, check=True)

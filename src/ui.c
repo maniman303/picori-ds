@@ -17,6 +17,7 @@
 #include "port_rom.h"
 #include "port_sprite_region.h"
 #include "port_widescreen.h"
+#include "port_oam.h"
 extern const u8* gGlobalGfxAndPalettes;
 #endif
 
@@ -120,6 +121,12 @@ void DrawUIElements(void) {
     UIElement* element;
     UIElementDefinition* definition;
 
+#ifdef PC_PORT
+    /* Every piece emitted by this loop belongs to the HUD layer. On a tall
+     * canvas it must keep its canvas-relative position instead of following
+     * the live-world aperture. */
+    Port_Oam_SetCanvasContext(1);
+#endif
     for (index = 0; index < MAX_UI_ELEMENTS; index++) {
         element = &gHUD.elements[index];
         if (element->used == 1 && element->unk_0_1 == 1) {
@@ -142,6 +149,9 @@ void DrawUIElements(void) {
             DrawDirect(definition->spriteIndex, element->frameIndex);
         }
     }
+#ifdef PC_PORT
+    Port_Oam_SetCanvasContext(0);
+#endif
 }
 
 void sub_0801C25C(void) {

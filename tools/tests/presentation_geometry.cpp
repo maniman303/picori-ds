@@ -193,9 +193,33 @@ static void check_presentation_layout(void) {
         assert(sx == item.sx && sy == item.sy && sw == item.sw && sh == item.sh);
         assert(fx == item.fx && fy == item.fy && fw == item.fw && fh == item.fh);
     }
+    /* A classified transition/effect fallback renders one native 240x160
+     * composition centered in the 4:3 canvas with no composed artwork. */
+    geometry.effectiveAspect = PORT_ASPECT_DS_4_3;
+    geometry.scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_NATIVE_FALLBACK;
+    geometry.canvas = {0, 0, 256, 192};
+    geometry.nativeContent = {8, 16, 240, 160};
+    {
+        int sx, sy, sw, sh, fx, fy, fw, fh;
+        /* The fallback composer expands the native frame into the canvas, so
+         * presentation receives one 256x192 frame. */
+        Port_PPU_ComputeViewportRects(1024, 768, 256, 192,
+                                      &sx, &sy, &sw, &sh, &fx, &fy, &fw, &fh);
+        assert(sx == 0 && sy == 0 && sw == 1024 && sh == 768);
+        assert(fx == 0 && fy == 0 && fw == 1024 && fh == 768);
+        /* If composition is unavailable, the native frame still centers at
+         * the published native rectangle rather than stretching. */
+        Port_PPU_ComputeViewportRects(1024, 768, 240, 160,
+                                      &sx, &sy, &sw, &sh, &fx, &fy, &fw, &fh);
+        assert(sx == 0 && sy == 0 && sw == 1024 && sh == 768);
+        assert(fx == 32 && fy == 64 && fw == 960 && fh == 640);
+    }
+    geometry.scene.capabilities = PORT_SCENE_FIXED_SCREEN;
     struct NativeCanvasCase { PortAspectMode mode; int width, height, x, y; };
     const NativeCanvasCase nativeCases[] = {
         {PORT_ASPECT_DS_4_3, 256, 192, 8, 16},
+        /* Synthetic proper-16:9 extent: native 240x160 centered at (24,1). */
+        {PORT_ASPECT_DS_4_3, 288, 162, 24, 1},
         {PORT_ASPECT_WIDESCREEN_16_9, 285, 160, 22, 0},
         {PORT_ASPECT_ULTRAWIDE_21_9, 374, 160, 67, 0},
         {PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 160, 164, 0},

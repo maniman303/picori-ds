@@ -65,6 +65,12 @@ The current remaining-work count and finite context-audit closure groups are in
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
+Tall live-world enablement continues in
+[the 4:3 implementation plan](4-3-aspect-implementation.md): that plan owns the
+production scene validator, manager/entity/OAM residency, canvas composition and
+release gate for 256 × 192. EU remains the validated fixture; USA/JP stay
+source-level best effort until their real ROMs are available.
+
 ## 1. Catalog and baseline
 
 - [x] Research pieces/techniques/top-left-title separation and review all 27

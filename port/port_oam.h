@@ -11,6 +11,10 @@ extern "C" {
  * They do not change packed OAM, entity/save layouts or quicksave formats. */
 void Port_Oam_BeginFrame(void);
 void Port_Oam_Record(unsigned slot, uint16_t attr0, uint16_t attr1, int x, int y, bool hidden);
+/* HUD/dialogue widgets are positioned against the canvas, not the live world
+ * aperture. Tag every OAM piece emitted inside this scope so a tall canvas
+ * composition leaves it at its absolute position. */
+void Port_Oam_SetCanvasContext(bool canvas);
 void Port_Oam_Latch(unsigned count);
 void Port_Oam_Invalidate(void);
 /* Raw hardware writes cannot retain stale signed coordinates, even when the

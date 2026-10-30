@@ -63,7 +63,10 @@ extern "C" {
  * completing a transition. Repeated presentation reads the published snapshot. */
 void Port_Widescreen_PublishScene(void);
 void Port_Widescreen_RoomLoaded(void);
-/* Future scene validation opts in per room; no current caller enables it. */
+/* Scene validation is derived, not asserted: the map-upload boundary calls
+ * SetTallValidated(1), which honours the request only when the staged fill and
+ * VRAM upload match the current room key, camera tile origin, candidate
+ * aperture height and required row count. Any other caller can only clear it. */
 void Port_Widescreen_SetTallValidated(int validated);
 /* Stage taller map rows before publishing the larger world aperture. */
 void Port_Widescreen_MapFilled(unsigned mode);

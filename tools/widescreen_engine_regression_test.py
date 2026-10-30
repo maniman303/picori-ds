@@ -38,9 +38,14 @@ def main():
         'static void Port_WidescreenShadow_Populate(',
         'static void Port_WidescreenShadow_PopulateOverlay(',
         'static int Port_WidescreenPpuBgForControl(',
+        'static int Port_WidescreenMapShadowsLive(void)',
     )]
     functions.extend(function(stubs, name) for name in (
         'static int Port_WidescreenRepeatingOverlayLive(void)',
+        'static int Port_WidescreenTallAperture(void)',
+        'static int Port_WidescreenTallRows(void)',
+        'static int Port_WidescreenCandidateWidth(void)',
+        'int Port_Widescreen_ShadowsLive(void)',
         'void Port_Widescreen_PublishScene(void)',
         'void Port_Widescreen_BeforePresent(void)',
         'void Port_Widescreen_RoomLoaded(void)',
@@ -57,7 +62,8 @@ def main():
         command = shlex.split(os.environ.get('CC', 'cc')) + [
             '-std=c11', '-Wall', '-Wextra', '-Werror', '-DPORT_VIEWPORT_TEST_TALL',
             '-I' + directory, '-I' + str(ROOT / 'port'),
-            str(ROOT / 'tools/tests/widescreen_engine.c'), str(ROOT / 'port/port_viewport.c'), '-o', str(binary)]
+            str(ROOT / 'tools/tests/widescreen_engine.c'), str(ROOT / 'port/port_viewport.c'),
+            str(ROOT / 'port/port_tall_scene.c'), '-o', str(binary)]
         subprocess.run(command, check=True)
         subprocess.run([str(binary)], check=True)
 

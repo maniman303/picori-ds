@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "port_viewport.h"
+#include "port_tall_scene.h"
 typedef uint8_t u8;
 typedef int16_t s16;
 typedef int32_t s32;
@@ -386,16 +387,28 @@ int main(void) {
     gRoomControls.width = 240;
     gRoomControls.height = 160;
     gMapBottom.bgSettings = NULL;
-    PortViewportScene tallLive = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD, 240, 160 };
+    PortViewportScene tallLive = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE, 240, 160 };
     Port_Viewport_PublishScene(tallLive);
     CHECK(geometry->world.width == 240 && geometry->world.height == 160);
     CHECK(Port_Widescreen_LayoutActive());
     CHECK(Port_Widescreen_LayoutWidth() == 256 && Port_Widescreen_LayoutHeight() == 192);
     /* A narrow room's native world fallback does not shrink the corner layout. */
-    PortViewportScene nativeContent = { PORT_SCENE_WORLD | PORT_SCENE_NATIVE_CONTENT, 240, 160 };
+    PortViewportScene nativeContent = { PORT_SCENE_WORLD | PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_MAP_LIVE, 240, 160 };
     Port_Viewport_PublishScene(nativeContent);
     CHECK(Port_Widescreen_LayoutActive());
     Port_Viewport_PublishScene(tallLive);
+    CHECK(Port_Widescreen_LayoutActive());
+    /* A classified effect/window uses one native composition, not the canvas
+     * HUD layout: no half-rendered world rows and no artwork in the margins. */
+    gScreen.lcd.displayControl |= DISPCNT_WIN0_ON;
+    Port_Widescreen_PublishScene();
+    CHECK((geometry->scene.capabilities & PORT_SCENE_NATIVE_FALLBACK) != 0);
+    CHECK(!Port_Widescreen_LayoutActive());
+    CHECK(Port_Viewport_RasterHeight(geometry) == 160);
+    gScreen.lcd.displayControl &= ~DISPCNT_WIN0_ON;
+    gMapBottom.bgSettings = &gScreen.bg1; /* publish a map-backed live scene */
+    Port_Widescreen_PublishScene();
+    CHECK(!(geometry->scene.capabilities & PORT_SCENE_NATIVE_FALLBACK));
     CHECK(Port_Widescreen_LayoutActive());
     gHUD.hideFlags = 0; gHUD.unk_10 = 2; gHUD.unk_a = 2;
     CHECK(Port_Widescreen_HudRightAnchor() == (MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES));

@@ -102,6 +102,9 @@ const uint8_t* virtuappu_mode1_frame_io_for_line(int line) {
 }
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static int mode1_frame_height = MODE1_GBA_HEIGHT;
+/* Optional live-world aperture; disabled keeps every legacy path byte-exact. */
+static int mode1_world_x, mode1_world_y, mode1_world_w, mode1_world_h;
+static bool mode1_world_enabled;
 static const VirtuaPPUObjPosition* mode1_obj_positions;
 static int mode1_oam_x(Mode1OAMAttr attr);
 static int mode1_oam_y(Mode1OAMAttr attr);
@@ -114,13 +117,16 @@ bool virtuappu_mode1_has_obj_positions(void) {
     return mode1_obj_positions != NULL;
 }
 
-static bool mode1_obj_position(int index, Mode1OAMAttr attr, int viewport_width, int* x, int* y) {
+static bool mode1_obj_position(int index, Mode1OAMAttr attr, int viewport_width, int* x, int* y,
+                               bool* canvas) {
+    *canvas = false;
     if (mode1_obj_positions != NULL) {
         const VirtuaPPUObjPosition* position = &mode1_obj_positions[index];
         if ((position->flags & VIRTUAPPU_OBJ_POSITION_VALID) &&
             position->attr0 == attr.attr0 && position->attr1 == attr.attr1) {
             if (position->flags & VIRTUAPPU_OBJ_POSITION_HIDDEN)
                 return false;
+            *canvas = (position->flags & VIRTUAPPU_OBJ_POSITION_CANVAS) != 0;
             *x = position->x;
             *y = position->y;
             return true;
@@ -175,6 +181,9 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu) {
     mode1_frame_width = width;
     mode1_frame_pitch = pitch;
     mode1_frame_height = height;
+    if (mode1_world_enabled &&
+        (mode1_world_x + mode1_world_w > width || mode1_world_y + mode1_world_h > height))
+        mode1_world_enabled = false;
 }
 
 int virtuappu_mode1_frame_width(void) {
@@ -187,6 +196,26 @@ int virtuappu_mode1_frame_pitch(void) {
 
 int virtuappu_mode1_frame_height(void) {
     return mode1_frame_height;
+}
+
+void virtuappu_mode1_set_world_rect(int x, int y, int width, int height) {
+    /* Store the published rectangle; set_frame_geometry decides whether it
+     * fits the final raster (callers may publish before the next geometry). */
+    if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
+        x > VIRTUAPPU_MAX_FRAME_WIDTH || y > VIRTUAPPU_MAX_FRAME_HEIGHT ||
+        width > VIRTUAPPU_MAX_FRAME_WIDTH - x || height > VIRTUAPPU_MAX_FRAME_HEIGHT - y) {
+        mode1_world_enabled = false;
+        return;
+    }
+    mode1_world_x = x;
+    mode1_world_y = y;
+    mode1_world_w = width;
+    mode1_world_h = height;
+    mode1_world_enabled = true;
+}
+
+void virtuappu_mode1_clear_world_rect(void) {
+    mode1_world_enabled = false;
 }
 
 static const uint8_t mode1_obj_widths[3][4] = { { 8, 16, 32, 64 }, { 16, 32, 32, 64 }, { 8, 8, 16, 32 } };
@@ -486,7 +515,8 @@ static void virtuappu_mode1_publish_palette_luts(void) {
     }
 }
 
-void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_buffer, uint8_t* priority_buffer) {
+static void mode1_render_text_bg_line_internal(int bg_index, int line, int render_width, int dst_x,
+                                                  uint32_t* line_buffer, uint8_t* priority_buffer) {
     uint16_t bgcnt = virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg_index * 2));
     uint8_t priority = (uint8_t)(bgcnt & 3u);
     uint32_t char_base = (uint32_t)((bgcnt >> 2u) & 3u) * 0x4000u;
@@ -511,7 +541,7 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
     int tile_row = src_y / 8;
     int pixel_y = src_y % 8;
     int x;
-    const int frame_width = mode1_frame_width;
+    const int frame_width = render_width;
     /* Widescreen Option A: 32-tile BGs have valid VRAM tile data only
      * within the native 240 px. Cull the line to the current visible frame
      * width, but keep the fixed framebuffer pitch separate for presentation. */
@@ -640,9 +670,9 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
         if (color_index != 0u) {                                                                                       \
             size_t pal_idx = bpp8 ? (size_t)color_index : (bg_pal_bank + color_index);                                 \
             if (!(x >= MODE1_GBA_BG_CLIP_X && (mode1_memory.bg_palette[pal_idx] & 0x7FFFu) == 0x7C1Fu)) {              \
-                line_buffer[x] = mode1_bg_abgr_lut[pal_idx];                                                           \
+                line_buffer[dst_x + x] = mode1_bg_abgr_lut[pal_idx];                                                           \
                 if (priority_buffer != NULL) {                                                                         \
-                    priority_buffer[x] = priority;                                                                     \
+                    priority_buffer[dst_x + x] = priority;                                                                     \
                 }                                                                                                      \
             }                                                                                                          \
         }                                                                                                              \
@@ -705,9 +735,9 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
         if (color_index_sy != 0u) {                                                                                    \
             size_t pal_idx_sy = bpp8 ? (size_t)color_index_sy : (bg_pal_bank + color_index_sy);                        \
             if (!(x >= MODE1_GBA_BG_CLIP_X && (mode1_memory.bg_palette[pal_idx_sy] & 0x7FFFu) == 0x7C1Fu)) {          \
-                line_buffer[x] = mode1_bg_abgr_lut[pal_idx_sy];                                                        \
+                line_buffer[dst_x + x] = mode1_bg_abgr_lut[pal_idx_sy];                                                        \
                 if (priority_buffer != NULL) {                                                                         \
-                    priority_buffer[x] = priority;                                                                     \
+                    priority_buffer[dst_x + x] = priority;                                                                     \
                 }                                                                                                      \
             }                                                                                                          \
         }                                                                                                              \
@@ -805,6 +835,10 @@ void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_
 #undef MODE1_BG_PIXEL_SY
 }
 
+void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_buffer, uint8_t* priority_buffer) {
+    mode1_render_text_bg_line_internal(bg_index, line, mode1_frame_width, 0, line_buffer, priority_buffer);
+}
+
 bool virtuappu_mode1_sample_below_bg(int line, int x, int source_bg, unsigned visible_bgs,
                                      unsigned* layer, uint32_t* color) {
     if (!layer || !color || line < 0 || line >= MODE1_GBA_HEIGHT || x < 0 || x >= MODE1_GBA_BG_CLIP_X ||
@@ -875,6 +909,8 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
         int sx_start;
         int sx_end;
         int viewport_width;
+        int clip_left, clip_right, clip_top, clip_bottom;
+        bool canvas_position;
         bool mosaic_x_on;
         int eff_line;
 
@@ -905,8 +941,30 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
             bounds_height *= 2;
         }
 
-        if (!mode1_obj_position(i, attr, mode1_frame_width, &obj_x, &obj_y))
+        if (!mode1_obj_position(i, attr, mode1_frame_width, &obj_x, &obj_y, &canvas_position))
             continue;
+
+        /* World sprites follow the live aperture; canvas-tagged HUD widgets
+         * keep their absolute canvas position. Margins never show world
+         * sprites, and the aperture never shows a canvas widget clipped away. */
+        const bool world_sprite = mode1_world_enabled && !canvas_position;
+        clip_left = 0;
+        clip_right = mode1_frame_width;
+        clip_top = 0;
+        clip_bottom = mode1_frame_height;
+        if (world_sprite) {
+            clip_left = mode1_world_x;
+            clip_right = mode1_world_x + mode1_world_w;
+            if (clip_right > mode1_frame_width) clip_right = mode1_frame_width;
+            clip_top = mode1_world_y;
+            clip_bottom = mode1_world_y + mode1_world_h;
+            if (clip_bottom > mode1_frame_height) clip_bottom = mode1_frame_height;
+            obj_x += mode1_world_x;
+            obj_y += mode1_world_y;
+        }
+        if (line < clip_top || line >= clip_bottom) {
+            continue;
+        }
         if (line < obj_y || line >= obj_y + bounds_height) {
             continue;
         }
@@ -915,16 +973,19 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
         if (viewport_width > MODE1_GBA_VIEWPORT_X) {
             viewport_width = MODE1_GBA_VIEWPORT_X;
         }
+        if (clip_right > viewport_width) {
+            clip_right = viewport_width;
+        }
         sx_start = 0;
         sx_end = bounds_width;
-        if (obj_x + bounds_width <= 0 || obj_x >= viewport_width) {
+        if (obj_x + bounds_width <= clip_left || obj_x >= clip_right) {
             continue;
         }
-        if (obj_x < 0) {
-            sx_start = -obj_x;
+        if (obj_x < clip_left) {
+            sx_start = clip_left - obj_x;
         }
-        if (obj_x + sx_end > viewport_width) {
-            sx_end = viewport_width - obj_x;
+        if (obj_x + sx_end > clip_right) {
+            sx_end = clip_right - obj_x;
         }
 
         bpp8 = mode1_oam_bpp8(attr);
@@ -1385,8 +1446,29 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
         }
 
         int obj_x, obj_y;
-        if (!mode1_obj_position(i, attr, viewport_width, &obj_x, &obj_y))
+        bool canvas_position;
+        if (!mode1_obj_position(i, attr, viewport_width, &obj_x, &obj_y, &canvas_position))
             continue;
+
+        /* The supersampled overlay shares the live-world composition: world
+         * affine sprites follow the aperture, canvas HUD sprites stay absolute. */
+        const bool world_sprite = mode1_world_enabled && !canvas_position;
+        int clip_left = 0, clip_right = viewport_width;
+        int clip_top = 0, clip_bottom = mode1_frame_height;
+        if (world_sprite) {
+            clip_left = mode1_world_x;
+            clip_right = mode1_world_x + mode1_world_w;
+            if (clip_right > viewport_width) clip_right = viewport_width;
+            clip_top = mode1_world_y;
+            clip_bottom = mode1_world_y + mode1_world_h;
+            if (clip_bottom > mode1_frame_height) clip_bottom = mode1_frame_height;
+            obj_x += mode1_world_x;
+            obj_y += mode1_world_y;
+        }
+        const int clip_top_sub = clip_top * scale;
+        const int clip_bottom_sub = clip_bottom * scale;
+        const int clip_left_sub = clip_left * scale;
+        const int clip_right_sub = clip_right * scale;
 
         int sy_sub_start = 0;
         int sy_sub_end = bounds_height * scale;
@@ -1394,23 +1476,23 @@ void virtuappu_mode1_render_affine_obj_overlay(uint32_t* dst, int dst_w, int dst
         int sx_sub_end = bounds_width * scale;
         const int sprite_top_sub = obj_y * scale;
         const int sprite_left_sub = obj_x * scale;
-        if (sprite_top_sub + sy_sub_end <= 0 || sprite_top_sub >= dst_h) {
+        if (sprite_top_sub + sy_sub_end <= clip_top_sub || sprite_top_sub >= clip_bottom_sub) {
             continue;
         }
-        if (sprite_top_sub < 0) {
-            sy_sub_start = -sprite_top_sub;
+        if (sprite_top_sub < clip_top_sub) {
+            sy_sub_start = clip_top_sub - sprite_top_sub;
         }
-        if (sprite_top_sub + sy_sub_end > dst_h) {
-            sy_sub_end = dst_h - sprite_top_sub;
+        if (sprite_top_sub + sy_sub_end > clip_bottom_sub) {
+            sy_sub_end = clip_bottom_sub - sprite_top_sub;
         }
-        if (sprite_left_sub + sx_sub_end <= 0 || sprite_left_sub >= dst_w) {
+        if (sprite_left_sub + sx_sub_end <= clip_left_sub || sprite_left_sub >= clip_right_sub) {
             continue;
         }
-        if (sprite_left_sub < 0) {
-            sx_sub_start = -sprite_left_sub;
+        if (sprite_left_sub < clip_left_sub) {
+            sx_sub_start = clip_left_sub - sprite_left_sub;
         }
-        if (sprite_left_sub + sx_sub_end > dst_w) {
-            sx_sub_end = dst_w - sprite_left_sub;
+        if (sprite_left_sub + sx_sub_end > clip_right_sub) {
+            sx_sub_end = clip_right_sub - sprite_left_sub;
         }
 
         bool bpp8 = mode1_oam_bpp8(attr);
@@ -1657,6 +1739,20 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
     return (dispcnt & MODE1_DISP_FORCED_BLANK) != 0u;
 }
 
+/* World BGs (1..3) render into the published live aperture, or into the full
+ * canvas when no aperture is published. BG0 keeps canvas coordinates so the
+ * HUD/dialogue anchors remain independent of the room aperture. */
+static void mode1_render_world_bg_line(int bg_index, int line, uint32_t* line_buffer) {
+    if (!mode1_world_enabled || bg_index == 0) {
+        mode1_render_text_bg_line_internal(bg_index, line, mode1_frame_width, 0, line_buffer, NULL);
+        return;
+    }
+    if (line < mode1_world_y || line >= mode1_world_y + mode1_world_h)
+        return; /* caller cleared the layer; margins keep the backdrop */
+    mode1_render_text_bg_line_internal(bg_index, line - mode1_world_y, mode1_world_w,
+                                       mode1_world_x, line_buffer, NULL);
+}
+
 void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
     uint16_t dispcnt;
     int line;
@@ -1781,14 +1877,14 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
         }
         if ((line_dispcnt & MODE1_DISP_BG1_ON) != 0u) {
             memset(bg_layers[1], 0, (size_t)mode1_frame_width * sizeof(uint32_t));
-            virtuappu_mode1_render_text_bg_line(1, line, bg_layers[1], NULL);
+            mode1_render_world_bg_line(1, line, bg_layers[1]);
         }
         if ((line_dispcnt & MODE1_DISP_BG2_ON) != 0u) {
             memset(bg_layers[2], 0, (size_t)mode1_frame_width * sizeof(uint32_t));
             if (affine) {
                 mode1_render_affine_bg2_line(frame_width, aff_ref_x[line], aff_ref_y[line], bg_layers[2], NULL);
             } else {
-                virtuappu_mode1_render_text_bg_line(2, line, bg_layers[2], NULL);
+                mode1_render_world_bg_line(2, line, bg_layers[2]);
             }
         }
         if ((line_dispcnt & MODE1_DISP_BG3_ON) != 0u) {
@@ -1797,7 +1893,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
              * contributes nothing — exactly as the old unconditional memset did. */
             memset(bg_layers[3], 0, (size_t)mode1_frame_width * sizeof(uint32_t));
             if (!affine) {
-                virtuappu_mode1_render_text_bg_line(3, line, bg_layers[3], NULL);
+                mode1_render_world_bg_line(3, line, bg_layers[3]);
             }
         }
         if ((line_dispcnt & MODE1_DISP_OBJ_ON) != 0u) {

@@ -11,6 +11,7 @@
 #include "tileMap.h"
 #include "vram.h"
 #include "port_widescreen.h"
+#include "port_tall_scene.h"
 #include "port_oam.h"
 #undef static_assert
 #include <assert.h>
@@ -28,6 +29,7 @@ MapLayer gMapBottom, gMapTop;
 Screen gScreen;
 u8 gUpdateVisibleTiles, gManagerCount, gUnk_03003DE0;
 u8 gShakeOffsets[256];
+u16* virtuappu_mode1_ws_shadow[4];
 u16 gOamMem[512];
 GenericEntity gEntities[MAX_ENTITIES], gAuxPlayerEntities[MAX_AUX_PLAYER_ENTITIES];
 u16 gMapDataBottomSpecial[0x4000], gMapDataTopSpecial[0x4000];
@@ -45,6 +47,7 @@ static int Port_WidescreenPpuBgForControl(u32 c) { (void)c; return 1; }
 static int Port_WidescreenRepeatingOverlayLive(void) { return 0; }
 static int activeHdma;
 int port_hdma_has_active_channels(void) { return activeHdma; }
+int Port_Widescreen_ShadowsLive(void) { return 1; }
 int Port_Widescreen_TargetViewWidth(void) { return Port_Viewport_Get()->canvas.width; }
 void sub_0807D280(u16* a, u16* b) { (void)a; (void)b; }
 void sub_0807D46C(u16* a, u16* b) { (void)a; (void)b; }
@@ -59,12 +62,13 @@ int main(void) {
     gRoomControls.scroll_x = 32; gRoomControls.scroll_y = 32;
     gMapBottom.bgSettings = &bg; bg.control = 0;
     for (unsigned i = 0; i < 0x4000; ++i) gMapDataBottomSpecial[i] = (u16)(i + 1);
+    virtuappu_mode1_ws_shadow[1] = (u16*)1; /* map shadow residency */
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160); /* no scene certification */
-    Port_Widescreen_SetTallValidated(1);
-    Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160 && sWsUpload.filled && !sWsUpload.uploaded);
-    assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 160);
+    assert(Port_Viewport_Get()->world.height == 160); /* no residency yet */
+    assert(sWsUpload.filled && !sWsUpload.uploaded);
+    /* The 192-row canvas still renders the 160-row world aperture centered
+     * (fill rows + canvas HUD); the map buffer only stages the world rows. */
+    assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 192);
     assert(Port_Widescreen_MapBufferSize() == 27 * 64);
     assert(gBG1Buffer[26 * 32] != 0); /* bottom staging row was filled */
     Port_Widescreen_PublishScene();
@@ -143,7 +147,7 @@ int main(void) {
     gManagerCount = 1;
     Port_Widescreen_BeforePresent();
     assert(Port_Viewport_Get()->world.height == 160 && !sWsUpload.requested);
-    assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 160);
+    assert(Port_Viewport_RasterHeight(Port_Viewport_Get()) == 192);
     gManagerCount = 0;
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 160); /* deleted manager still blocks */

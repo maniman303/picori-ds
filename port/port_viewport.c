@@ -21,7 +21,7 @@ static PortViewportGeometry sGeometry = {
 
 PortUITranslation Port_Viewport_UITranslation(PortUIAnchor anchor, int width, int height) {
     PortUITranslation result = { 0, 0 };
-    if (width < 240 || width > 569 || height < 160 || height > 192)
+    if (width < 240 || width > PORT_VIEWPORT_MAX_WIDTH || height < 160 || height > PORT_VIEWPORT_MAX_HEIGHT)
         return result;
     switch (anchor) {
         case PORT_UI_TOP_LEFT: break;
@@ -36,7 +36,7 @@ PortUITranslation Port_Viewport_UITranslation(PortUIAnchor anchor, int width, in
 
 bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int width, int height,
                                               PortUITranslation* translation) {
-    if (!translation || width < 240 || width > 569 || height < 160 || height > 192 ||
+    if (!translation || width < 240 || width > PORT_VIEWPORT_MAX_WIDTH || height < 160 || height > PORT_VIEWPORT_MAX_HEIGHT ||
         finalRect.x != 8 || (finalRect.y != 8 && finalRect.y != 96) ||
         finalRect.width != 224 || finalRect.height != 48)
         return false;
@@ -51,9 +51,10 @@ PortViewportRect Port_Viewport_ResolveWorldRect(PortViewportRect canvas, PortVie
     const uint32_t tall = PORT_SCENE_WORLD | PORT_SCENE_MAP_LIVE | PORT_SCENE_TALL_MANAGER_FREE |
                           PORT_SCENE_TALL_VALIDATED | PORT_SCENE_TALL_ROWS_READY |
                           PORT_SCENE_TALL_ENTITIES_EMPTY | PORT_SCENE_TALL_OAM_VERIFIED;
-    const uint32_t native = PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT;
-    if (canvas.x != 0 || canvas.y != 0 || canvas.width < 240 || canvas.width > 569 ||
-        canvas.height < 160 || canvas.height > 192)
+    const uint32_t native = PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT |
+                            PORT_SCENE_NATIVE_FALLBACK;
+    if (canvas.x != 0 || canvas.y != 0 || canvas.width < 240 || canvas.width > PORT_VIEWPORT_MAX_WIDTH ||
+        canvas.height < 160 || canvas.height > PORT_VIEWPORT_MAX_HEIGHT)
         return world;
     if ((scene.capabilities & wide) == wide && !(scene.capabilities & native) &&
         scene.roomWidth > 240 && scene.roomHeight > 0)
@@ -112,12 +113,16 @@ bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int
     return aspect == PORT_ASPECT_NATIVE_3_2 &&
            Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight);
 #else
+    if (!Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight))
+        return false;
+    if (profile->height > PORT_VIEWPORT_NATIVE_HEIGHT) {
 #ifdef PORT_VIEWPORT_TEST_TALL
-    if (aspect == PORT_ASPECT_DS_4_3)
-        return Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight);
+        return true;
+#else
+        return PORT_VIEWPORT_RELEASE_TALL != 0;
 #endif
-    return Port_Viewport_ProfileFits(profile, capacityWidth, capacityHeight) &&
-           profile->width <= 512 && profile->height <= 160;
+    }
+    return profile->width <= 512;
 #endif
 }
 
@@ -157,11 +162,38 @@ const PortViewportGeometry* Port_Viewport_Get(void) {
     return &sGeometry;
 }
 
-int Port_Viewport_RasterHeight(const PortViewportGeometry* geometry) {
-    if (!geometry || geometry->canvas.height < 160 || geometry->canvas.height > 192)
-        return 160;
+PortViewportComposition Port_Viewport_Composition(const PortViewportGeometry* geometry) {
+    if (!geometry)
+        return PORT_COMPOSITION_NATIVE;
     if (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN)
+        return PORT_COMPOSITION_FIXED_SCREEN;
+    if (geometry->scene.capabilities & PORT_SCENE_NATIVE_FALLBACK)
+        return PORT_COMPOSITION_NATIVE_FALLBACK;
+    if (geometry->scene.capabilities & PORT_SCENE_WORLD)
+        return PORT_COMPOSITION_LIVE_WORLD;
+    return PORT_COMPOSITION_NATIVE;
+}
+
+int Port_Viewport_RasterHeight(const PortViewportGeometry* geometry) {
+    if (!geometry || geometry->canvas.height < 160 ||
+        geometry->canvas.height > PORT_VIEWPORT_MAX_HEIGHT)
         return 160;
+    switch (Port_Viewport_Composition(geometry)) {
+        case PORT_COMPOSITION_FIXED_SCREEN:
+        case PORT_COMPOSITION_NATIVE_FALLBACK:
+            return 160;
+        case PORT_COMPOSITION_LIVE_WORLD:
+            /* A taller map-backed canvas is one composition: the live-world
+             * aperture (BG1-BG3 and world OBJ) is placed inside it, while BG0
+             * HUD and dialogue stay in canvas coordinates. Non-map overlays
+             * keep their existing native aperture. */
+            if (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE)
+                return geometry->canvas.height;
+            return geometry->world.height;
+        case PORT_COMPOSITION_NATIVE:
+        default:
+            break;
+    }
     if ((geometry->scene.capabilities & PORT_SCENE_WORLD) &&
         geometry->world.height >= 160 && geometry->world.height <= geometry->canvas.height)
         return geometry->world.height;
@@ -237,7 +269,7 @@ static bool UploadMatches(const PortViewportUpload* u, uint64_t key, int x, int 
 }
 
 bool Port_Viewport_UploadRequest(PortViewportUpload* u, uint64_t key, int x, int y, int height, int rows) {
-    if (!u || height <= 160 || height > 192 || rows < Port_Viewport_MapTileRows(height) || rows > 32) {
+    if (!u || height <= 160 || height > PORT_VIEWPORT_MAX_HEIGHT || rows < Port_Viewport_MapTileRows(height) || rows > 32) {
         Port_Viewport_UploadReset(u);
         return false;
     }

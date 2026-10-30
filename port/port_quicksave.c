@@ -66,6 +66,7 @@ extern int fileno(FILE*);
 #include "port_effect_geometry.h"
 #include "port_screen_background.h"
 #include "port_runtime_config.h"
+#include "port_widescreen.h"
 #include "region.h" /* REGION_IS_EU/JP — per-region savestate isolation (#21) */
 
 extern u8 gEwram[];
@@ -288,6 +289,10 @@ static int Snapshot_Restore(const Slot* s) {
     Port_Effect_ClearFadeIris();
     Port_Background_Reset();
     Port_Background_InvalidatePaletteFades();
+    /* The restored room/scroll state no longer matches the pre-restore map
+     * fill, manager activity or entity set. Re-enter the room boundary so a
+     * tall aperture must be validated again. */
+    Port_Widescreen_RoomLoaded();
     return 1;
 }
 

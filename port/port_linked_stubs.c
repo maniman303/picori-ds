@@ -40,6 +40,7 @@
 #include "port_runtime_config.h"
 #include "port_widescreen.h"
 #include "port_viewport.h"
+#include "port_tall_scene.h"
 
 #include <string.h>
 
@@ -1056,8 +1057,12 @@ int Port_Widescreen_IsActive(void) {
  * fails closed here. */
 int Port_Widescreen_LayoutActive(void) {
     const PortViewportGeometry* geometry = Port_Viewport_Get();
+    if ((geometry->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT) &&
+        !(geometry->scene.capabilities & PORT_SCENE_MAP_LIVE))
+        return 0;
     return (geometry->scene.capabilities & PORT_SCENE_WORLD) &&
-           !(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+           !(geometry->scene.capabilities &
+             (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) &&
            (geometry->canvas.width > PORT_VIEWPORT_NATIVE_WIDTH ||
             geometry->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT);
 }
@@ -1232,6 +1237,22 @@ static int Port_WidescreenPpuBgForControl(u32 control) {
     return -1;
 }
 
+/* Map-backed shadow rows for the current room (BG3 overlays do not satisfy
+ * the map residency gate). */
+static int Port_WidescreenMapShadowsLive(void) {
+    if (gMapBottom.bgSettings != NULL) {
+        int bg = Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control);
+        if (bg >= 0 && virtuappu_mode1_ws_shadow[bg] != NULL)
+            return 1;
+    }
+    if (gMapTop.bgSettings != NULL) {
+        int bg = Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control);
+        if (bg >= 0 && virtuappu_mode1_ws_shadow[bg] != NULL)
+            return 1;
+    }
+    return 0;
+}
+
 static int Port_WidescreenRepeatingOverlayLive(void) {
     return ((gRoomControls.area == AREA_MINISH_WOODS && gScreen.bg3.control == 0x1e04) ||
          (gRoomControls.area == AREA_HYRULE_FIELD && gScreen.bg3.control == 0x1e05) ||
@@ -1264,14 +1285,63 @@ void Port_Widescreen_ManagerCreated(void) {
     /* A transient manager can upload graphics and disappear before the next
      * snapshot. Keep the room blocked until a fresh room load. */
     sWsManagerDirty = 1;
+    /* Any manager may own char/palette residency, so a previously validated
+     * room can no longer prove its added rows. */
+    sWsValidatedKey = UINT64_MAX;
 }
 
+/* Candidate live-world aperture for the published canvas and current room. */
+static int Port_WidescreenTallAperture(void) {
+    return Port_TallScene_ApertureHeight(Port_Viewport_Get()->canvas.height, (int)gRoomControls.height);
+}
+
+/* Widest column the candidate live world may occupy. A width at or below the
+ * native 240 needs no right-hand shadow tilemap. */
+static int Port_WidescreenCandidateWidth(void) {
+    int width = PORT_VIEWPORT_NATIVE_WIDTH;
+    const int canvasWidth = Port_Viewport_Get()->canvas.width;
+    if ((int)gRoomControls.width > PORT_VIEWPORT_NATIVE_WIDTH) {
+        width = (int)gRoomControls.width;
+        if (width > canvasWidth)
+            width = canvasWidth;
+    }
+    return width;
+}
+
+/* Map rows the candidate aperture needs, including every shake phase. */
+static int Port_WidescreenTallRows(void) {
+    return Port_TallScene_RequiredRows(Port_WidescreenTallAperture(), gRoomControls.aff_y,
+                                       &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16],
+                                       gRoomControls.shake_duration != 0);
+}
+
+/* The map-upload boundary is the only production caller that can enable a tall
+ * room. Validation is derived from the staged fill/upload snapshot: the room
+ * key, camera tile origin, aperture height and required row count must all
+ * match. A caller cannot assert an unchecked room into existence. */
 void Port_Widescreen_SetTallValidated(int validated) {
-    sWsValidatedKey = validated ? Port_WidescreenRoomKey() : UINT64_MAX;
+    if (!validated || gMain.task != TASK_GAME) {
+        sWsValidatedKey = UINT64_MAX;
+        return;
+    }
+    const int aperture = Port_WidescreenTallAperture();
+    const int rows = Port_WidescreenTallRows();
+    const uint64_t key = Port_WidescreenRoomKey();
+    if (aperture <= PORT_VIEWPORT_NATIVE_HEIGHT || rows <= 0 ||
+        (Port_WidescreenCandidateWidth() > PORT_VIEWPORT_NATIVE_WIDTH &&
+         !Port_WidescreenMapShadowsLive()) ||
+        sWsUpload.roomKey != key || sWsUpload.tileX != Port_Widescreen_MapTileX() ||
+        sWsUpload.tileY != Port_Widescreen_MapTileY() ||
+        sWsUpload.height != aperture || sWsUpload.rows < rows ||
+        !sWsUpload.filled || !sWsUpload.uploaded) {
+        sWsValidatedKey = UINT64_MAX;
+        return;
+    }
+    sWsValidatedKey = key;
 }
 
 void Port_Widescreen_MapFilled(unsigned mode) {
-    if (sWsStageHeight <= 160)
+    if (sWsStageHeight <= PORT_VIEWPORT_NATIVE_HEIGHT)
         return;
     if (mode != 1) {
         sWsUpload.filled = false;
@@ -1283,9 +1353,11 @@ void Port_Widescreen_MapFilled(unsigned mode) {
 }
 
 void Port_Widescreen_MapUploaded(void) {
-    if (sWsStageHeight > 160)
+    if (sWsStageHeight > PORT_VIEWPORT_NATIVE_HEIGHT)
         Port_Viewport_UploadCompleted(&sWsUpload, Port_WidescreenRoomKey(), Port_Widescreen_MapTileX(),
                                       Port_Widescreen_MapTileY(), Port_Widescreen_MapBufferSize() / 64);
+    /* Real production validation boundary: the staged rows now live in VRAM. */
+    Port_Widescreen_SetTallValidated(1);
 }
 
 /* Classify only on the simulation side. Content width is sampled once at
@@ -1293,6 +1365,10 @@ void Port_Widescreen_MapUploaded(void) {
  * the room. Late tile animation/streaming must not change camera framing. */
 void Port_Widescreen_PublishScene(void) {
     PortViewportScene scene = { 0, gRoomControls.width, gRoomControls.height };
+    /* Profile-general candidate aperture. No 192/4:3 constant here: the
+     * canvas height and room decide how many rows the world may use. */
+    const int tallAperture =
+        Port_TallScene_ApertureHeight(Port_Viewport_Get()->canvas.height, scene.roomHeight);
     if (gMain.task == TASK_GAME) {
         scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD;
         /* These subtasks replace the world with a complete native screen.
@@ -1328,12 +1404,20 @@ void Port_Widescreen_PublishScene(void) {
         }
         /* Phase 1 may be a handoff from an already installed menu. Keep
          * its native composition until the replacement screen is installed. */
-        if (sWsFixedInstalled)
+        if (sWsFixedInstalled) {
             scene.capabilities |= PORT_SCENE_NATIVE_CONTENT | PORT_SCENE_FIXED_SCREEN;
+            /* A menu/title replacement can overwrite tileset VRAM. Re-enter the
+             * room boundary before a tall aperture is trusted again. */
+            sWsValidatedKey = UINT64_MAX;
+            sWsStageHeight = 0;
+            Port_Viewport_UploadReset(&sWsUpload);
+        }
         /* Check the whole sequence before any camera or map copy sees it. */
-        if (!Port_Viewport_MapTileRowsWithShake(192, gRoomControls.aff_y) ||
-            (gRoomControls.shake_duration &&
-             !Port_Viewport_ShakeSequenceFits(192, &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16])))
+        if (tallAperture > PORT_VIEWPORT_NATIVE_HEIGHT &&
+            (!Port_Viewport_MapTileRowsWithShake(tallAperture, gRoomControls.aff_y) ||
+             (gRoomControls.shake_duration &&
+              !Port_Viewport_ShakeSequenceFits(tallAperture,
+                                               &gShakeOffsets[(gRoomControls.shake_magnitude & 7) * 16]))))
             scene.capabilities |= PORT_SCENE_TALL_SHAKE_UNSAFE;
         uint64_t key = Port_WidescreenRoomKey();
         if (key != sWsContentKey) {
@@ -1354,6 +1438,16 @@ void Port_Widescreen_PublishScene(void) {
              Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control) >= 0) ||
             Port_WidescreenRepeatingOverlayLive())
             scene.capabilities |= PORT_SCENE_MAP_LIVE;
+        /* A classified transition/effect that cannot use the selected canvas
+         * keeps one native 240x160 composition, centered by presentation.
+         * Never let static artwork or a half-streamed world fill the margins. */
+        if (Port_Viewport_Get()->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT &&
+            ((scene.capabilities & PORT_SCENE_NATIVE_TRANSITION) ||
+             (gScreen.lcd.displayControl & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON)) ||
+             (gIoMem[1] & 0xe0) || /* already-latched WIN0/WIN1/OBJWIN */
+             port_hdma_has_active_channels() ||
+             (gIoMem[0] & 7) == 1 || (gIoMem[0] & 7) == 2))
+            scene.capabilities |= PORT_SCENE_NATIVE_FALLBACK;
         /* Every manager is conservatively unverified for tall residency. PC
          * LoadResourceAsync copies immediately, and managers update after map
          * fill, so timer==complete alone cannot certify a wider view. */
@@ -1395,11 +1489,17 @@ void Port_Widescreen_PublishScene(void) {
     if (gMain.task == TASK_GAME && sWsValidatedKey == Port_WidescreenRoomKey())
         scene.capabilities |= PORT_SCENE_TALL_VALIDATED;
     /* Ask for the prospective geometry without claiming that its rows exist.
-     * Stage a full map fill/upload while still presenting native height. */
-    PortViewportScene candidate = scene;
-    candidate.capabilities |= PORT_SCENE_TALL_ROWS_READY;
-    int targetHeight = Port_Viewport_ResolveWorldRect(geometry->canvas, candidate).height;
-    if (targetHeight > 160 && geometry->world.height <= 160) {
+     * Stage a full map fill/upload while still presenting native height.
+     * The target comes from the published profile/room, not from an already
+     * validated aperture, so the first tall frame can bootstrap its own
+     * residency instead of deadlocking on the validator. */
+    int targetHeight = PORT_VIEWPORT_NATIVE_HEIGHT;
+    if ((scene.capabilities & PORT_SCENE_MAP_LIVE) &&
+        !(scene.capabilities & (PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT |
+                                PORT_SCENE_FIXED_SCREEN)) &&
+        tallAperture > PORT_VIEWPORT_NATIVE_HEIGHT)
+        targetHeight = tallAperture;
+    if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT && geometry->world.height <= PORT_VIEWPORT_NATIVE_HEIGHT) {
         sWsStageHeight = targetHeight;
         int rows = Port_Widescreen_MapBufferSize() / 64;
         bool ready = Port_Viewport_UploadRequest(&sWsUpload, Port_WidescreenRoomKey(),
@@ -1411,7 +1511,7 @@ void Port_Widescreen_PublishScene(void) {
             gUpdateVisibleTiles = 1;
             UpdateScrollVram();
         }
-    } else if (targetHeight > 160) {
+    } else if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT) {
         scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
         sWsStageHeight = 0;
         Port_Viewport_UploadReset(&sWsUpload);
@@ -1419,6 +1519,34 @@ void Port_Widescreen_PublishScene(void) {
         sWsStageHeight = 0;
         Port_Viewport_UploadReset(&sWsUpload);
     }
+    /* One combined publication boundary. Residency was committed by the map
+     * upload caller; every other gate is re-evaluated against this frame so a
+     * manager, entity, OAM or shake change cannot leave the aperture open. */
+    PortTallSceneInputs tall = { 0 };
+    tall.roomKey = Port_WidescreenRoomKey();
+    tall.tileX = Port_Widescreen_MapTileX();
+    tall.tileY = Port_Widescreen_MapTileY();
+    tall.apertureHeight = tallAperture;
+    tall.requiredRows = Port_WidescreenTallRows();
+    tall.mapLive = (scene.capabilities & PORT_SCENE_MAP_LIVE) != 0;
+    tall.transitionNative = (scene.capabilities & PORT_SCENE_NATIVE_TRANSITION) != 0;
+    tall.shakeSafe = (scene.capabilities & PORT_SCENE_TALL_SHAKE_UNSAFE) == 0;
+    tall.shadowRowsReady = Port_WidescreenCandidateWidth() <= PORT_VIEWPORT_NATIVE_WIDTH ||
+                           Port_WidescreenMapShadowsLive();
+    tall.managersSafe = (scene.capabilities & PORT_SCENE_TALL_MANAGER_FREE) != 0;
+    tall.entitiesSafe = !sWsEntityDirty;
+    tall.oamVerified = (scene.capabilities & PORT_SCENE_TALL_OAM_VERIFIED) != 0;
+    tall.uploadRoomKey = sWsUpload.roomKey;
+    tall.uploadTileX = sWsUpload.tileX;
+    tall.uploadTileY = sWsUpload.tileY;
+    tall.uploadHeight = sWsUpload.height;
+    tall.uploadRows = sWsUpload.rows;
+    tall.uploadFilled = sWsUpload.filled;
+    tall.uploadUploaded = sWsUpload.uploaded;
+    tall.residencyCommitted = gMain.task == TASK_GAME &&
+        sWsValidatedKey == tall.roomKey;
+    if (!Port_TallScene_IsValidated(Port_TallScene_Evaluate(&tall)))
+        scene.capabilities &= ~PORT_SCENE_TALL_VALIDATED;
     Port_Viewport_PublishScene(scene);
 }
 
@@ -1426,7 +1554,7 @@ void Port_Widescreen_BeforePresent(void) {
     if (sWsFixedInstalled ||
         (gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_SUBTASK) ||
         sWsValidatedKey != UINT64_MAX || sWsStageHeight > 0 ||
-        Port_Viewport_Get()->world.height > 160)
+        Port_Viewport_Get()->world.height > PORT_VIEWPORT_NATIVE_HEIGHT)
         Port_Widescreen_PublishScene();
 }
 
@@ -1532,8 +1660,13 @@ void Port_Widescreen_UpdateShadows(void) {
     }
 
     /* Shadows reveal world columns/tiles only; canvas-wide HUD/dialogue
-     * mapping above stays valid when the room aperture falls back to native. */
-    if (!Port_Widescreen_IsActive()) {
+     * mapping above stays valid when the room aperture falls back to native.
+     * During tall staging the published world is still native, but the
+     * candidate width may need its reveal columns resident before the map
+     * upload can validate the aperture. */
+    if (!Port_Widescreen_IsActive() &&
+        !(sWsStageHeight > PORT_VIEWPORT_NATIVE_HEIGHT &&
+          Port_WidescreenCandidateWidth() > PORT_VIEWPORT_NATIVE_WIDTH)) {
         return;
     }
     if (gMapBottom.bgSettings != NULL) {

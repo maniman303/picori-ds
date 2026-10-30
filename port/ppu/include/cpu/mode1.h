@@ -169,7 +169,10 @@ typedef struct VirtuaPPUMode1GbaMemory {
  * coordinates. Raw/disabled OAM retains its hardware interpretation. */
 enum {
     VIRTUAPPU_OBJ_POSITION_VALID = 1,
-    VIRTUAPPU_OBJ_POSITION_HIDDEN = 2
+    VIRTUAPPU_OBJ_POSITION_HIDDEN = 2,
+    /* Position is already in canvas coordinates (HUD/dialogue widgets). A
+     * live-world composition must not apply its aperture offset or clip it. */
+    VIRTUAPPU_OBJ_POSITION_CANVAS = 4
 };
 typedef struct VirtuaPPUObjPosition {
     int16_t x, y;
@@ -189,6 +192,14 @@ void virtuappu_mode1_set_frame_geometry(const PPUMemory* ppu);
 int virtuappu_mode1_frame_width(void);
 int virtuappu_mode1_frame_height(void);
 int virtuappu_mode1_frame_pitch(void);
+
+/* Live-world aperture inside a taller canvas. While enabled, BG1-BG3 and
+ * non-canvas OBJ pieces render into (x,y,w,h) and everything outside keeps
+ * the backdrop color; BG0 (HUD/dialogue) and OBJ pieces tagged
+ * VIRTUAPPU_OBJ_POSITION_CANVAS stay in canvas coordinates. Disabled is
+ * byte-identical to legacy rendering. The rectangle must fit the frame. */
+void virtuappu_mode1_set_world_rect(int x, int y, int width, int height);
+void virtuappu_mode1_clear_world_rect(void);
 uint16_t virtuappu_mode1_io_read16(uint16_t offset);
 /* IO used by the most recent CPU frame, clamped to native scanlines. The
  * pointer stays valid until the next render or memory rebind. */

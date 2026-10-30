@@ -162,11 +162,23 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
     }
     /* Presentation, including paused repeats, consumes only published policy. */
     const PortViewportGeometry* geometry = Port_Viewport_Get();
-    if (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN)
-        return 240;
-    if (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE)
-        return geometry->world.width;
-    return 240;
+    switch (Port_Viewport_Composition(geometry)) {
+        case PORT_COMPOSITION_FIXED_SCREEN:
+        case PORT_COMPOSITION_NATIVE_FALLBACK:
+            return 240;
+        case PORT_COMPOSITION_LIVE_WORLD:
+            /* Tall canvases render one composition; wide canvases keep the
+             * map-backed direct frame and the existing native fallback. */
+            if (geometry->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT &&
+                (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE))
+                return geometry->canvas.width;
+            return (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE)
+                       ? geometry->world.width
+                       : 240;
+        case PORT_COMPOSITION_NATIVE:
+        default:
+            return 240;
+    }
 }
 
 /* Check both fixed pools before running either pass. Keep this separate from
@@ -257,7 +269,9 @@ extern "C" const uint32_t* Port_PPU_GetComposedFrame(int* width, int* height, in
 static bool Port_PPU_ComposeBackground(void) {
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     const PortOamMenuHeading* heading = Port_Oam_MenuHeading();
-    if (!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) ||
+    const bool fixed = (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) != 0;
+    const bool fallback = (geometry->scene.capabilities & PORT_SCENE_NATIVE_FALLBACK) != 0;
+    if ((!fixed && !fallback) ||
         geometry->flags || (geometry->canvas.width == 240 && geometry->canvas.height == 160) ||
         virtuappu_mode1_frame_width() != 240 || virtuappu_mode1_frame_height() != 160 ||
         geometry->canvas.width > virtuappu_mode1_frame_pitch() || geometry->canvas.height > MODE1_MAX_RENDER_HEIGHT)
@@ -273,7 +287,7 @@ static bool Port_PPU_ComposeBackground(void) {
     }
     const uint8_t* frame = nullptr;
     size_t available = 0;
-    bool haveHeading = heading->valid;
+    bool haveHeading = fixed && heading->valid;
     if (haveHeading) {
         frame = static_cast<const uint8_t*>(sub_080AD8F0(heading->sprite, 0));
         const uintptr_t base = reinterpret_cast<uintptr_t>(gFrameObjLists);
@@ -300,7 +314,10 @@ static bool Port_PPU_ComposeBackground(void) {
     std::memset(topLayers, 5, sizeof(topLayers));
     PortEffectSpan irisRows[MODE1_MAX_RENDER_HEIGHT];
     bool useIris = false;
-    bool haveArt = bg->effect_policy_valid && bg->source != PORT_BACKGROUND_SOURCE_NONE &&
+    /* A live fallback never receives static artwork: it is one native frame
+     * with procedural/backdrop margins. The fixed-screen artwork catalog is
+     * also excluded so stale menu state cannot leak into gameplay. */
+    bool haveArt = fixed && bg->effect_policy_valid && bg->source != PORT_BACKGROUND_SOURCE_NONE &&
                    bg->canvas.width == geometry->canvas.width && bg->canvas.height == geometry->canvas.height &&
                    bg->native.x == native.x && bg->native.y == native.y &&
                    (!bg->rgba || (bg->width == geometry->canvas.width && bg->height == geometry->canvas.height));
@@ -529,7 +546,7 @@ extern "C" void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int f
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     const PortViewportRect canvas = geometry->canvas;
     const PortViewportRect native = geometry->nativeContent;
-    if ((geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+    if ((geometry->scene.capabilities & (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) &&
         geometry->effectiveAspect != PORT_ASPECT_NATIVE_3_2 && canvas.width >= 240 && canvas.height >= 160 &&
         FW > 0 && FH > 0 && (int64_t)FW * canvas.height == (int64_t)FH * canvas.width) {
         Port_PPU_FitAspectRect(outW, outH, canvas.width, canvas.height,
@@ -541,7 +558,8 @@ extern "C" void Port_PPU_ComputeViewportRects(int outW, int outH, int fbW, int f
      * the published logical pixel rectangle, including the intentional odd
      * margin, rather than fitting 3:2 inside an idealized aspect ratio.
      * GPU upscalers pass a scaled raster, so recognize its ratio as well. */
-    const bool nativeCanvas = (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) &&
+    const bool nativeCanvas =
+        (geometry->scene.capabilities & (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) &&
         geometry->effectiveAspect != PORT_ASPECT_NATIVE_3_2 &&
         FW > 0 && FH > 0 && (int64_t)FW * 160 == (int64_t)FH * 240 &&
         canvas.width >= 240 && canvas.height >= 160 &&
@@ -1648,6 +1666,31 @@ static bool Port_PPU_TryGpuRaster(void) {
 }
 #endif /* TMC_GPU_RENDERER */
 
+/* Publish the live-world aperture to the software PPU. Fixed screens compose
+ * their native 240x160 frame separately, and a full-canvas aperture keeps the
+ * direct (no-offset) path so existing profiles stay byte-identical. */
+static void Port_PPU_UpdateWorldRect(void) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    const bool live = Port_Viewport_Composition(geometry) == PORT_COMPOSITION_LIVE_WORLD &&
+                      (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE);
+    const int fw = virtuappu_mode1_frame_width();
+    const int fh = virtuappu_mode1_frame_height();
+    if (!live || virtuappu_registers.mode != 1 ||
+        geometry->canvas.height <= PORT_VIEWPORT_NATIVE_HEIGHT ||
+        fh != geometry->canvas.height || fw != geometry->canvas.width ||
+        geometry->world.width <= 0 || geometry->world.height <= 0 ||
+        geometry->world.x < 0 || geometry->world.y < 0 ||
+        geometry->world.x + geometry->world.width > fw ||
+        geometry->world.y + geometry->world.height > fh ||
+        (geometry->world.x == 0 && geometry->world.y == 0 &&
+         geometry->world.width == fw && geometry->world.height == fh)) {
+        virtuappu_mode1_clear_world_rect();
+        return;
+    }
+    virtuappu_mode1_set_world_rect(geometry->world.x, geometry->world.y,
+                                   geometry->world.width, geometry->world.height);
+}
+
 extern "C" void Port_PPU_PresentFrame(void) {
     uint16_t dispcnt;
     uint8_t gbaMode;
@@ -1660,12 +1703,19 @@ extern "C" void Port_PPU_PresentFrame(void) {
     sSuperValid = false; /* set true only if TryGpuRaster renders the Sx buffer this frame */
 #endif
 
-    virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
-    virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
-    virtuappu_registers.frame_height = Port_Viewport_RasterHeight(Port_Viewport_Get());
-
     dispcnt = (uint16_t)(gIoMem[0x00] | (gIoMem[0x01] << 8));
     gbaMode = (uint8_t)(dispcnt & 0x07);
+
+    int rasterHeight = Port_Viewport_RasterHeight(Port_Viewport_Get());
+    /* Affine BG2 is not part of the live-world aperture composition yet. GBA
+     * modes 1/2 (title, rotation/scaling effects) keep the native 160-row
+     * path; fixed screens already resolve to 160 above. */
+    if ((gbaMode == 1 || gbaMode == 2) && rasterHeight > MODE1_GBA_HEIGHT)
+        rasterHeight = MODE1_GBA_HEIGHT;
+
+    virtuappu_registers.frame_width = Port_PPU_VisibleFrameWidth();
+    virtuappu_registers.frame_pitch = MODE1_GBA_WIDTH;
+    virtuappu_registers.frame_height = (uint16_t)rasterHeight;
 
     /* GBA->VPPU render-mode routing. The vendored PPU has exactly two render
      * paths: mode 1 = tiled/text (mode1.c), mode 2 = affine (mode2.c).
@@ -1710,6 +1760,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
     const bool signedPositions = !Port_Config_GetConsoleParity() &&
         (Port_Viewport_Get()->canvas.height > MODE1_GBA_HEIGHT || Port_Viewport_Get()->canvas.width > 512);
     virtuappu_mode1_bind_obj_positions(signedPositions ? Port_Oam_Positions() : nullptr);
+    Port_PPU_UpdateWorldRect();
 
     {
         bool gpu_ok = false;

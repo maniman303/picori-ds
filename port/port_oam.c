@@ -6,10 +6,16 @@
 static VirtuaPPUObjPosition sBuild[MODE1_GBA_OAM_COUNT];
 static VirtuaPPUObjPosition sLatched[MODE1_GBA_OAM_COUNT];
 static PortOamMenuHeading sHeadingBuild, sHeadingLatched;
+static bool sCanvasContext;
 
 void Port_Oam_BeginFrame(void) {
     memset(sBuild, 0, sizeof(sBuild));
     memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
+    sCanvasContext = false;
+}
+
+void Port_Oam_SetCanvasContext(bool canvas) {
+    sCanvasContext = canvas;
 }
 
 void Port_Oam_RecordMenuHeading(int x, int y, unsigned sprite) {
@@ -31,6 +37,8 @@ void Port_Oam_Record(unsigned slot, uint16_t attr0, uint16_t attr1, int x, int y
     position.attr0 = attr0;
     position.attr1 = attr1;
     position.flags = VIRTUAPPU_OBJ_POSITION_VALID;
+    if (sCanvasContext)
+        position.flags |= VIRTUAPPU_OBJ_POSITION_CANVAS;
     if (hidden || x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX) {
         position.flags |= VIRTUAPPU_OBJ_POSITION_HIDDEN;
     } else {

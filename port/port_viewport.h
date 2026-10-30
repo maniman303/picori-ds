@@ -16,6 +16,11 @@ extern "C" {
 #define PORT_VIEWPORT_PROFILE_VERSION 1
 #define PORT_VIEWPORT_NATIVE_WIDTH 240
 #define PORT_VIEWPORT_NATIVE_HEIGHT 160
+/* Compile-time raster/OBJ capacity, not a profile. Profiles publish their own
+ * canvas; only a future profile taller than this bound would need a capacity
+ * change (and the matching PPU/GPU work). */
+#define PORT_VIEWPORT_MAX_WIDTH 569
+#define PORT_VIEWPORT_MAX_HEIGHT 192
 
 /* Persisted IDs: append new modes, never reorder existing ones. */
 typedef enum {
@@ -71,8 +76,20 @@ const PortViewportProfile* Port_Viewport_ProfileForAspect(PortAspectMode aspect)
 bool Port_Viewport_ProfileFits(const PortViewportProfile* profile, int capacityWidth, int capacityHeight);
 
 /* Current raster/OBJ support is separate from allocated capacity. Taller
- * frames and X > 511 remain unavailable until their rendering paths land. */
+ * frames and X > 511 remain unavailable until their rendering paths land.
+ * Availability is decided from the published profile/capacity, not from a
+ * profile-specific case: any future canvas taller than native needs the same
+ * release capability, and any width beyond the OBJ-safe bound is rejected. */
 bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int capacityHeight);
+
+/* Release capability for canvases taller than the native 160 rows. It stays
+ * off until the scene validator plus manager/entity/OAM/effect audits in
+ * docs/4-3-aspect-implementation.md (WP2-WP5) pass. Builds that exercise the
+ * tall geometry may define PORT_VIEWPORT_TEST_TALL; production builds must
+ * not depend on that test macro. */
+#ifndef PORT_VIEWPORT_RELEASE_TALL
+#define PORT_VIEWPORT_RELEASE_TALL 0
+#endif
 
 enum {
     PORT_VIEWPORT_PARITY = 1u << 0,
@@ -97,7 +114,11 @@ enum {
     PORT_SCENE_TALL_ENTITIES_EMPTY = 1u << 9,
     PORT_SCENE_TALL_OAM_VERIFIED = 1u << 10,
     /* Complete native screen rendered as a single 240x160 composition. */
-    PORT_SCENE_FIXED_SCREEN = 1u << 11
+    PORT_SCENE_FIXED_SCREEN = 1u << 11,
+    /* A classified transition/effect cannot use the selected canvas. Render
+     * one native 240x160 composition, centered in the canvas by presentation,
+     * with no gameplay or static artwork in the margins. */
+    PORT_SCENE_NATIVE_FALLBACK = 1u << 12
 };
 
 typedef struct {
@@ -117,6 +138,17 @@ typedef struct {
     uint32_t flags;
     uint32_t generation;
 } PortViewportGeometry;
+
+/* One of the two compositions (plus the classified native fallback) every
+ * consumer must agree on. Rendering, layout, HD text, screenshots and
+ * presentation read this instead of re-deriving policy from the canvas. */
+typedef enum {
+    PORT_COMPOSITION_NATIVE = 0,   /* native/wide direct frame */
+    PORT_COMPOSITION_LIVE_WORLD,   /* world aperture + canvas HUD/dialogue */
+    PORT_COMPOSITION_FIXED_SCREEN, /* one native 240x160 screen + margins */
+    PORT_COMPOSITION_NATIVE_FALLBACK /* native frame, procedural margins */
+} PortViewportComposition;
+PortViewportComposition Port_Viewport_Composition(const PortViewportGeometry* geometry);
 
 /* Publish only at a simulation boundary, before shadow/camera/layout work.
  * Renderers read the same snapshot, including repeat presents while paused.
