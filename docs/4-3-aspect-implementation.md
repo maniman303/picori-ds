@@ -1,7 +1,8 @@
 # Plan: finish proper 4:3 (256 × 192)
 
-Status: WP1–WP6 implemented; release profile still gated by multi-group streaming
-and WP7/WP8 acceptance
+Status: WP1–WP6 implemented; WP9 specified with the first Minish Path strip
+seeded; release profile still gated by multi-group streaming and WP7/WP8
+acceptance
 Scope owner: code/geometry/streaming/validation/composition/tests  
 Artwork: the user supplies 4:3 artwork. This plan does not create, edit or
 export PNGs.
@@ -293,16 +294,68 @@ This is code support only; artwork creation is excluded.
    must not be described as validated without their real ROMs.
 5. Re-run all native/wide/PPU/background/title regressions.
 
+### WP9 — Environment background overrides (Minish path first)
+
+Some environments are narrower than a tall/wide canvas (the vertical Minish
+Path is 240 px wide). Their normal world layers leave static side bars. Add a
+generic, context-keyed **world-space background strip** that fills those bars,
+sits behind the normal world layers, and scrolls with the camera. Minish Path
+is the first consumer; the same system must later serve other environments.
+
+1. **Asset contract.**
+   - Canonical source: `assets/override/32/world_<environment>_<area>_<room>.png`
+     at native 3:2 width (240 px) and the **full environment height** (the
+     Minish Path vertical strip is 240 × 800).
+   - The strip is world-space, not a fixed-screen image. It is not part of the
+     menu-family catalog and must never be selected for fixed screens, towns,
+     dungeons or unrelated rooms.
+   - Optional profile-specific replacements (for example `override/43` at
+     256 × 800) are preferred when present. Missing profile art falls back to
+     the canonical 3:2 strip; no strip means the current black/fill side bars.
+2. **Runtime catalog and cache.** Key by environment/area/room plus profile;
+   bounded memory, load at room entry, no per-frame file I/O or allocation.
+   Missing/corrupt files fail closed to no override (never alias another
+   environment or profile).
+3. **Rendering.** Draw the strip as a bottom-most world backdrop before BG
+   layers. Sample the full published canvas width (nearest-neighbour horizontal
+   stretch for the prototype; optional profile-specific pixel-perfect art
+   later) and the world-aperture rows using the camera's world Y. It must scroll
+   1:1 with the camera, clamp at the room ends, and remain behind the actual
+   Minish Path BG1/BG2/BG3 layers. CPU software PPU is the reference; GPU
+   presentation may fall back until parity lands.
+4. **First artifact.** Extract EU room `0x11/0x00` (vertical Minish Path,
+   240 × 800) into
+   `assets/override/32/world_minish_path_0x11_0x00.png` as a 240 × 800 strip.
+   Record the extraction command/source (clean room captures stitched at
+   camera-scroll positions; the actual path/foreground still renders on top).
+5. **Tests and captures.**
+   - Catalog: 32/43 lookup, missing/corrupt fail-closed, no cross-profile or
+     cross-room alias.
+   - Geometry: top/middle/bottom camera scroll mapping, clamp rows, full-width
+     sampling at 256 × 192 and synthetic 288 × 162, 3:2/native unchanged.
+   - Render: strip visible only in the Minish Path context, behind world layers,
+     no duplicate foreground over the actual path, no static artwork in other
+     gameplay.
+   - EU contact sheet over the whole path with the strip filling the side bars.
+6. **Future.** Add axis/scroll metadata for horizontal environments, optional
+   parallax/scroll multipliers, and profile-specific strip artwork. Keep the
+   3:2 source canonical so `288 × 162` and later profiles can be added without
+   a second implementation.
+
 ## Artwork boundary
 
 The user owns:
 
 - creating `assets/override/43` artwork for all contexts/families/health states;
+- world/environment strips such as
+  `assets/override/32/world_minish_path_0x11_0x00.png` and later
+  profile-specific replacements;
 - contact sheets and artist-facing exports;
-- deciding which fixed screens get custom 4:3 artwork.
+- deciding which fixed screens or environments receive custom artwork.
 
-The code must only guarantee the `43` contract, context/effect-aware margin
-composition, black fallback and no cross-profile/family aliasing.
+The code must only guarantee the `43` fixed-screen contract, the
+context/effect-aware margin composition, black fallback, no cross-profile/family
+aliasing, and the WP9 world-strip lookup/scroll contract.
 
 ## WP3/WP4 capability audit
 
@@ -424,9 +477,18 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
   margins from the procedural palette field, so its absent-art run is visually
   identical; the missing-`43` black-margin and no-alias contract is proven by
   the ROM-free 4:3 cache test.
-- **Remaining.** A residency design for multi-group Minish Village views if
-  they must become tall, then flip the release capability and run WP7/WP8
-  acceptance.
+- **WP9 seed extracted.** A generic environment background strip will fill
+  narrow world margins behind the normal layers and scroll 1:1 with the camera.
+  The first canonical artifact is present at
+  `assets/override/32/world_minish_path_0x11_0x00.png` (240 × 800), stitched
+  from clean EU Minish Path captures at camera scroll 0..608. A 256-wide
+  stretched preview is in
+  `screenshots/2026-10-30-eu-minish-path-strip/strip-preview-256x800.png`.
+  Profile variants such as `43` are optional. Runtime catalog/renderer work
+  remains. See WP9.
+- **Remaining.** Implement WP9, a residency design for multi-group Minish
+  Village views if they must become tall, then flip the release capability and
+  run WP7/WP8 acceptance.
 
 ## Sequencing
 
@@ -436,8 +498,10 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 4. WP4 — entities/OAM (parallel with WP3 where possible).
 5. WP5 — effects/transitions.
 6. WP6 — fixed UI/art composition verification.
-7. WP7 — renderer/presentation.
-8. WP8 — acceptance/performance.
+7. WP9 — environment background overrides (Minish path first; can run alongside
+   WP7 once WP3 admits the path).
+8. WP7 — renderer/presentation.
+9. WP8 — acceptance/performance.
 
 ## Definition of done
 
@@ -454,6 +518,9 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 - Software and GPU presentation are correct; optional paths fall back safely.
 - RG holds native 60 fps with documented headroom.
 - Missing 4:3 artwork is black only; artwork creation remains the user's work.
+- Narrow environments may use the WP9 world-space background strip; the
+  canonical 3:2 source is widened to the published canvas and scrolls with the
+  camera, never as fixed-screen artwork.
 
 ## Estimate
 
