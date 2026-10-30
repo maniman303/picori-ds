@@ -1,6 +1,6 @@
 # Environment variables
 
-Every variable read via `getenv`/`SDL_getenv` in `port/` and `src/` (91 total).
+Every variable read via `getenv`/`SDL_getenv` in `port/` and `src/` (93 total).
 Boolean switches treat unset, empty or `0` as off unless noted.
 
 Variables marked **(harness)** are read only by the `port/port_repro_*.c`
@@ -66,6 +66,7 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_VERBOSE` | port/port_debug_verbose.c | Enable per-frame stderr logging. |
 | `TMC_VERBOSE_GBA_VA` | port/port_main.c | Log the reserved GBA address window. |
 | `TMC_PROFILE` | port/port_bios.c, port/port_repro_perfcap.c | Enable the frame profiler; also keeps perfcap from exiting after its dump. |
+| `TMC_PROFILE_DECOUPLED` | port/port_bios.c | Keep normal tick/render decoupling even when a capture harness is active, so profiler `game` and `present` costs are measured separately. |
 | `TMC_PACE_LOG` | port/port_bios.c | Print one pacing line (fps/tps) per second. |
 | `TMC_LEGACY_PACING` | port/port_bios.c | Use the legacy one-render-per-tick loop. |
 | `TMC_A11Y_DEBUG` | port/port_a11y_cues.c | Log accessibility cue decisions. |
@@ -130,6 +131,7 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_ROOMCAP_SAVE` | port/port_repro_roomcap.c | **(harness)** Write a quicksave at the warped spot and exit. |
 | `TMC_ROOMCAP_MSG` | port/port_repro_roomcap.c | **(harness)** Open message `idx[,posY]` before capturing. |
 | `TMC_ROOMCAP_MSG_ADVANCE` | port/port_repro_roomcap.c | **(harness)** Tap A to page through that message, stopping at a choice. |
+| `TMC_ROOMCAP_SWITCH_ASPECT` | port/port_repro_roomcap.c | **(harness)** Switch to a persisted aspect mode shortly before capture, after any requested message opens. |
 | `TMC_ROOMCAP_FILESELECT` | port/port_repro_roomcap.c | **(harness)** Capture the file-select screen instead of a room. |
 | `TMC_ROOMCAP_FSEL_SERIES` | port/port_repro_roomcap.c | **(harness)** Dump file-select OAM every 4 frames, 12 samples. |
 | `TMC_ROOMCAP_FSEL_ANIMTRACE` | port/port_repro_roomcap.c | **(harness)** Count file-select animation calls over a few frames. |

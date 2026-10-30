@@ -765,11 +765,18 @@ static bool Port_PacingForceLegacy(void) {
          * exact tick numbers (and perfcap measures raster throughput), so
          * they need the one-rasterization-per-tick coupling. Pin them to the
          * legacy loop so their outputs stay comparable across versions.
-         * TMC_LEGACY_PACING is the manual escape hatch. */
-        f = (getenv("TMC_CAPTURE_FRAME") || getenv("TMC_PERFCAP") || getenv("TMC_ROOMCAP") ||
-             getenv("TMC_LEGACY_PACING"))
-                ? 1
-                : 0;
+         * TMC_LEGACY_PACING is the manual escape hatch. A device profiler may
+         * explicitly ask the harness to keep normal tick/render decoupling so
+         * game-tick and present costs are measured separately. */
+        const char* decoupled = getenv("TMC_PROFILE_DECOUPLED");
+        if (decoupled && *decoupled && decoupled[0] != '0') {
+            f = 0;
+        } else {
+            f = (getenv("TMC_CAPTURE_FRAME") || getenv("TMC_PERFCAP") || getenv("TMC_ROOMCAP") ||
+                 getenv("TMC_LEGACY_PACING"))
+                    ? 1
+                    : 0;
+        }
     }
     return f != 0;
 }

@@ -9,7 +9,11 @@ health value, unlock mask or quest flag. A new variant belongs in this gate
 when it exercises an unverified installation, source lifetime, foreground layout
 or functional/error return path. Exhaustive products remain acceptance work.
 
-There are **2 unchecked implementation-list items** as of this revision:
+There are **0 unchecked implementation-list items** as of this revision. The
+EU live-gameplay and retained functional/fade/PNG matrix is recorded in
+[the EU acceptance record](eu-acceptance-2026-10-30.md); host and physical RG
+performance are recorded in
+[the 2026-10-30 probe](rg-performance-and-memory-2026-10-30.md).
 
 | Section | Unchecked items |
 | --- | ---: |
@@ -20,8 +24,8 @@ There are **2 unchecked implementation-list items** as of this revision:
 | Margin composition | 0 |
 | Artwork loading | 0 |
 | Export synchronization | 0 |
-| Acceptance/budgets | 2 |
-| **Total** | **2** |
+| Acceptance/budgets | 0 |
+| **Total** | **0** |
 
 The completed catalog item contains seven resolved groups. C1–C6 have native
 lifecycle/source evidence; C7 records the revised regional policy rather than
@@ -69,7 +73,7 @@ test evidence. These are a breakdown of one parent item, not additional tasks.
   Their visual, effect and interaction behavior is unverified; this is not
   regional acceptance or evidence of equivalence.
 
-EU effect acceptance, profile enablement, packaging, GPU acceptance and physical RG measurements have
-their own unchecked parent tasks. They do not generate further context-audit
-subtasks by implication. The first parent task is complete under the revised EU-tested scope; USA/JP
-remain explicitly untested and are not an acceptance gate.
+EU effect acceptance, packaging, GPU presentation and physical RG measurements
+are now recorded in the EU acceptance and performance records. Enabling 4:3 or
+32:9 remains a separate product/scene gate rather than an unchecked item in this
+list. USA/JP remain explicitly untested and are not an acceptance gate.

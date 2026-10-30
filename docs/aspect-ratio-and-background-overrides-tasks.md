@@ -36,9 +36,14 @@ verifying each step before marking its corresponding checklist item complete:
    foreground. The implementation and ROM-free renderer evidence are recorded
    in section 4; production tall profiles stay behind their own gates.
 6. **Acceptance and release.** Run the fast-travel and full EU visual matrices,
-   renderer and profile-switch checks, RG performance/memory/thread measurements,
-   and packaging checks where packaging changed. Unsupported profiles remain
-   disabled until their independent scene, sprite, layout and effect gates pass.
+   renderer and profile-switch checks, physical RG performance/memory/thread
+   measurements, and packaging checks where packaging changed. The host-proxy,
+   Anbernic RG DS Plus, EU live-gameplay and retained functional/fade/PNG
+   matrices are recorded in
+   [the performance probe](rg-performance-and-memory-2026-10-30.md) and
+   [the EU acceptance record](eu-acceptance-2026-10-30.md). All supported-profile
+   acceptance checks are closed. Unsupported profiles remain disabled until
+   their independent scene, sprite, layout and effect gates pass.
 
 Steps may be subdivided into reviewable changes, but a substep must not be
 marked as completing a broader checklist item unless all of that item's stated
@@ -56,7 +61,7 @@ Historical verification sections retain their original 23- or 32-name
 results; those results do not certify the revised catalog or title-frame fix.
 
 The current remaining-work count and finite context-audit closure groups are in
-[the closure checklist](background-context-closure-checklist.md): 2 unchecked
+[the closure checklist](background-context-closure-checklist.md): 0 unchecked
 parent items across this list. Historical verification notes below are not
 additional automatically reopened tasks.
 
@@ -661,11 +666,65 @@ or tile alignment. Native-content centering continues to use floor offsets.
   `.tmp/fast-travel-presenters-2026-10-30/`. SDL_GPU used software Vulkan
   (lavapipe), not physical-device acceptance; 4:3/32:9 remain runtime-
   unsupported and have ROM-free geometry coverage only, not presenter captures.
-- [ ] Complete the design's EU functional-screen, world, HUD/dialogue,
+- [x] Complete the design's EU functional-screen, world, HUD/dialogue,
   renderer, intermediate-fade, PNG failure and profile-switch coverage; review
   USA/JP source differences on a best-effort basis without regional ROM testing.
-- [ ] Measure RG performance, memory/cache limits and 1/2/4-thread behavior;
-  record unsupported optional-path fallbacks and untested regional behavior explicitly.
+  The retained functional-screen, travel, prologue/credits, file, Game Over,
+  hint, dungeon, detail-map, fusion, figurine, sleep, save/inventory, ending and
+  file-write audits remain the evidence for those families.
+  The new EU live-gameplay matrix adds 34 captures at native 960 × 640,
+  16:9 1140 × 640 and 21:9 1496 × 640: clean world, HUD, top dialogue and bottom
+  dialogue on software SDL_Renderer and SDL_GPU, plus native→16:9 and
+  16:9→21:9 switches while dialogue is open. Software/GPU base framebuffers are
+  byte-identical, center-sampled native frames match, HUD corners and both
+  dialogue bands are present, and a conspicuous magenta fixed-art probe never
+  appears in gameplay. SDL_Renderer/SDL_GPU differ slightly at 4× block edges
+  for non-240-wide source frames; the native frame and block centers are exact,
+  and native presentation is byte-identical.
+  PNG/profile/cache, composition, effect, frame, adapter and policy regressions
+  pass; fast-travel and title-cap presenter checks pass; the background
+  perimeter replay still matches 241 native crops. Supported profiles are
+  covered; 4:3/32:9 remain runtime-disabled and are not claimed.
+  USA/JP source review confirms shared semantic catalog/filename contracts,
+  region-keyed asset caches, no flat-USA fallback outside USA, and JP
+  ROM-resolved sprite/animation data; no USA/JP ROM capture was run.
+  Evidence: `.tmp/eu-gameplay-2026-10-30/matrix-final/`,
+  [the EU acceptance record](eu-acceptance-2026-10-30.md), and the retained
+  paths named above.
+- [x] Measure host-proxy PPU performance, memory/cache limits and 1/2/4-thread
+  behavior; record unsupported optional-path fallbacks and untested regional
+  behavior explicitly. The production software rasterizer was replayed from an
+  EU room PPU snapshot with 1,000 frames × three repeats per worker count.
+  Native-capacity AVX2 medians were 0.620/0.320/0.167 ms at 1/2/4 workers
+  (1.94× and 3.71× speedups); the capacity-569 no-AVX2 release-like build was
+  0.578/0.308/0.157 ms (1.88× and 3.67×). Every run produced the same
+  framebuffer checksum. The two-slot background cache remains 0.84 MiB within
+  the 8/16 MiB budgets, the frame arrays remain 1.84 MiB each, and the optional
+  capacity-569 pools remain 41.675 MiB of demand-paged virtual/static storage.
+  Host room-capture RSS was 85,796 KiB including ROM/assets/SDL. Evidence and
+  reproduction are in `.tmp/rg-performance-2026-10-30/`,
+  `tools/rg_performance_probe.py` and
+  [the probe record](rg-performance-and-memory-2026-10-30.md). This is a host
+  proxy only; no physical RG, GPU-driver, thermal or USA/JP measurement is
+  implied.
+- [x] Measure physical RG device performance, memory/PSS and 1/2/4-worker behavior;
+  confirm the thread cap and optional-path fallbacks on hardware. Acceptance is a
+  stable native 60 fps (59.7275 Hz), not maximum performance, with reasonable
+  headroom for future map/inventory-only second-screen rendering. Gameplay stays
+  single-screen; targeted optimization waits until dual-screen work begins.
+  The Anbernic RG DS Plus (4 × Cortex-A55, 975 MiB) ran the EU field room with
+  normal tick/render decoupling: median game/present/render work at 1/2/4
+  workers was 0.47/8.63/6.36, 0.53/6.35/3.88 and 0.60/5.41/2.56 ms. Four
+  workers left ~10.6 ms of the 16.67 ms budget. A 40-window run stayed at
+  2.0 s per 120 frames with PSS flat at ~99.5 MiB, 122 MiB RSS/HWM and 44 °C
+  max reported thermal zone. SDL_GPU is unavailable, so the configured GPU
+  raster falls back to SDL_Renderer `opengles2`; the `4:3` preference remains
+  effective-native (240 × 160). Evidence and reproduction are in
+  `.tmp/rg-physical-2026-10-30/`,
+  [the probe record](rg-performance-and-memory-2026-10-30.md) and
+  `TMC_PROFILE_DECOUPLED` in `docs/env-vars.md`. Heavier rooms, optional
+  upscale/filter paths and USA/JP remain unmeasured; no dual-screen
+  implementation result is implied.
 - [x] Run full staging/RG packaging checks when runtime asset packaging changes.
   The EU `build.py --eur` and `scripts/build-rgdsplus.sh` builds completed with
   an ARM64 cross-toolchain. Both preserve a staged custom-artwork fixture; the

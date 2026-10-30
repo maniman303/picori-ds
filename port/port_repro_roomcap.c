@@ -823,6 +823,26 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         }
     }
 
+    /* TMC_ROOMCAP_SWITCH_ASPECT=<mode>: change the live profile shortly before
+     * the capture, after a requested message has opened. Exercises the
+     * simulation/render boundary and HUD/dialogue re-anchoring without a
+     * restart. Modes are the persisted PortAspectMode values (0 native,
+     * 1 16:9, 2 21:9, 3 32:9, 4 4:3). */
+    {
+        static int switch_mode = -2;
+        static int switched = 0;
+        if (switch_mode == -2) {
+            const char* s = getenv("TMC_ROOMCAP_SWITCH_ASPECT");
+            switch_mode = (s && *s) ? atoi(s) : -1;
+        }
+        if (!switched && switch_mode >= 0 && warp_done && cap_frame &&
+            (int)frame >= cap_frame - settle / 3) {
+            Port_Config_SetAspectMode((PortAspectMode)switch_mode);
+            switched = 1;
+            fprintf(stderr, "[roomcap] frame %u: switched aspect -> %d\n", frame, switch_mode);
+        }
+    }
+
     /* TMC_ROOMCAP_CLEAN: the room alone, to build a room's picture from -- the
      * game's own HUD hide flags (HUD_HIDE_ALL) and Link not drawn, held
      * every frame from the warp to the capture. */

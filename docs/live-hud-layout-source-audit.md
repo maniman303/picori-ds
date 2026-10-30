@@ -17,6 +17,13 @@ stride, so an index is `(row * 32 + column)`.
 | Heart OBJ | `HeartUIElement` derives its position from health, with a second-row adjustment above ten hearts. | Top left, unchanged; health-dependent positioning and message/hide behavior are retained. |
 | Ezlo nag OBJ | Starts at (16,144) and changes type during its animation. | Bottom left; the OAM draw adds `(0, canvasH-160)` for both nag element types without mutating animation coordinates. |
 
+The top-right rule preserves the native edge distance rather than a constant
+display-pixel gap. At 16:9 (285 px) the A/B/R cluster is shifted by +45 px, so
+the R sprite's right edge remains 12 native px from the canvas edge, exactly as
+in the 240 px game. The visual gap grows with presentation scale; it is not an
+under-shifted anchor. EU field captures verified native 240 × 160, 16:9 and
+4:3-effective-native placements in `.tmp/button-anchor-2026-10-30/`.
+
 These footprints identify the normal HUD writers, not exclusive ownership of
 the cells. Messages and other UI can overwrite BG0; position alone cannot
 identify the active semantic owner. In particular, the existing mode-1 wide
