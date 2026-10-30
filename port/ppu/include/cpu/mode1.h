@@ -200,6 +200,10 @@ int virtuappu_mode1_frame_pitch(void);
  * byte-identical to legacy rendering. The rectangle must fit the frame. */
 void virtuappu_mode1_set_world_rect(int x, int y, int width, int height);
 void virtuappu_mode1_clear_world_rect(void);
+/* One byte per rendered pixel (width returned in *width): 1 for visible
+ * canvas-anchored UI (BG0 or a canvas-tagged OBJ) outside the world aperture.
+ * The host margin fade uses it to leave HUD/dialogue untouched. */
+const uint8_t* virtuappu_mode1_frame_ui_mask(int* width);
 uint16_t virtuappu_mode1_io_read16(uint16_t offset);
 /* IO used by the most recent CPU frame, clamped to native scanlines. The
  * pointer stays valid until the next render or memory rebind. */

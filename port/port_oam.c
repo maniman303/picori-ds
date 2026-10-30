@@ -18,6 +18,10 @@ void Port_Oam_SetCanvasContext(bool canvas) {
     sCanvasContext = canvas;
 }
 
+bool Port_Oam_CanvasContext(void) {
+    return sCanvasContext;
+}
+
 void Port_Oam_RecordMenuHeading(int x, int y, unsigned sprite) {
     memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX || sprite > UINT16_MAX)

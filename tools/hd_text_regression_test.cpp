@@ -21,6 +21,14 @@ int main() {
     x = 16; y = 104;
     assert(ResolveCanvasOrigin(256, 192, true, 0, 0, 0, 0, 0, 0, 208, 32, x, y));
     assert(x == 24 && y == 120);
+    /* Synthetic proper-16:9 extent: live message shift and fixed centering
+     * both follow the published canvas. */
+    x = 16; y = 104;
+    assert(ResolveCanvasOrigin(288, 162, false, 24, 1, 0, 240, 96, 160, 208, 32, x, y));
+    assert(x == 40 && y == 105);
+    x = 16; y = 104;
+    assert(ResolveCanvasOrigin(288, 162, true, 0, 0, 0, 0, 0, 0, 208, 32, x, y));
+    assert(x == 40 && y == 105);
     x = 16; y = 104;
     assert(!ResolveCanvasOrigin(285, 160, false, 22, 0, 8, 200, 96, 144, 208, 32, x, y));
     assert(!ResolveCanvasOrigin(285, 160, false, 46, 0, 8, 232, 96, 144, 208, 32, x, y));

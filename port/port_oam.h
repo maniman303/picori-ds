@@ -15,6 +15,7 @@ void Port_Oam_Record(unsigned slot, uint16_t attr0, uint16_t attr1, int x, int y
  * aperture. Tag every OAM piece emitted inside this scope so a tall canvas
  * composition leaves it at its absolute position. */
 void Port_Oam_SetCanvasContext(bool canvas);
+bool Port_Oam_CanvasContext(void);
 void Port_Oam_Latch(unsigned count);
 void Port_Oam_Invalidate(void);
 /* Raw hardware writes cannot retain stale signed coordinates, even when the

@@ -15,6 +15,7 @@
 #include "port_title_cap.h"
 #include "port_background_runtime.h"
 #include "port_background_compose.h"
+#include "port_edge_fade.h"
 
 #ifdef launcher
 #include "tmc_launcher.h"
@@ -144,9 +145,14 @@ static PresentMode sPresentMode = PresentMode::NearestRaw;
 static PortFilterType sFilter = PORT_FILTER_NONE;
 /* xBRZ scratch is also a fixed pool. These buffers are hot during
  * filter/upscale frames, so 64-byte alignment keeps row starts friendly
- * to cache-line prefetch and SIMD memcpy implementations. */
-static constexpr size_t kMaxXbrz2xPixels = (size_t)MODE1_GBA_WIDTH * 2u * (size_t)MODE1_GBA_HEIGHT * 2u;
-static constexpr size_t kMaxXbrz4xPixels = (size_t)MODE1_GBA_WIDTH * 4u * (size_t)MODE1_GBA_HEIGHT * 4u;
+ * to cache-line prefetch and SIMD memcpy implementations. The capacity-area
+ * budget (width × native height) covers every v1 profile at 4×: 4:3 is
+ * 49,152 px and the 288x162 extent is 46,656 px, both below the 91,040 px
+ * width-569 budget. The 569x192 synthetic Cartesian case intentionally
+ * exceeds it and falls back rather than reserving an extra 8.3 MiB. */
+static constexpr size_t kMaxXbrzSourcePixels = (size_t)MODE1_GBA_WIDTH * (size_t)MODE1_GBA_HEIGHT;
+static constexpr size_t kMaxXbrz2xPixels = kMaxXbrzSourcePixels * 4u;
+static constexpr size_t kMaxXbrz4xPixels = kMaxXbrzSourcePixels * 16u;
 alignas(64) static uint32_t sUpscale2xBuf[kMaxXbrz2xPixels]; /* 2x intermediate */
 alignas(64) static uint32_t sUpscale4xBuf[kMaxXbrz4xPixels]; /* 4x final        */
 static size_t sUpscale2xPixels = 0;
@@ -167,13 +173,15 @@ extern "C" int Port_PPU_VisibleFrameWidth(void) {
         case PORT_COMPOSITION_NATIVE_FALLBACK:
             return 240;
         case PORT_COMPOSITION_LIVE_WORLD:
-            /* Tall canvases render one composition; wide canvases keep the
-             * map-backed direct frame and the existing native fallback. */
-            if (geometry->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT &&
-                (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE))
-                return geometry->canvas.width;
+            /* Classified native transitions/content keep their original
+             * aperture and presentation. Normal map-backed gameplay renders
+             * the published canvas so the margin fade lives inside the frame. */
+            if (geometry->scene.capabilities &
+                (PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT |
+                 PORT_SCENE_NATIVE_FALLBACK))
+                return geometry->world.width;
             return (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE)
-                       ? geometry->world.width
+                       ? geometry->canvas.width
                        : 240;
         case PORT_COMPOSITION_NATIVE:
         default:
@@ -1494,12 +1502,32 @@ static bool Port_PPU_GlesEnsure(void) {
     return true;
 }
 
+/* The shader/window/OAM pipeline implements 160 lines only. Tall canvases
+ * keep the CPU raster (the reference) while GPU presentation still displays
+ * the composed 256x192 / 288x162 frame. */
+static bool Port_PPU_GpuRasterHeightSupported(int height) {
+    return height == MODE1_GBA_HEIGHT;
+}
+
+/* Signed host OAM positions are required whenever world-space sprites can be
+ * offset (tall or margin canvases). Canvas-tagged HUD sprites then stay at
+ * their canvas position instead of picking up the world aperture offset. */
+static bool Port_PPU_UseSignedPositions(bool consoleParity, bool liveWorld,
+                                        int canvasWidth, int canvasHeight,
+                                        int worldWidth, int worldHeight) {
+    if (consoleParity)
+        return false;
+    const bool marginWorld = liveWorld &&
+        (worldWidth != canvasWidth || worldHeight != canvasHeight);
+    return canvasHeight > MODE1_GBA_HEIGHT || canvasWidth > 512 || marginWorld;
+}
+
 /* Rasterize the current frame on the GPU into virtuappu_frame_buffer. Returns
  * false so the caller runs the CPU rasterizer instead. */
 static bool Port_PPU_TryGpuRaster(void) {
     // Shader window/OAM semantics and IO buffers still implement 160 lines.
     // GPU presentation can display the taller software-rasterized canvas.
-    if (virtuappu_mode1_frame_height() != MODE1_GBA_HEIGHT)
+    if (!Port_PPU_GpuRasterHeightSupported(virtuappu_mode1_frame_height()))
         return false;
     if (virtuappu_mode1_has_obj_positions())
         return false; // signed port coordinates are not in the raster shaders yet
@@ -1669,14 +1697,19 @@ static bool Port_PPU_TryGpuRaster(void) {
 /* Publish the live-world aperture to the software PPU. Fixed screens compose
  * their native 240x160 frame separately, and a full-canvas aperture keeps the
  * direct (no-offset) path so existing profiles stay byte-identical. */
+static bool sWorldRectActive;
+
 static void Port_PPU_UpdateWorldRect(void) {
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     const bool live = Port_Viewport_Composition(geometry) == PORT_COMPOSITION_LIVE_WORLD &&
                       (geometry->scene.capabilities & PORT_SCENE_MAP_LIVE);
     const int fw = virtuappu_mode1_frame_width();
     const int fh = virtuappu_mode1_frame_height();
+    sWorldRectActive = false;
     if (!live || virtuappu_registers.mode != 1 ||
-        geometry->canvas.height <= PORT_VIEWPORT_NATIVE_HEIGHT ||
+        (geometry->scene.capabilities &
+         (PORT_SCENE_NATIVE_TRANSITION | PORT_SCENE_NATIVE_CONTENT |
+          PORT_SCENE_NATIVE_FALLBACK)) ||
         fh != geometry->canvas.height || fw != geometry->canvas.width ||
         geometry->world.width <= 0 || geometry->world.height <= 0 ||
         geometry->world.x < 0 || geometry->world.y < 0 ||
@@ -1689,6 +1722,7 @@ static void Port_PPU_UpdateWorldRect(void) {
     }
     virtuappu_mode1_set_world_rect(geometry->world.x, geometry->world.y,
                                    geometry->world.width, geometry->world.height);
+    sWorldRectActive = true;
 }
 
 extern "C" void Port_PPU_PresentFrame(void) {
@@ -1757,8 +1791,11 @@ extern "C" void Port_PPU_PresentFrame(void) {
     virtuappu_registers.frame_height = (uint16_t)virtuappu_mode1_frame_height();
     // Keep metadata during a native raster/room fallback too: a built sprite
     // at Y=180 must not wrap onto the top of a temporarily 160-line aperture.
-    const bool signedPositions = !Port_Config_GetConsoleParity() &&
-        (Port_Viewport_Get()->canvas.height > MODE1_GBA_HEIGHT || Port_Viewport_Get()->canvas.width > 512);
+    const PortViewportGeometry* presentation = Port_Viewport_Get();
+    const bool liveWorld = Port_Viewport_Composition(presentation) == PORT_COMPOSITION_LIVE_WORLD;
+    const bool signedPositions = Port_PPU_UseSignedPositions(
+        Port_Config_GetConsoleParity(), liveWorld, presentation->canvas.width,
+        presentation->canvas.height, presentation->world.width, presentation->world.height);
     virtuappu_mode1_bind_obj_positions(signedPositions ? Port_Oam_Positions() : nullptr);
     Port_PPU_UpdateWorldRect();
 
@@ -1796,6 +1833,18 @@ extern "C" void Port_PPU_PresentFrame(void) {
                 virtuappu_render_frame();
             }
         }
+    }
+
+    /* Live gameplay margins: fill the published canvas outside the world
+     * aperture with a short edge-color fade into black. The original world
+     * rectangle and canvas-anchored HUD/dialogue are untouched, fixed screens
+     * never take this path, and the post-pass is allocation-free. */
+    if (sWorldRectActive && !(gIoMem[0] & 0x80)) {
+        int mask_width = 0;
+        const uint8_t* mask = virtuappu_mode1_frame_ui_mask(&mask_width);
+        Port_EdgeFade_Apply(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                            virtuappu_mode1_frame_width(), virtuappu_mode1_frame_height(),
+                            Port_Viewport_Get()->world, mask, mask_width);
     }
 
     /* If TMC_PUBLISH_FRAMEBUFFER is on, re-render each main world BG

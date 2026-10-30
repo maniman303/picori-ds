@@ -260,13 +260,13 @@ int main(void) {
     CHECK(geometry->world.width == 256 && geometry->world.x == 59);
     CHECK(geometry->canvas.width == 374 && geometry->uiSafe.width == 374);
     CHECK(geometry->nativeContent.x == 67 && geometry->world.height == 160);
-    CHECK(Port_PPU_VisibleFrameWidth() == 256);
+    CHECK(Port_PPU_VisibleFrameWidth() == 374);
     uint32_t generation = geometry->generation;
     Port_Widescreen_PublishScene();
     CHECK(geometry->generation == generation);
     gRoomControls.width = 1024;
     gMain.task = 0;
-    CHECK(Port_PPU_VisibleFrameWidth() == 256);
+    CHECK(Port_PPU_VisibleFrameWidth() == 374);
     CHECK(Port_Widescreen_EffectiveViewWidth() == 256);
     CHECK(geometry->generation == generation);
     Port_Widescreen_PublishScene();

@@ -25,6 +25,7 @@
 #include "vram.h"
 
 #include "port_widescreen.h"
+#include "port_viewport.h"
 #include "port_rom.h"
 #include "port_voxel.h"
 #include "port_oam.h"
@@ -457,13 +458,19 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
         }
         const u8* se = sizeTab + sizeIdx;
 
-        /* Clipping */
+        /* Clipping. Canvas-anchored HUD/dialogue uses the full published
+         * canvas, not the room-capped world aperture, so right/bottom HUD
+         * button hints survive wide and tall margins. */
+        const bool canvas_oam = Port_Oam_CanvasContext();
+        const s32 viewW = canvas_oam ? Port_Viewport_Get()->canvas.width
+                                     : Port_Widescreen_EffectiveViewWidth();
+        const s32 viewH = canvas_oam ? Port_Viewport_Get()->canvas.height
+                                     : Port_Widescreen_EffectiveViewHeight();
         y -= (s32)se[1]; /* subtract y anchor */
-        if (y >= Port_Widescreen_EffectiveViewHeight()) {
+        if (y >= viewH) {
             continue;
         }
         x -= (s32)se[0]; /* subtract x anchor */
-        const s32 viewW = Port_Widescreen_EffectiveViewWidth();
         bool parked = false;
         if (voxelView) {
             /* The 3D view's tilted camera sees past the GBA screen's top and

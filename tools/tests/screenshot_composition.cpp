@@ -16,7 +16,7 @@ static int virtuappu_mode1_frame_pitch() { return pitch; }
 int main(int argc, char** argv) {
     assert(argc == 2);
     const int profiles[][4] = {{240,160,0,0}, {256,192,8,16}, {285,160,22,0},
-                               {374,160,67,0}, {569,160,164,0}};
+                               {374,160,67,0}, {569,160,164,0}, {288,162,24,1}};
     static uint8_t vram[0x18000], io[0x400];
     static uint16_t palette[256];
     const uint8_t frame[] = {2, 0xc0, 0xf0, 0x71, 0x40, 0x50, 0, 0xf0, 0x71, 0x60, 0x50};
@@ -32,8 +32,11 @@ int main(int argc, char** argv) {
                 virtuappu_frame_buffer[y * pitch + x] = 0xff490000u | (y << 8) | x;
         assert(Port_TitleCap_ExpandFrame(virtuappu_frame_buffer, w, h, pitch, nx, ny,
                                         nullptr, 0, 0xff070503));
-        assert(Port_TitleCap_Draw(virtuappu_frame_buffer, w, h, pitch, nx, ny, 64, 16,
-                                  frame, sizeof(frame), vram, sizeof(vram), palette, io, 5, nullptr));
+        /* The 288x162 synthetic extent has no cap pieces in the added margins;
+         * that profile checks expansion/screenshot geometry only. */
+        if (w != 288)
+            assert(Port_TitleCap_Draw(virtuappu_frame_buffer, w, h, pitch, nx, ny, 64, 16,
+                                      frame, sizeof(frame), vram, sizeof(vram), palette, io, 5, nullptr));
         sComposedWidth = w; sComposedHeight = h;
         assert(WriteScreenshotPNG(std::filesystem::path(argv[1]) / (std::to_string(w) + ".png")));
     }

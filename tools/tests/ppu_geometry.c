@@ -450,7 +450,9 @@ int main(void) {
     virtuappu_mode1_bind_gba_memory(&mem);
     // Exercise the full future width/height allocation envelope without
     // enabling any runtime profile. Smaller builds retain padded-pitch cases.
-    width = MODE1_GBA_WIDTH >= 569 ? 569 : MODE1_GBA_WIDTH >= 256 ? 256 : 240;
+    width = MODE1_GBA_WIDTH >= 569 ? 569 :
+            MODE1_GBA_WIDTH == 384 ? 256 :
+            MODE1_GBA_WIDTH == 288 ? 288 : MODE1_GBA_WIDTH;
     check_below_bg_edges();
     reset();
     PPUMemory p = geometry(0, 1);

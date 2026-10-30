@@ -102,6 +102,10 @@ const uint8_t* virtuappu_mode1_frame_io_for_line(int line) {
 }
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static int mode1_frame_height = MODE1_GBA_HEIGHT;
+/* Host-visible canvas/HUD mask for the live-world margin fade. One byte per
+ * rendered pixel, indexed with the current frame width. */
+static uint8_t mode1_ui_mask[MODE1_MAX_RENDER_HEIGHT * MODE1_GBA_WIDTH];
+static int mode1_ui_mask_width;
 /* Optional live-world aperture; disabled keeps every legacy path byte-exact. */
 static int mode1_world_x, mode1_world_y, mode1_world_w, mode1_world_h;
 static bool mode1_world_enabled;
@@ -216,6 +220,11 @@ void virtuappu_mode1_set_world_rect(int x, int y, int width, int height) {
 
 void virtuappu_mode1_clear_world_rect(void) {
     mode1_world_enabled = false;
+}
+
+const uint8_t* virtuappu_mode1_frame_ui_mask(int* width) {
+    if (width != NULL) *width = mode1_ui_mask_width;
+    return mode1_ui_mask;
 }
 
 static const uint8_t mode1_obj_widths[3][4] = { { 8, 16, 32, 64 }, { 16, 32, 32, 64 }, { 8, 8, 16, 32 } };
@@ -453,6 +462,9 @@ VPPU_TLS const uint8_t* virtuappu_mode1_io_thread_override = NULL;
  * each OpenMP render thread, which processes a whole scanline at a time, has
  * its own copy; render_obj_line clears it at the top of every line. */
 VPPU_TLS uint8_t virtuappu_mode1_obj_semitrans[MODE1_GBA_WIDTH];
+/* Per-line canvas tag for the OBJ pixel that won the priority test. Used by
+ * the host margin fade to keep HUD sprites out of the live-world border. */
+VPPU_TLS uint8_t virtuappu_mode1_obj_canvas[MODE1_GBA_WIDTH];
 
 /* Per-scanline OBJ-window mask (attr0 mode 2). A mode-2 OBJ is INVISIBLE on
  * GBA — it doesn't draw colour; its opaque pixels just carve the OBJ window,
@@ -879,6 +891,7 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
     int i;
 
     memset(virtuappu_mode1_obj_semitrans, 0, (size_t)mode1_frame_width);
+    memset(virtuappu_mode1_obj_canvas, 0, (size_t)mode1_frame_width);
     memset(virtuappu_mode1_obj_window, 0, (size_t)mode1_frame_width);
 
     for (i = MODE1_GBA_OAM_COUNT - 1; i >= 0; --i) {
@@ -1123,6 +1136,7 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
             line_buffer[screen_x] = mode1_obj_abgr_lut[pal_idx];
             priority_buffer[screen_x] = priority;
             virtuappu_mode1_obj_semitrans[screen_x] = (mode1_oam_mode(attr) == 1u) ? 1u : 0u;
+            virtuappu_mode1_obj_canvas[screen_x] = canvas_position ? 1u : 0u;
         }
     }
 }
@@ -1370,7 +1384,12 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
         }
 
         /* Transparent BGs reveal OBJ/backdrop in every column. Scene bounds
-         * are enforced by the port's frame width, not by pixel opacity. */
+         * are enforced by the port's frame width, not by pixel opacity.
+         * The UI mask covers BG0/canvas OBJ everywhere, so the margin fade
+         * never samples a HUD pixel as the world-edge source. */
+        if (mode1_world_enabled && found_top &&
+            (top_layer == 0 || (top_layer == 4 && virtuappu_mode1_obj_canvas[x])))
+            mode1_ui_mask[(size_t)line * (size_t)frame_width + (size_t)x] = 1;
         out_row[x] = top_color;
     }
 }
@@ -1766,6 +1785,8 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
     const int frame_width = mode1_frame_width;
     const int frame_height = mode1_frame_height;
     const int raster_rows = frame_height > MODE1_GBA_HEIGHT ? frame_height : MODE1_GBA_HEIGHT;
+    mode1_ui_mask_width = frame_width;
+    memset(mode1_ui_mask, 0, (size_t)frame_height * (size_t)frame_width);
 
     mode1_frame_has_io_snapshots = false;
     dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);

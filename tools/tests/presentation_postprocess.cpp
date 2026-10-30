@@ -67,5 +67,16 @@ int main() {
     compose(256, 192, 8, 16, 16);
     Port_PPU_ApplyDisplayPostProcess(pitch * 192);
     assert(virtuappu_frame_buffer[0] == 0xffefefef);
+    /* Synthetic proper-16:9 extent (288x162, native at (24,1)) goes through
+     * the same colour-correction/persistence path; a dimension change drops
+     * the previous 4:3 history. */
+    Port_PPU_SetPersistence(true, 0.5f);
+    compose(288, 162, 24, 1, 16);
+    Port_PPU_ApplyDisplayPostProcess(pitch * 162);
+    assert(virtuappu_frame_buffer[0] == 0xffefefef);
+    assert(virtuappu_frame_buffer[1 * pitch + 24] == 0xffdfdfdf);
+    Port_PPU_SelectPresentFrame(&w, &h, &bytes);
+    assert(w == 288 && h == 162 && bytes == pitch * 4);
+    Port_PPU_SetPersistence(false, 0.5f);
     std::puts("Composed margin post-processing and presentation frame: PASS");
 }

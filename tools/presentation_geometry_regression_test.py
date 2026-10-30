@@ -16,7 +16,7 @@ def main():
     # Keep the actual production capacities/storage, not test-sized substitutes.
     definitions = source[source.index('static constexpr int kMaxInternalScale'):
                          source.index('/* GPU supersample present:')]
-    definitions += source[source.index('static constexpr size_t kMaxXbrz2xPixels'):
+    definitions += source[source.index('static constexpr size_t kMaxXbrzSourcePixels'):
                           source.index('/* Width VirtuaPPU')]
     bodies = [function(source, signature) for signature in (
         'static void Port_PPU_FitAspectRect(',
@@ -24,6 +24,8 @@ def main():
         'static bool Port_PPU_EnsureXbrzBuffers(',
         'static void Port_PPU_ReplicateNearest(',
         'static uint32_t* Port_PPU_BuildScaledFrame(',
+        'static bool Port_PPU_GpuRasterHeightSupported(',
+        'static bool Port_PPU_UseSignedPositions(',
     )]
     bodies.append(function((ROOT / 'port/port_voxel.cpp').read_text(), 'bool ScreenGeometrySupported(void)'))
     bodies.append(function((ROOT / 'port/port_gpu_renderer.cpp').read_text(),

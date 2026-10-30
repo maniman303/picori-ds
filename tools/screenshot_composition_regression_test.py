@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='tmc-screenshot-composition-') as direct
     env.setdefault('ASAN_OPTIONS', 'detect_leaks=0')
     subprocess.run([str(binary), directory], env=env, check=True)
     profiles = [(240, 160, 0, 0), (256, 192, 8, 16), (285, 160, 22, 0),
-                (374, 160, 67, 0), (569, 160, 164, 0)]
+                (374, 160, 67, 0), (569, 160, 164, 0), (288, 162, 24, 1)]
     for width, height, nx, ny in profiles:
         data = (tmp / f'{width}.png').read_bytes()
         assert data[:8] == b'\x89PNG\r\n\x1a\n'
@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='tmc-screenshot-composition-') as direct
             for x in range(width):
                 if nx <= x < nx + 240 and ny <= y < ny + 160:
                     expected = ((x - nx) & 255, (y - ny) & 255, 73)
-                elif width > 240 and nx - 8 <= x < nx and ny <= y < ny + 32:
+                elif width != 288 and width > 240 and nx - 8 <= x < nx and ny <= y < ny + 32:
                     expected = (248, 0, 0)
                 else:
                     expected = (3, 5, 7)

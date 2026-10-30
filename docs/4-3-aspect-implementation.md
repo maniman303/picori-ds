@@ -1,8 +1,8 @@
 # Plan: finish proper 4:3 (256 × 192)
 
-Status: WP1–WP6 implemented; WP9 specified with the first Minish Path strip
-seeded; release profile still gated by multi-group streaming and WP7/WP8
-acceptance
+Status: WP1–WP7 implemented; live-gameplay margin fade implemented; WP8
+acceptance/performance and the multi-group Minish Village residency design
+remain; release profile still gated by those items
 Scope owner: code/geometry/streaming/validation/composition/tests  
 Artwork: the user supplies 4:3 artwork. This plan does not create, edit or
 export PNGs.
@@ -104,15 +104,24 @@ Already implemented and tested:
 - Tall HUD/dialogue layout, HD-text Y remapping, software and GPU shader remap.
 - Runtime background catalog/cache/context adapter for `43`; missing art
   already fails closed to black.
+- Live-gameplay margin fade: every map-backed live-world composition paints
+  its published canvas, and `port/port_edge_fade.c` fills the area outside the
+  world aperture with a five-pixel edge-color fade into black. Original world
+  pixels and canvas-anchored HUD/dialogue are preserved; a black source border
+  simply fades black to black.
+- Presentation coverage for tall canvases: the existing width-569 xBRZ pools
+  cover 4:3 and 288 × 162, the CPU reference handles 162/192 rows, and the GPU
+  presenter accepts the composed tall frame. The over-budget 569 × 192
+  synthetic Cartesian case still falls back as audited.
 - ROM-free tests for staging, geometry, camera, OAM, HUD/dialogue, presentation,
-  context/effect composition and memory budgets.
+  context/effect composition, memory budgets and the margin fade.
 
 Still deliberately disabled:
 
 - `Port_Viewport_AspectSupported()` rejects tall profiles outside the
   `PORT_VIEWPORT_TEST_TALL` test build or a build that sets
-  `PORT_VIEWPORT_RELEASE_TALL=1`. The production value remains `0` until
-  WP3–WP5 pass.
+  `PORT_VIEWPORT_RELEASE_TALL=1`. The production value remains `0` until the
+  multi-group Minish Village residency design and WP8 acceptance pass.
 - Tall world admission still fails closed for the explicitly denied manager
   families, multi-group Minish Village views, unclassified shake/transitions
   and untagged OAM. Normal manager-backed rooms on the allow-list now render
@@ -121,9 +130,14 @@ Still deliberately disabled:
   aperture; only a verified constant-brightness HDMA may extend into the tall
   canvas. Rolling/special transitions and the explicitly denied effect
   managers remain native.
-- GPU raster supports only 160 rows (CPU fallback exists; tall canvases use the
-  CPU raster, wide 160-row canvases keep the GPU path).
+- GPU raster supports only 160 rows; tall canvases use the CPU reference and
+  reach the swapchain through the normal GPU presenter. Wide 160-row canvases
+  keep the GPU path.
 - 4:3 artwork is incomplete by design; black fallback is the contract.
+- The margin fade is limited to map-backed live gameplay. Fixed screens,
+  classified native transitions/fallbacks and non-map overlays keep their
+  existing composition. The fade replaces the old coloured/procedural margin
+  fill with black beyond the five-pixel band.
 
 Implemented (WP1 + WP2):
 
@@ -294,68 +308,54 @@ This is code support only; artwork creation is excluded.
    must not be described as validated without their real ROMs.
 5. Re-run all native/wide/PPU/background/title regressions.
 
-### WP9 — Environment background overrides (Minish path first)
+### WP9 — Live-gameplay margin fade
 
-Some environments are narrower than a tall/wide canvas (the vertical Minish
-Path is 240 px wide). Their normal world layers leave static side bars. Add a
-generic, context-keyed **world-space background strip** that fills those bars,
-sits behind the normal world layers, and scrolls with the camera. Minish Path
-is the first consumer; the same system must later serve other environments.
+Every map-backed live gameplay composition publishes a canvas that can be
+larger than the room's world aperture (side bars, and top/bottom bands when the
+room is shorter than the canvas). Instead of a hard black cutout, extend the
+map visually by five pixels on every side: repeat the nearest world-edge pixel
+color and darken it in five steps so the fifth pixel is black. The original
+world rectangle stays untouched, including any black border art it already has;
+black fades to black.
 
-1. **Asset contract.**
-   - Canonical source: `assets/override/32/world_<environment>_<area>_<room>.png`
-     at native 3:2 width (240 px) and the **full environment height** (the
-     Minish Path vertical strip is 240 × 800).
-   - The strip is world-space, not a fixed-screen image. It is not part of the
-     menu-family catalog and must never be selected for fixed screens, towns,
-     dungeons or unrelated rooms.
-   - Optional profile-specific replacements (for example `override/43` at
-     256 × 800) are preferred when present. Missing profile art falls back to
-     the canonical 3:2 strip; no strip means the current black/fill side bars.
-2. **Runtime catalog and cache.** Key by environment/area/room plus profile;
-   bounded memory, load at room entry, no per-frame file I/O or allocation.
-   Missing/corrupt files fail closed to no override (never alias another
-   environment or profile).
-3. **Rendering.** Draw the strip as a bottom-most world backdrop before BG
-   layers. Sample the full published canvas width (nearest-neighbour horizontal
-   stretch for the prototype; optional profile-specific pixel-perfect art
-   later) and the world-aperture rows using the camera's world Y. It must scroll
-   1:1 with the camera, clamp at the room ends, and remain behind the actual
-   Minish Path BG1/BG2/BG3 layers. CPU software PPU is the reference; GPU
-   presentation may fall back until parity lands.
-4. **First artifact.** Extract EU room `0x11/0x00` (vertical Minish Path,
-   240 × 800) into
-   `assets/override/32/world_minish_path_0x11_0x00.png` as a 240 × 800 strip.
-   Record the extraction command/source (clean room captures stitched at
-   camera-scroll positions; the actual path/foreground still renders on top).
+1. **Geometry.** The fade band is `PORT_EDGE_FADE_PIXELS` (5) pixels outside the
+   published world rectangle. Straight edges use exact five-pixel steps; corners
+   use rounded Euclidean distance so the fade outline curves instead of forming
+   a square.
+2. **Composition.** The area outside the world is black. The PPU publishes a
+   per-pixel UI mask for BG0 and canvas-tagged OBJ; the fade skips those pixels
+   and, where UI covers the world edge, uses the nearest visible map pixel
+   instead of the UI colour or black. UI stays completely separate from the
+   world fade. Fixed screens and classified native
+   transitions/fallbacks never receive the fade.
+3. **Presentation.** Normal map-backed live gameplay renders at the published
+   canvas width (including wide profiles), so the fade is inside the frame and
+   follows the same presentation/screenshot path. Margin canvases bind signed
+   host OAM positions, and canvas-tagged OAM is culled against the full canvas,
+   so HUD sprites and right-edge button hints keep their canvas coordinates.
+4. **Implementation.** `port/port_edge_fade.c/.h` is a pure, allocation-free
+   post-pass over the composed frame, called once after the software/GPU raster
+   and before display post-processing. It is a no-op when the world already
+   fills the canvas.
 5. **Tests and captures.**
-   - Catalog: 32/43 lookup, missing/corrupt fail-closed, no cross-profile or
-     cross-room alias.
-   - Geometry: top/middle/bottom camera scroll mapping, clamp rows, full-width
-     sampling at 256 × 192 and synthetic 288 × 162, 3:2/native unchanged.
-   - Render: strip visible only in the Minish Path context, behind world layers,
-     no duplicate foreground over the actual path, no static artwork in other
-     gameplay.
-   - EU contact sheet over the whole path with the strip filling the side bars.
-6. **Future.** Add axis/scroll metadata for horizontal environments, optional
-   parallax/scroll multipliers, and profile-specific strip artwork. Keep the
-   3:2 source canonical so `288 × 162` and later profiles can be added without
-   a second implementation.
+   - ROM-free: side bands, top/bottom bands, corners, exact five-step factors,
+     black-border preservation, HUD preservation, full-canvas no-op and
+     invalid-input guards.
+   - EU captures at 4:3 and 16:9 for a narrow room and a full-canvas field.
+   - Native/wide/PPU/background regressions must keep their original world
+     pixels; only the newly published margin pixels change.
 
 ## Artwork boundary
 
 The user owns:
 
 - creating `assets/override/43` artwork for all contexts/families/health states;
-- world/environment strips such as
-  `assets/override/32/world_minish_path_0x11_0x00.png` and later
-  profile-specific replacements;
 - contact sheets and artist-facing exports;
 - deciding which fixed screens or environments receive custom artwork.
 
 The code must only guarantee the `43` fixed-screen contract, the
 context/effect-aware margin composition, black fallback, no cross-profile/family
-aliasing, and the WP9 world-strip lookup/scroll contract.
+aliasing, and the live-gameplay margin fade.
 
 ## WP3/WP4 capability audit
 
@@ -477,18 +477,52 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
   margins from the procedural palette field, so its absent-art run is visually
   identical; the missing-`43` black-margin and no-alias contract is proven by
   the ROM-free 4:3 cache test.
-- **WP9 seed extracted.** A generic environment background strip will fill
-  narrow world margins behind the normal layers and scroll 1:1 with the camera.
-  The first canonical artifact is present at
-  `assets/override/32/world_minish_path_0x11_0x00.png` (240 × 800), stitched
-  from clean EU Minish Path captures at camera scroll 0..608. A 256-wide
-  stretched preview is in
-  `screenshots/2026-10-30-eu-minish-path-strip/strip-preview-256x800.png`.
-  Profile variants such as `43` are optional. Runtime catalog/renderer work
-  remains. See WP9.
-- **Remaining.** Implement WP9, a residency design for multi-group Minish
-  Village views if they must become tall, then flip the release capability and
-  run WP7/WP8 acceptance.
+- **Live-gameplay margin fade implemented.** Map-backed live gameplay now
+  renders the published canvas width, including wide profiles, and
+  `port/port_edge_fade.c/.h` fills the outside-world area once per frame after
+  the CPU/GPU raster. The original world rectangle is untouched. A five-pixel
+  rounded-Euclidean band samples the nearest edge pixel and darkens it in five
+  steps to black; corners curve rather than forming a square. The PPU publishes
+  a per-pixel UI mask (BG0 and canvas-tagged OBJ) so HUD/dialogue pixels are
+  never faded; if UI covers the world edge, the fade uses the nearest visible
+  map pixel rather than the UI colour or black. Margin canvases bind signed host OAM positions, and canvas-tagged
+  OAM is culled against the full canvas rather than the room aperture, so
+  right/bottom button hints (A/B/R) stay visible. A pre-existing black border
+  simply fades black-to-black. Fixed screens and classified native
+  transitions/fallbacks keep their previous composition and aperture. The
+  post-pass is pure, allocation-free and a no-op when the world already fills
+  the canvas. Tests:
+  `tools/edge_fade_regression_test.py` covers side/top/bottom bands, corners,
+  exact factors, black-border preservation, UI-mask preservation including
+  adjacent-map edge-source replacement, full-canvas no-op and invalid inputs; `presentation_geometry_regression_test.py` covers
+  the signed-OAM margin decision; the wide/tall engine suites cover the new
+  published frame width. EU captures are under
+  `screenshots/2026-10-30-eu-edge-fade/`: true 4:3 768 × 576 Minish Path and
+  narrow Palace of Winds captures, a 16:9 855 × 480 narrow-room capture, and a
+  full-canvas field with no fade.
+- **WP7 implemented.** The audited width-569 xBRZ pools already cover the
+  full v1 profile set at 4× (4:3 is 49,152 px, the 288 × 162 extent is
+  46,656 px, budget is 91,040 px); the 569 × 192 synthetic Cartesian case is
+  intentionally over budget and still falls back. `Port_PPU_GpuRasterHeightSupported()`
+  documents and locks the native-only GPU raster decision: tall frames use the
+  CPU reference and the normal GPU/Renderer presenter. Presentation geometry,
+  nearest/internal-scale, xBRZ, CPU filters, colour correction, persistence,
+  screenshots, the shared composed-frame accessor and the 288 × 162 extent are
+  covered by `presentation_geometry_regression_test.py`,
+  `presentation_postprocess_regression_test.py` and
+  `screenshot_composition_regression_test.py`. Voxel and custom `.glslp`
+  presets remain legacy-160-only and fall back by the existing
+  `ScreenGeometrySupported`/`Port_GPU_PresetGeometrySupported` gates. HD
+  dialogue geometry is checked at 4:3 and the synthetic 288 × 162 extent. EU
+  4:3 software captures at 768 × 576 verify nearest and xBRZ presentation, and
+  an SDL_GPU/Vulkan presentation capture of the same frame is byte-identical to
+  the software presenter. GPU device/performance acceptance remains WP8.
+- **WP2 follow-up.** `Port_Viewport_ResolveWorldRect()` now requires
+  `TALL_ROWS_READY` in the tall gate, matching the published validator
+  contract and the existing `screen_background_regression_test.py` expectation.
+- **Remaining.** Add a residency design for multi-group Minish Village views if
+  they must become tall, then flip the release capability and run WP8
+  acceptance/performance.
 
 ## Sequencing
 
@@ -498,8 +532,7 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 4. WP4 — entities/OAM (parallel with WP3 where possible).
 5. WP5 — effects/transitions.
 6. WP6 — fixed UI/art composition verification.
-7. WP9 — environment background overrides (Minish path first; can run alongside
-   WP7 once WP3 admits the path).
+7. WP9 — live-gameplay margin fade (all map-backed live canvases).
 8. WP7 — renderer/presentation.
 9. WP8 — acceptance/performance.
 
@@ -518,9 +551,8 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 - Software and GPU presentation are correct; optional paths fall back safely.
 - RG holds native 60 fps with documented headroom.
 - Missing 4:3 artwork is black only; artwork creation remains the user's work.
-- Narrow environments may use the WP9 world-space background strip; the
-  canonical 3:2 source is widened to the published canvas and scrolls with the
-  camera, never as fixed-screen artwork.
+- Live gameplay has no hard black cutout: a five-pixel edge fade samples the
+  original border and darkens to black, preserving black borders and HUD.
 
 ## Estimate
 

@@ -14,6 +14,7 @@
 #include <vector>
 
 #define MODE1_GBA_HEIGHT 160
+#define MODE1_MAX_RENDER_HEIGHT 192
 static PortViewportGeometry geometry = {};
 static int rasterHeight = 160;
 static bool signedPositions = false;
@@ -56,7 +57,7 @@ static void check_nearest(int width, int height, int scale) {
 }
 
 static void check_xbrz_filters(int width, int height) {
-    const bool fits = (size_t)width * height <= (size_t)MODE1_GBA_WIDTH * 160;
+    const bool fits = (size_t)width * height <= kMaxXbrzSourcePixels;
     assert(Port_PPU_EnsureXbrzBuffers(width, height) == fits);
     if (!fits) {
         assert(sUpscale2xPixels == 0 && sUpscale4xPixels == 0);
@@ -145,8 +146,22 @@ static void check_rejection(void) {
 }
 
 static void check_optional_paths(void) {
-    for (int width : {240, 256, 285, 374, 512, 569}) {
-        for (int height : {160, 192}) {
+    /* GPU raster is the native-only fast path; tall canvases stay on the CPU
+     * reference and reach the swapchain through GPU presentation. */
+    assert(Port_PPU_GpuRasterHeightSupported(160));
+    assert(!Port_PPU_GpuRasterHeightSupported(162));
+    assert(!Port_PPU_GpuRasterHeightSupported(192));
+    /* Margin canvases need signed host OAM so canvas-tagged HUD sprites do not
+     * inherit the world aperture offset (the 16:9 heart-gap regression). */
+    assert(!Port_PPU_UseSignedPositions(false, false, 240, 160, 240, 160));
+    assert(Port_PPU_UseSignedPositions(false, true, 285, 160, 240, 160));
+    assert(Port_PPU_UseSignedPositions(false, true, 374, 160, 240, 160));
+    assert(Port_PPU_UseSignedPositions(false, true, 256, 192, 240, 192));
+    assert(Port_PPU_UseSignedPositions(false, true, 569, 160, 480, 160));
+    assert(!Port_PPU_UseSignedPositions(false, true, 240, 160, 240, 160));
+    assert(!Port_PPU_UseSignedPositions(true, true, 285, 160, 240, 160));
+    for (int width : {240, 256, 285, 288, 374, 512, 569}) {
+        for (int height : {160, 162, 192}) {
             geometry.canvas.width = width;
             geometry.canvas.height = height;
             rasterHeight = height;
@@ -346,7 +361,8 @@ static void check_menu_family_storage_and_budgets(void) {
 
 int main(void) {
     for (const auto& profile : {PortViewportRect{0,0,240,160}, {0,0,256,192},
-                               {0,0,285,160}, {0,0,374,160}, {0,0,569,160}, {0,0,569,192}}) {
+                               {0,0,285,160}, {0,0,374,160}, {0,0,569,160},
+                               {0,0,288,162}, {0,0,569,192}}) {
         for (int scale : {2, 4, 10}) check_nearest(profile.width, profile.height, scale);
         check_xbrz_filters(profile.width, profile.height);
     }

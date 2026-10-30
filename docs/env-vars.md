@@ -132,6 +132,7 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_ROOMCAP_MSG` | port/port_repro_roomcap.c | **(harness)** Open message `idx[,posY]` before capturing. |
 | `TMC_ROOMCAP_MSG_ADVANCE` | port/port_repro_roomcap.c | **(harness)** Tap A to page through that message, stopping at a choice. |
 | `TMC_ROOMCAP_SWITCH_ASPECT` | port/port_repro_roomcap.c | **(harness)** Switch to a persisted aspect mode shortly before capture, after any requested message opens. |
+| `TMC_ROOMCAP_CLEAN` | port/port_repro_roomcap.c | **(harness)** Hide HUD and the player for clean room/background captures. |
 | `TMC_ROOMCAP_FILESELECT` | port/port_repro_roomcap.c | **(harness)** Capture the file-select screen instead of a room. |
 | `TMC_ROOMCAP_FSEL_SERIES` | port/port_repro_roomcap.c | **(harness)** Dump file-select OAM every 4 frames, 12 samples. |
 | `TMC_ROOMCAP_FSEL_ANIMTRACE` | port/port_repro_roomcap.c | **(harness)** Count file-select animation calls over a few frames. |
