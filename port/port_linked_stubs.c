@@ -1478,13 +1478,27 @@ void Port_Widescreen_UpdateShadows(void) {
          * it is deleted; use its live state rather than a persistent flag. */
         Entity* banner = FindEntityByID(MANAGER, ENTER_ROOM_TEXTBOX_MANAGER, 8);
         if (banner != NULL && banner->action != 0) {
-            virtuappu_mode1_ws_msg_x0 = 0;
-            virtuappu_mode1_ws_msg_x1 = 240;
-            virtuappu_mode1_ws_msg_y0 = 40 - (gScreen.bg0.yOffset & 0x1ff);
-            virtuappu_mode1_ws_msg_y1 = 56 - (gScreen.bg0.yOffset & 0x1ff);
-            virtuappu_mode1_ws_msg_shift =
-                Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, Port_Widescreen_EffectiveViewWidth(),
-                                            PORT_VIEWPORT_NATIVE_HEIGHT).x;
+            /* The gameplay BG0 map is 256 pixels tall. Account for wrapping
+             * before clipping the two banner rows to visible scanlines. In
+             * particular, an entirely offscreen banner must not publish a
+             * negative end line to the GPU's packed message bounds. */
+            int y0 = (40 - gScreen.bg0.yOffset) & 255;
+            if (y0 > 240)
+                y0 -= 256;
+            int y1 = y0 + 16;
+            if (y0 < 0)
+                y0 = 0;
+            if (y1 > 160)
+                y1 = 160;
+            if (y0 < y1) {
+                virtuappu_mode1_ws_msg_x0 = 0;
+                virtuappu_mode1_ws_msg_x1 = 240;
+                virtuappu_mode1_ws_msg_y0 = y0;
+                virtuappu_mode1_ws_msg_y1 = y1;
+                virtuappu_mode1_ws_msg_shift =
+                    Port_Viewport_UITranslation(PORT_UI_TOP_CENTER, Port_Widescreen_EffectiveViewWidth(),
+                                                PORT_VIEWPORT_NATIVE_HEIGHT).x;
+            }
         }
     }
 

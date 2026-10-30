@@ -74,7 +74,8 @@ static int virtuappu_mode1_ws_hud_right_anchor, virtuappu_mode1_ws_msg_shift;
 static int virtuappu_mode1_ws_msg_x0, virtuappu_mode1_ws_msg_x1;
 static int virtuappu_mode1_ws_msg_y0, virtuappu_mode1_ws_msg_y1;
 typedef struct { int action; } Entity;
-static Entity* FindEntityByID(int kind, int id, int list) { (void)kind; (void)id; (void)list; return NULL; }
+static Entity* testBanner;
+static Entity* FindEntityByID(int kind, int id, int list) { (void)kind; (void)id; (void)list; return testBanner; }
 #include "widescreen_helpers.h"
 static int errors;
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #cond); ++errors; } } while (0)
@@ -276,6 +277,29 @@ int main(void) {
     Port_Widescreen_RoomLoaded();
     CHECK(geometry->world.width == 374 && Port_PPU_VisibleFrameWidth() == 374);
     CHECK(!(geometry->scene.capabilities & PORT_SCENE_NATIVE_CONTENT));
+    /* Banner rows wrap with the 256-pixel BG0 map, then clip to the native
+     * raster. Offscreen bands must not reach the GPU as negative bounds. */
+    Entity banner = { 1 };
+    testBanner = &banner;
+    gCurrentWindow.active = 0;
+    const struct { int scroll, y0, y1; } bannerCases[] = {
+        { 0, 40, 56 }, { 48, 0, 8 }, { 56, 0, 0 },
+        { 200, 96, 112 }, { 256, 40, 56 }, { 511, 41, 57 },
+        { 136, 160, 160 },
+    };
+    for (unsigned i = 0; i < sizeof(bannerCases) / sizeof(bannerCases[0]); ++i) {
+        gScreen.bg0.yOffset = bannerCases[i].scroll;
+        Port_Widescreen_UpdateShadows();
+        if (bannerCases[i].y0 < bannerCases[i].y1) {
+            CHECK(virtuappu_mode1_ws_msg_shift == 67);
+            CHECK(virtuappu_mode1_ws_msg_y0 == bannerCases[i].y0);
+            CHECK(virtuappu_mode1_ws_msg_y1 == bannerCases[i].y1);
+        } else {
+            CHECK(virtuappu_mode1_ws_msg_shift == 0);
+        }
+    }
+    testBanner = NULL;
+    gScreen.bg0.yOffset = 0;
     /* Task=GAME alone does not prove that map pixels are installed. */
     gMapBottom.bgSettings = NULL;
     Port_Widescreen_UpdateShadows();

@@ -382,12 +382,31 @@ or tile alignment. Native-content centering continues to use floor offsets.
   mask snapshot uses frame 1688. `TMC_CAPTURE_FAST_FORWARD=1` preserves raster
   and audit ticks while skipping interim presentations. Wider profile, filter, screenshot and
   direct-OBJ acceptance remains in the next item.
-- [ ] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
+- [x] Extend direct-OBJ and presentation tests (R16/R25) for that frame/cap at
   native/canvas edges, all profiles, both presenters, screenshots and optional
   paths. Keep native/parity goldens and parked-OBJ semantics unchanged.
   The ROM-free screenshot regression checks the production cap, frame accessor
-  and PNG writer at all five geometries with padded pitch; actual presenter
-  screenshots remain part of this task.
+  and PNG writer at all five geometries with padded pitch. The retained EU
+  menu capture (case 15, titled normal, OBJ window active, frame 1690) is now
+  checked through actual SDL_Renderer and SDL_GPU presenter screenshots at
+  native, 16:9 and 21:9. Both presenters produce identical images; every native
+  crop is byte-identical to the native capture, the artwork and missing-image
+  runs differ only in added margins, and all 176 visible cap pixels at each
+  wide profile mirror the native right corner. Signed-OBJ regressions cover
+  negative and 511-plus coordinates, canvas/native edges, parked sprites,
+  affine/double-size pieces and latched heading lifetime. Presentation
+  regressions cover nearest, xBRZ, LCD persistence, colour correction and the
+  five profile geometries, including the 4:3 top/left perimeter and 32:9
+  width. Unsupported 4:3/32:9 remain unavailable at runtime, so their cap,
+  screenshot and filter checks are ROM-free geometry/perimeter checks rather
+  than presenter captures. EU PPU parity retains all three committed golden
+  hashes. Evidence: `.tmp/title-cap-objwindow-2026-10-29/`,
+  `tools/verify_objwindow_title_presenters.py`,
+  `tools/title_cap_regression_test.py`,
+  `tools/presentation_geometry_regression_test.py`,
+  `tools/presentation_postprocess_regression_test.py`,
+  `tools/screenshot_composition_regression_test.py` and
+  `tools/oam_position_regression_test.py`.
 - [x] Resolve functional live gameplay separately from pause/map/fusion states.
   Include fixed fast-travel BG3 artwork behind its centered native map/frame/OBJ;
   it has no health variant or top-left heading-cap requirement. The fixed-screen
@@ -407,6 +426,10 @@ or tile alignment. Native-content centering continues to use floor offsets.
   viewport layer, and the existing button path uses its top-right rule with
   the current room-capped width. This preserves existing behavior; BG0 widgets,
   canvas-wide placement and dialogue integration remain outstanding.
+  Location-banner scanline publication now wraps the gameplay BG0 scroll at
+  its 256-pixel map height and clips to the visible raster. Fully offscreen
+  banners publish no band, avoiding negative packed GPU bounds and keeping
+  software/GPU banner ownership consistent during vertical scrolling.
   Standard top/bottom dialogue has a tested stable translation policy for a
   taller canvas; custom window geometry fails closed. The existing message and
   banner horizontal shifts use the shared center anchor. The vertical policy
@@ -541,11 +564,21 @@ or tile alignment. Native-content centering continues to use floor offsets.
   Evidence is retained in `.tmp/procedural-composition-2026-10-29/`. Other
   regions retain the existing fail-closed effect policy pending regional
   verification; presenter and profile acceptance remain separate tasks.
-- [ ] Retire the old ImGui menu side-art path as its supported screens migrate;
+- [x] Retire the old ImGui menu side-art path as its supported screens migrate;
   verify software/GPU presentation and raster fallbacks, filters and persistence.
   The old overlay and its setting have been removed. ROM-free regressions cover
   composed pixels through color correction, persistence, nearest and xBRZ scaling,
-  LCD grid and screenshot encoding. Runtime presenter validation remains.
+  LCD grid and screenshot encoding. Runtime presenter validation is covered by
+  the retained EU titled-menu captures above: SDL_Renderer and SDL_GPU both
+  present the shared composed margins with artwork and with missing-image black,
+  while the native rectangle stays byte-identical. The removed
+  `menu_art_background` key is rejected/erased by the config regression, and the
+  optional-path gates keep unsupported voxel, shader-preset and HD-text layouts
+  on their documented software/stock-filter/original-text fallbacks. No second
+  background path paints the same screen. Runtime verification reaches both
+  presenters through `tools/verify_objwindow_title_presenters.py`; the remaining
+  filter/persistence/raster checks are the ROM-free presentation regressions
+  listed in the direct-OBJ task above.
 
 ## 6. Artwork loading
 
@@ -614,8 +647,19 @@ or tile alignment. Native-content centering continues to use floor offsets.
 
 ## 8. Acceptance and budgets
 
-- [ ] Verify fixed fast-travel margins/native crop, screenshots, profile switches,
+- [x] Verify fixed fast-travel margins/native crop, screenshots, profile switches,
   missing-image fallback and no-redecode navigation on both presenters.
+  Twelve EU/English frame-675 runs cover native, 16:9 and 21:9 with the fixed
+  image present and absent on software SDL_Renderer and SDL_GPU.
+  `tools/verify_fast_travel_presenters.py` confirms the exact 960 × 640,
+  1140 × 640 and 1496 × 640 presentations, byte-identical software/GPU images,
+  the floor-centered native crop (x = 88 at 16:9, x = 268 at 21:9), non-black
+  artwork margins versus black fallback, unchanged native output without side
+  art, and the held travel trace. The cache regression confirms fixed-key reuse,
+  failure caching and no-I/O repeat reads. Evidence is retained in
+  `.tmp/fast-travel-presenters-2026-10-30/`. SDL_GPU used software Vulkan
+  (lavapipe), not physical-device acceptance; 4:3/32:9 remain runtime-
+  unsupported and have ROM-free geometry coverage only, not presenter captures.
 - [ ] Complete the design's EU functional-screen, world, HUD/dialogue,
   renderer, intermediate-fade, PNG failure and profile-switch coverage; review
   USA/JP source differences on a best-effort basis without regional ROM testing.
@@ -630,6 +674,34 @@ or tile alignment. Native-content centering continues to use floor offsets.
   `build/EU/assets_src` tree was absent; these are explicit limits of this run,
   not a native Linux package or physical-device acceptance. Logs are retained in
   `.tmp/background-packaging-check-2026-10-29/`.
+
+## Fast-travel presenter acceptance (2026-10-30)
+
+`python3 tools/verify_fast_travel_presenters.py .tmp/fast-travel-presenters-2026-10-30`
+passed against 12 retained EU/English runs. Native (960 × 640), 16:9
+(1140 × 640) and 21:9 (1496 × 640) are each covered by software and GPU
+presentations with the fixed fast-travel side image present and absent. Full
+software/GPU RGB images are byte-identical for every profile and artwork state.
+
+The native viewport uses floor centering in native pixels before 4× scaling:
+x = 0 at native, x = 88 at 16:9 and x = 268 at 21:9. Extracting that 960 × 640
+region matches the native capture row-for-row in all runs. The temporary side
+artwork is visible in both margins, while the missing-image runs produce black
+margins; native artwork and fallback captures are identical because native
+presentation does not request the side image. The 16:9/21:9 missing runs log
+exactly the expected `override/169/fast_travel_background.png` or
+`override/219/fast_travel_background.png` load failure, and the artwork runs do
+not.
+
+Each trace contains `travel_case_ready` at frame 659 and `travel_case_held` at
+frame 675 with `case = -1`, `decoration = 0`, `travel_field = 1` and
+`background_context = 41`; both presenters log the expected backend and a
+successful frame-675 presentation capture. Fixed-key reuse across repeated
+staging, failure caching and no-I/O presentation reads are covered by the
+passing cache regression. The capture artwork is a local test gradient and is
+not tracked. The GPU runs use lavapipe, so this is presenter-path evidence, not
+physical GPU or RG acceptance. Unsupported 4:3/32:9 profiles are not runtime
+presenter evidence; their geometry remains covered by ROM-free tests.
 
 ## Native export recipe validation (2026-10-28)
 
