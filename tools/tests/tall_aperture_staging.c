@@ -50,6 +50,7 @@ static int Port_WidescreenPpuBgForControl(u32 c) { (void)c; return 1; }
 static int Port_WidescreenRepeatingOverlayLive(void) { return 0; }
 static int activeHdma;
 int port_hdma_has_active_channels(void) { return activeHdma; }
+int port_hdma_can_continue_brightness(const void* io, size_t size) { (void)io; (void)size; return 0; }
 int Port_Widescreen_ShadowsLive(void) { return 1; }
 int Port_Widescreen_TargetViewWidth(void) { return Port_Viewport_Get()->canvas.width; }
 void sub_0807D280(u16* a, u16* b) { (void)a; (void)b; }

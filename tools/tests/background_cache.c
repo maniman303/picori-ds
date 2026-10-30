@@ -15,9 +15,17 @@ static const uint8_t* current(int red) {
     return pixels;
 }
 
+static const uint8_t* current43(int red) {
+    int width = -1, height = -1;
+    const uint8_t* pixels = Port_BackgroundCache_Current(&cache, &width, &height);
+    assert(pixels && width == 256 && height == 192 && pixels[0] == red);
+    return pixels;
+}
+
 int main(int argc, char** argv) {
     assert(argc == 2);
     char plain[4096], saved[4096], missing[4096], fixture[4096], travel[4096], edited[4096], corrupt[4096];
+    char plain43[4096], saved43[4096], missing43[4096];
     assert(snprintf(plain, sizeof(plain), "%s/override/169/menu_background_normal.png", argv[1]) < (int)sizeof(plain));
     assert(snprintf(saved, sizeof(saved), "%s/saved.png", argv[1]) < (int)sizeof(saved));
     assert(snprintf(missing, sizeof(missing), "%s/override/169/menu_background_damaged.png", argv[1]) < (int)sizeof(missing));
@@ -25,6 +33,9 @@ int main(int argc, char** argv) {
     assert(snprintf(travel, sizeof(travel), "%s/override/169/fast_travel_background.png", argv[1]) < (int)sizeof(travel));
     assert(snprintf(edited, sizeof(edited), "%s/edited.png", argv[1]) < (int)sizeof(edited));
     assert(snprintf(corrupt, sizeof(corrupt), "%s/corrupt.png", argv[1]) < (int)sizeof(corrupt));
+    assert(snprintf(plain43, sizeof(plain43), "%s/override/43/menu_background_normal.png", argv[1]) < (int)sizeof(plain43));
+    assert(snprintf(saved43, sizeof(saved43), "%s/saved43.png", argv[1]) < (int)sizeof(saved43));
+    assert(snprintf(missing43, sizeof(missing43), "%s/override/43/menu_background_damaged.png", argv[1]) < (int)sizeof(missing43));
     assert(Port_BackgroundCache_Init(&cache, argv[1]));
     static const char* families[] = {"menu_background", "menu_titled_background", "kinstone_pieces_background",
                                      "sword_techniques_background", "kinstone_background"};
@@ -37,6 +48,40 @@ int main(int argc, char** argv) {
             current(19 + family * 14 + health * 3);
         }
     }
+    /* 4:3 fixed-screen profile: artwork is selected by profile key, missing
+     * art fails closed to black margins, and it never aliases 16:9. */
+    assert(Port_BackgroundCache_StageMenu(&cache, PORT_BACKGROUND_MENU_PLAIN,
+                                          PORT_BACKGROUND_HEALTH_NORMAL,
+                                          PORT_ASPECT_DS_4_3, 1, false) == PORT_BACKGROUND_CACHE_READY);
+    Port_BackgroundCache_Commit(&cache);
+    current43(60);
+    assert(rename(plain43, saved43) == 0);
+    Port_BackgroundCache_Invalidate(&cache);
+    assert(Port_BackgroundCache_StageMenu(&cache, PORT_BACKGROUND_MENU_PLAIN,
+                                          PORT_BACKGROUND_HEALTH_NORMAL,
+                                          PORT_ASPECT_DS_4_3, 1, false) == PORT_BACKGROUND_CACHE_FAILED);
+    Port_BackgroundCache_Commit(&cache);
+    assert(!Port_BackgroundCache_Current(&cache, NULL, NULL));
+    for (int i = 0; i < 256 * 192; ++i) canvas[i] = 0xffabcdef;
+    assert(Port_TitleCap_ExpandFrame(canvas, 256, 192, 256, 8, 16, NULL, 0, 0xff000000));
+    assert(canvas[0] == 0xff000000 && canvas[16 * 256 + 7] == 0xff000000);
+    assert(canvas[16 * 256 + 8] == 0xffabcdef);
+    assert(rename(saved43, plain43) == 0);
+    /* Missing 4:3 travel art must not fall back to the 16:9 slot. */
+    assert(Port_BackgroundCache_Stage(&cache, PORT_BACKGROUND_FAST_TRAVEL,
+                                      PORT_ASPECT_DS_4_3, 1, false) == PORT_BACKGROUND_CACHE_READY);
+    Port_BackgroundCache_Commit(&cache);
+    {
+        int w = -1, h = -1;
+        assert(Port_BackgroundCache_Current(&cache, &w, &h) && w == 256 && h == 192);
+    }
+    assert(remove(missing43) == 0); /* hide 4:3 damaged art */
+    Port_BackgroundCache_Invalidate(&cache);
+    assert(Port_BackgroundCache_Stage(&cache, PORT_BACKGROUND_MENU_DAMAGED,
+                                      PORT_ASPECT_DS_4_3, 1, false) == PORT_BACKGROUND_CACHE_FAILED);
+    Port_BackgroundCache_Commit(&cache);
+    assert(!Port_BackgroundCache_Current(&cache, NULL, NULL));
+
     /* With the old plain image still present, none of the other families may
      * alias it. Commit the failure and exercise the actual black-margin path. */
     for (int family = 1; family < 5; ++family) {

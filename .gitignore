@@ -142,6 +142,9 @@ tools/retail_maps/
 # Temporary build/run artifacts
 .tmp/
 
+# Agent/user analysis screenshots (git-ignored by policy; see AGENTS.md)
+/screenshots/
+
 # PPU parity: local (save-dependent) gameplay corpus + its golden — not portable
 tools/ppu_corpus.local.txt
 tools/ppu_golden_hashes.local*

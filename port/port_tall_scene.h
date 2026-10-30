@@ -95,6 +95,13 @@ bool Port_TallScene_IsValidated(unsigned status);
 bool Port_TallScene_ManagerIdAllowed(unsigned id, int apertureHeight, bool residencyProven);
 bool Port_TallScene_EntityIdAllowed(unsigned kind, unsigned id, int apertureHeight);
 
+/* Classified effects: a live tall aperture is safe only when no hardware
+ * window/affine mode is active and any HDMA is the verified constant-brightness
+ * form that the PPU can extend. Rolling/portal windows, triangles/ellipses,
+ * local lights and unclassified windows therefore stay native. */
+bool Port_TallScene_EffectAllowsTall(bool windows, int gbaMode, bool hdmaActive,
+                                     bool hdmaConstantBrightness);
+
 /* Per-manager residency proof. Only managers that stream char/palette data
  * from a view-dependent group need to call NoteManagerResidency() each update. */
 void Port_TallScene_ManagerCreated(unsigned id);

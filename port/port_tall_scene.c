@@ -211,3 +211,15 @@ bool Port_TallScene_ManagerResidencyProven(unsigned id) {
 void Port_TallScene_InvalidateManagerResidency(void) {
     sManagerResidencyUnsafe = Port_TallSceneResidencyMask();
 }
+
+bool Port_TallScene_EffectAllowsTall(bool windows, int gbaMode, bool hdmaActive,
+                                     bool hdmaConstantBrightness) {
+    if (windows)
+        return false;
+    /* GBA modes 1/2 put BG2 on the affine path, which has no aperture offset. */
+    if (gbaMode == 1 || gbaMode == 2)
+        return false;
+    if (hdmaActive && !hdmaConstantBrightness)
+        return false;
+    return true;
+}

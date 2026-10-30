@@ -1,7 +1,7 @@
 # Plan: finish proper 4:3 (256 × 192)
 
-Status: WP1–WP4 implemented; release profile still gated by WP5 and multi-group
-streaming/effect acceptance
+Status: WP1–WP6 implemented; release profile still gated by multi-group streaming
+and WP7/WP8 acceptance
 Scope owner: code/geometry/streaming/validation/composition/tests  
 Artwork: the user supplies 4:3 artwork. This plan does not create, edit or
 export PNGs.
@@ -116,6 +116,10 @@ Still deliberately disabled:
   families, multi-group Minish Village views, unclassified shake/transitions
   and untagged OAM. Normal manager-backed rooms on the allow-list now render
   tall when their residency proof passes.
+- Hardware windows, GBA affine modes and non-constant HDMA keep the native
+  aperture; only a verified constant-brightness HDMA may extend into the tall
+  canvas. Rolling/special transitions and the explicitly denied effect
+  managers remain native.
 - GPU raster supports only 160 rows (CPU fallback exists; tall canvases use the
   CPU raster, wide 160-row canvases keep the GPU path).
 - 4:3 artwork is incomplete by design; black fallback is the contract.
@@ -404,9 +408,25 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
   special affine/portal painters and the spiderweb remain native. EU captures
   cover field, town, dungeon, Minish path, Mount Crenel and Cloud Tops at
   256 × 192. See the capability audit above.
-- **Remaining.** WP5 effect/window classification (and a residency design for
-  multi-group village views if they must become tall), then flip the release
-  capability and run WP6–WP8 acceptance.
+- **WP5 implemented.** `Port_TallScene_EffectAllowsTall()` classifies live
+  effects: hardware windows, GBA affine modes and non-constant HDMA keep the
+  native aperture; a verified constant-brightness HDMA may continue into the
+  tall raster. Transitions/rolling frames remain native. The shake envelope is
+  still consumed before camera work. Intermediate 162/192 fixtures cover
+  windows, unclassified callbacks and constant brightness.
+- **WP6 verified.** The 4:3 fixed-screen cache test now stages a real 256 × 192
+  `43` artwork set, removes it to prove black-margin failure, and proves the
+  missing 43 image never aliases the 16:9 slot. Native centering at `(8,16)`,
+  margin-only composition, palette/brightness/alpha/masked-bank/forced-blank
+  and title-cap paths remain covered by the background/title tests. A 4:3
+  fixed-screen audit captured the native pause/title composition under
+  `screenshots/` (git-ignored per AGENTS.md). That live context renders its
+  margins from the procedural palette field, so its absent-art run is visually
+  identical; the missing-`43` black-margin and no-alias contract is proven by
+  the ROM-free 4:3 cache test.
+- **Remaining.** A residency design for multi-group Minish Village views if
+  they must become tall, then flip the release capability and run WP7/WP8
+  acceptance.
 
 ## Sequencing
 

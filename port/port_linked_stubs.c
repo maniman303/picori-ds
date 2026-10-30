@@ -1479,12 +1479,16 @@ void Port_Widescreen_PublishScene(void) {
         /* A classified transition/effect that cannot use the selected canvas
          * keeps one native 240x160 composition, centered by presentation.
          * Never let static artwork or a half-streamed world fill the margins. */
+        const bool effectWindows =
+            (gScreen.lcd.displayControl & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON)) != 0 ||
+            (gIoMem[1] & 0xe0) != 0; /* already-latched WIN0/WIN1/OBJWIN */
+        const bool effectHdma = port_hdma_has_active_channels() != 0;
+        const bool effectHdmaBrightness =
+            effectHdma && port_hdma_can_continue_brightness(gIoMem, 0x400);
+        const bool effectAllowsTall = Port_TallScene_EffectAllowsTall(
+            effectWindows, gIoMem[0] & 7, effectHdma, effectHdmaBrightness);
         if (Port_Viewport_Get()->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT &&
-            ((scene.capabilities & PORT_SCENE_NATIVE_TRANSITION) ||
-             (gScreen.lcd.displayControl & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON)) ||
-             (gIoMem[1] & 0xe0) || /* already-latched WIN0/WIN1/OBJWIN */
-             port_hdma_has_active_channels() ||
-             (gIoMem[0] & 7) == 1 || (gIoMem[0] & 7) == 2))
+            ((scene.capabilities & PORT_SCENE_NATIVE_TRANSITION) || !effectAllowsTall))
             scene.capabilities |= PORT_SCENE_NATIVE_FALLBACK;
         /* Manager and entity admission is a per-id/class policy. Managers that
          * stream view-dependent groups must have proved single-group coverage;
@@ -1499,10 +1503,7 @@ void Port_Widescreen_PublishScene(void) {
          * once all independent room, entity and upload gates pass. */
         int steadyOrBlackArrival = gMain.substate == GAMEMAIN_UPDATE ||
             (gMain.substate == GAMEMAIN_CHANGEROOM && gRoomTransition.type == TRANSITION_FADE_BLACK &&
-             gFadeControl.active && gFadeControl.type == FADE_INSTANT &&
-             !(gScreen.lcd.displayControl & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON)) &&
-             !(gIoMem[1] & 0xe0) && /* already-latched WIN0/WIN1/OBJWIN */
-             !port_hdma_has_active_channels());
+             gFadeControl.active && gFadeControl.type == FADE_INSTANT && effectAllowsTall);
         if (Port_WidescreenManagersSafe(tallAperture) && gUnk_03003DE0 == 0 &&
             gMain.state == GAMETASK_MAIN && steadyOrBlackArrival &&
             !gRoomControls.reload_flags && gRoomControls.scrollAction == 1 &&

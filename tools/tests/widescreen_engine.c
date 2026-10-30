@@ -57,6 +57,7 @@ enum { GAMEMAIN_SUBTASK = 7, SUBTASK_PAUSEMENU = 1, SUBTASK_MAPHINT = 3, SUBTASK
 #define DISPCNT_WIN1_ON 0x4000
 #define DISPCNT_OBJWIN_ON 0x8000
 static int port_hdma_has_active_channels(void) { return 0; }
+static int port_hdma_can_continue_brightness(const void* io, size_t size) { (void)io; (void)size; return 0; }
 static u8 gIoMem[0x400];
 static struct { int task, state, substate; } gMain;
 static struct { int type; } gRoomTransition;

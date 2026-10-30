@@ -81,6 +81,20 @@ TMC_AUTOPLAY=1 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./dist/USA/tmc_pc --n
 - `build.py` — user-facing build orchestrator.
 - `README.md`, `INSTALL.md`, `CHANGELOG.md` — user setup, build notes, release context.
 
+## Screenshots & Analysis Evidence
+- Store **every screenshot you capture or analyze** under the repository-root
+  `screenshots/` directory. The directory is git-ignored; do not commit image
+  artifacts.
+- `screenshots/` contains **only image files**. Do not put logs, traces, JSON,
+  save files, command output or other analysis artifacts there; keep those in a
+  separate ignored location such as `.tmp/analysis-logs/`.
+- Use descriptive, dated image names (for example
+  `2026-10-30-eu-field-area03-room08-4x3.png`).
+- Do not leave agent-captured screenshots only in `/tmp`, `.tmp` or a dist
+  directory; copy or move them to `screenshots/` before finishing the task.
+- Mention the screenshot path(s) in the final response so the user can review
+  what was analyzed.
+
 ## Runtime/Tooling Preferences
 - Primary build system: **xmake 2.7.0+**. Use `build.py` for full user-style builds and direct `xmake build -y tmc_pc` for focused incremental checks.
 - Required native deps vary by platform; common deps include `git`, SDL3, libpng, fmt, and nlohmann-json. xmake vendors several packages.

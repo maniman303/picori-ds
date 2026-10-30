@@ -140,6 +140,46 @@ static void check_static_window_fallback(void) {
     untouched(192);
 }
 
+static void noop_line(int line) {
+    assert(line < 160);
+}
+
+/* Effects at intermediate heights: windows/callbacks stay native; a verified
+ * constant-brightness callback may continue to 162/192. */
+static void check_intermediate_effect_heights(void) {
+    static const int heights[] = { 162, 192 };
+    for (unsigned i = 0; i < sizeof(heights) / sizeof(heights[0]); ++i) {
+        const int h = heights[i];
+        reset();
+        stripes(false);
+        PPUMemory p = geometry(h, 1);
+        io[1] |= 0x20; /* WIN0 */
+        virtuappu_mode1_render_frame(&p);
+        assert(virtuappu_mode1_frame_height() == 160);
+        untouched(160);
+        io[1] &= (uint8_t)~0x20;
+        virtuappu_mode1_render_frame(&p);
+        assert(virtuappu_mode1_frame_height() == h);
+        untouched(h);
+        for (int y = 160; y < h; ++y)
+            for (int x = 0; x < pitch; ++x)
+                virtuappu_frame_buffer[y * pitch + x] = canary;
+
+        virtuappu_mode1_pre_line_callback = noop_line;
+        virtuappu_mode1_continue_constant_hdma = false;
+        virtuappu_mode1_render_frame(&p);
+        assert(virtuappu_mode1_frame_height() == 160);
+        untouched(160);
+
+        virtuappu_mode1_continue_constant_hdma = true;
+        virtuappu_mode1_render_frame(&p);
+        assert(virtuappu_mode1_frame_height() == h);
+        untouched(h);
+        virtuappu_mode1_pre_line_callback = NULL;
+        virtuappu_mode1_continue_constant_hdma = false;
+    }
+}
+
 static int callbacks;
 static uint16_t hardware_table[160];
 static void scanline(int line) {
@@ -424,6 +464,7 @@ int main(void) {
     check_tall_palette_fade();
     check_raster();
     check_static_window_fallback();
+    check_intermediate_effect_heights();
     check_constant_brightness();
     check_white_bg_vs_backdrop();
     check_snapshot();

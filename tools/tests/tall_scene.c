@@ -173,6 +173,16 @@ int main(void) {
 
     assert(!Port_TallScene_IsValidated(Port_TallScene_Evaluate(NULL)));
 
+    /* Classified effects: steady rooms may use the canvas; windows, affine
+     * modes and non-constant HDMA keep the native aperture. */
+    assert(Port_TallScene_EffectAllowsTall(false, 0, false, false));
+    assert(Port_TallScene_EffectAllowsTall(false, 0, true, true));
+    assert(!Port_TallScene_EffectAllowsTall(true, 0, false, false));
+    assert(!Port_TallScene_EffectAllowsTall(true, 0, true, true));
+    assert(!Port_TallScene_EffectAllowsTall(false, 1, false, false));
+    assert(!Port_TallScene_EffectAllowsTall(false, 2, false, false));
+    assert(!Port_TallScene_EffectAllowsTall(false, 0, true, false));
+
     /* Manager capability list: logic/HUD/overlay managers are allowed; the
      * view-dependent streamers require a single-group proof; genuinely
      * effect/streaming-owned managers stay native. */
