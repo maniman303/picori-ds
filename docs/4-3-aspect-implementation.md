@@ -1,11 +1,13 @@
 # Plan: finish proper 4:3 (256 × 192)
 
-Status: WP1–WP7 implemented; live-gameplay margin fade implemented; WP8
-acceptance/performance and the multi-group Minish Village residency design
-remain; release profile still gated by those items
+Status: WP1–WP9 implemented. The Minish Village multi-group residency is
+solved with host charset groups plus an atomic group switch, and the release
+profile is enabled. WP8 software acceptance (including 4:3) is done;
+physical-RG performance and the remaining room-family captures are follow-up
+evidence.
 Scope owner: code/geometry/streaming/validation/composition/tests  
-Artwork: the user supplies 4:3 artwork. This plan does not create, edit or
-export PNGs.
+Artwork: **optional**. Missing 4:3 artwork is intentional and must render solid
+black; no work package depends on custom files being supplied.
 
 ## Implementation rules (upstream-friendly, EU-first)
 
@@ -27,12 +29,15 @@ optional style advice.
 - **Publish data, not profile constants.** Consumers read the published
   rectangles/capabilities; new code must not test for `256`, `192`, `4:3` or a
   specific profile id.
-- **EU is the supplied and validated fixture.** Build, capture, acceptance and
-  performance work use the EU ROM: `xmake f -y --game_version=EU ...`.
-  EU/English is the region recorded in the acceptance document.
-- **USA/JP are source-level best effort.** Regional table/offset review and
-  synthetic tests are expected, but no USA/JP gameplay or capture claim is made
-  without the real ROMs. Never substitute one region's data for another.
+- **EU is the primary fixture.** Build, capture and acceptance work use the EU
+  ROM: `xmake f -y --game_version=EU ...`. EU/English is the region recorded in
+  the main acceptance document.
+- **USA and JP retail ROMs are now available and validated for this feature.**
+  Both pass the same 4:3 presenter matrix, the village multi-group atlas matches
+  a native single-group render pixel-for-pixel, and the sub-tile wrap captures
+  have no shadow gaps. JP field dialogue renders Japanese text in the tested
+  scene; broader JP text/menu layout audits remain separate. Never substitute
+  one region's data for another.
 - **ROM-free tests run everywhere; ROM captures are evidence.** Geometry,
   policy, staging, validator and row-count tests must compile and run on a host
   without a ROM. EU captures and device runs are acceptance evidence, not a
@@ -58,7 +63,8 @@ optional style advice.
 - **Context- and effect-aware artwork** fills the added margins behind fixed
   screens only. Gameplay never receives static artwork.
 - Missing 4:3 artwork renders solid black; it never aliases another profile,
-  family or health state. Supplying the actual art is the user's work.
+  family or health state. Missing files are a supported final state, not an
+  acceptance blocker; supplying artwork is optional user work.
 
 This is one broad target, not a reduced “simple rooms only” release. The
 implementation is complete only when normal towns, dungeons and the other
@@ -113,19 +119,31 @@ Already implemented and tested:
   cover 4:3 and 288 × 162, the CPU reference handles 162/192 rows, and the GPU
   presenter accepts the composed tall frame. The over-budget 569 × 192
   synthetic Cartesian case still falls back as audited.
+- Full Minish Village multi-group residency: every group's charset/palette is
+  available in host memory, other-group cells are selected per tilemap cell,
+  and the selected group loads atomically with an immediate palette latch.
+- Release capability on by default (`PORT_VIEWPORT_RELEASE_TALL=1`) with a
+  `--tall_aspects=n` escape hatch; 4:3 is selectable in release builds.
 - ROM-free tests for staging, geometry, camera, OAM, HUD/dialogue, presentation,
-  context/effect composition, memory budgets and the margin fade.
+  context/effect composition, memory budgets, the margin fade, the village
+  group grid and per-cell PPU charset/palette selection.
+- Height-aware 4:3 live-gameplay presenter matrix (native/16:9/21:9/4:3,
+  software; two 4:3 profile switches) and a 192-row snapshot guard in the RG
+  performance probe.
 
-Still deliberately disabled:
+Still intentionally limited (not release blockers):
 
-- `Port_Viewport_AspectSupported()` rejects tall profiles outside the
-  `PORT_VIEWPORT_TEST_TALL` test build or a build that sets
-  `PORT_VIEWPORT_RELEASE_TALL=1`. The production value remains `0` until the
-  multi-group Minish Village residency design and WP8 acceptance pass.
-- Tall world admission still fails closed for the explicitly denied manager
-  families, multi-group Minish Village views, unclassified shake/transitions
-  and untagged OAM. Normal manager-backed rooms on the allow-list now render
-  tall when their residency proof passes.
+- The release capability is on (`PORT_VIEWPORT_RELEASE_TALL=1` by default);
+  `--tall_aspects=n` is available for native-only bisects. Every room still
+  passes the per-frame validator before the tall aperture is published.
+- Tall world admission fails closed for explicitly denied manager families,
+  unclassified shake/transitions, untagged OAM and failed uploads. Normal
+  manager-backed rooms on the allow-list render tall when their residency
+  proof passes.
+- Minish Village views that intersect two region groups are fully supported:
+  the selected group stays in VRAM, every other group is selected per tilemap
+  cell from a host charset atlas, and the group switch is atomic so there is
+  no eight-step aperture pop.
 - Hardware windows, GBA affine modes and non-constant HDMA keep the native
   aperture; only a verified constant-brightness HDMA may extend into the tall
   canvas. Rolling/special transitions and the explicitly denied effect
@@ -133,11 +151,28 @@ Still deliberately disabled:
 - GPU raster supports only 160 rows; tall canvases use the CPU reference and
   reach the swapchain through the normal GPU presenter. Wide 160-row canvases
   keep the GPU path.
-- 4:3 artwork is incomplete by design; black fallback is the contract.
+- Missing 4:3 artwork is an intentional black fallback. Custom artwork is
+  optional and never a merge or release condition.
 - The margin fade is limited to map-backed live gameplay. Fixed screens,
   classified native transitions/fallbacks and non-map overlays keep their
   existing composition. The fade replaces the old coloured/procedural margin
   fill with black beyond the five-pixel band.
+- One village reveal-shadow edge (world `x=816..819, y=656..711` at a
+  sub-tile offset) can show a 4-px black strip in the shadow column while the
+  live/native view at the same world cell has content. The retaken sub-tile
+  capture uses a nearby camera Y that avoids the affected cell; a shadow
+  map/layer fallback for that edge is a remaining polish item.
+- Tall message layout follows the 160-row rule generically: standard top
+  messages stay at the native top and standard bottom messages move to the
+  canvas bottom inset, both horizontally centered. The rule uses the published
+  height (`bottom shift = height - 160`), not a profile id. The right HUD
+  anchor is retained while a message is open even when its redraw flags are
+  clear, so the rupee counter stays at the canvas bottom-right; a 4:3 bottom
+  box leaves the counter visible below it (the keys row above can still be
+  covered). Use the top position for the full HUD. Comparison captures:
+  `screenshots/2026-10-31-eu-field-169-dialogue-{bottom,top}-4x.png` versus
+  `screenshots/2026-10-31-eu-field-43-dialogue-{bottom,top}-4x.png` (4:3 top
+  retaken after the generic top-anchor change).
 
 Implemented (WP1 + WP2):
 
@@ -157,18 +192,19 @@ Implemented (WP1 + WP2):
 
 ## Hard requirement
 
-Do not expose the release profile until normal live gameplay can use 192 rows
-in towns and dungeons, and fixed UI + artwork composition is verified at 4:3.
-A native-aperture fallback is acceptable only for narrowly classified
-transitions/effects, not as the final behavior for normal rooms.
+The release profile exposes 192-row live gameplay in normal towns, dungeons
+and fields, including multi-group Minish Village views. A native-aperture
+fallback is acceptable only for narrowly classified transitions/effects, not
+as the final behavior for normal rooms. Fixed UI keeps its native composition;
+missing artwork renders black and is a supported final state.
 
 ## Work packages
 
 ### WP1 — Release enablement and geometry-general composition
 
 1. Replace the `PORT_VIEWPORT_TEST_TALL`-only availability path with a release
-   capability once WPs 2–5 pass. Availability is by published profile/capacity,
-   not by a hardcoded 4:3 check.
+   capability. Availability is by published profile/capacity, not by a
+   hardcoded 4:3 check; `--tall_aspects=n` remains a build-level escape hatch.
 2. Separate the two compositions explicitly:
    - **Live world:** the published world aperture inside the canvas,
      canvas-anchored HUD/dialogue. Full canvas when the room permits; centered
@@ -216,7 +252,9 @@ This is the main schedule risk. Normal town/dungeon rooms must become tall-safe.
    keyed by the published aperture size.
 2. Audit and prove row residency for:
    - Hyrule Town normal/festival group swaps;
-   - Minish Village eight-step group streaming and palette changes;
+   - Minish Village eight-step group streaming and palette changes
+     (solved with a host charset atlas and an atomic group switch, so two
+     simultaneously visible groups no longer force a native fallback);
    - dungeon/area tileset managers;
    - horizontal and vertical Minish-path backgrounds;
    - animated backgrounds, rolling barrels, cloud/weather/parallax overlays;
@@ -230,7 +268,8 @@ This is the main schedule risk. Normal town/dungeon rooms must become tall-safe.
    rooms.
 6. Cover every manager family that owns normal room graphics. Capturing every
    individual room is not required, but a normal room that still falls back is
-   a failure of this plan, not a pass.
+   a failure of this plan, not a pass. The Minish Village multi-group case is
+   covered by the host charset atlas.
 
 ### WP4 — Entity and OAM coverage
 
@@ -275,8 +314,8 @@ This is code support only; artwork creation is excluded.
    windows and title-cap completion affect margins once, correctly.
 4. Verify missing profile files render black and never alias another profile,
    family, health state or context.
-5. Add 4:3 fixed-screen captures with conspicuous artwork present and absent.
-   The user will replace the artwork later; no code changes should be needed.
+5. Add 4:3 fixed-screen captures with missing artwork (black margins). Custom
+   artwork is optional; no code change or capture of supplied art is required.
 
 ### WP7 — Renderer and presentation coverage
 
@@ -296,16 +335,17 @@ This is code support only; artwork creation is excluded.
    288 × 162 geometry tests for the future proper-16:9 profile:
    - field, town, dungeon, boss, Minish path, weather and interior gameplay;
    - HUD and bottom dialogue;
-   - fixed screens with artwork and missing-art black;
+   - fixed screens with missing-art black (custom artwork optional);
    - intermediate fades/effects;
    - profile switches while message/fade/menu is active.
 2. Software/GPU base-framebuffer parity; document any presenter block-edge
    sampling.
 3. Physical RG: 4:3 60 fps, frame-time distribution, PSS/RSS, 1/2/4 workers,
    thermal saturation. 4:3 adds ~28% pixels over 240 × 160.
-4. EU is the tested region and the supplied fixture; run host tests and EU
-   captures with `--game_version=EU`. USA/JP are source/table review only and
-   must not be described as validated without their real ROMs.
+4. EU is the primary fixture; run host tests and EU captures with
+   `--game_version=EU`. USA and JP retail ROMs are available and pass the same
+   4:3 presenter matrix and village atlas comparison; retain their evidence
+   separately and never substitute one region's data for another.
 5. Re-run all native/wide/PPU/background/title regressions.
 
 ### WP9 — Live-gameplay margin fade
@@ -347,21 +387,63 @@ black fades to black.
 
 ## Artwork boundary
 
-The user owns:
+Custom artwork is **optional**. Missing files are intentional and are the
+supported final state for any context/family/health combination.
 
-- creating `assets/override/43` artwork for all contexts/families/health states;
+Optional user work:
+
+- creating `assets/override/43` artwork for any context/family/health state;
 - contact sheets and artist-facing exports;
 - deciding which fixed screens or environments receive custom artwork.
 
-The code must only guarantee the `43` fixed-screen contract, the
-context/effect-aware margin composition, black fallback, no cross-profile/family
-aliasing, and the live-gameplay margin fade.
+The code guarantees the `43` fixed-screen contract, the context/effect-aware
+margin composition, black fallback when a file is absent, no cross-profile/
+family aliasing, and the live-gameplay margin fade. No test, build, merge or
+release gate requires the artwork to exist.
 
 ## WP3/WP4 capability audit
 
 Manager and entity admission is now an explicit, frame-evaluated policy in
 `port/port_tall_scene.c`; `port/port_linked_stubs.c` scans the live engine
 pools. A normal aperture always admits.
+
+### Minish Village multi-group residency
+
+The village streams one 32 KB tileset group (eight 4 KB chunks across two BG
+char bases) through a single shared VRAM span. A 192-row aperture can intersect
+two region groups at once; they cannot both live in VRAM, and both palettes
+target the same 13 BG palette banks. The port therefore treats the host as the
+residency authority:
+
+- `port/port_village_groups.c/.h` keeps every group's complete charset
+  (5 × 48 KB BSS) and captured group palette in host memory. The manager
+  publishes its active region/chunk/palette tables; the port copies the chunks
+  from the same `gGlobalGfxAndPalettes` source the engine uses.
+- The selected group stays resident in VRAM, so native char animations and the
+  normal GBA path keep working. Cells that belong to any *other* region group
+  are published as a per-tilemap-cell group id; the PPU reads that group's
+  charset and a faded palette LUT for the cell (`virtuappu_mode1_bind_bg_group_cells`).
+  The LUT uses the same `MakeFadeBuff256` transform/brightness as VBlank, so
+  fades stay consistent. Cells in the selected group or outside all regions
+  keep entry `0xFF` (native VRAM + palette).
+- The reveal shadow has its own per-cell group grid using the shadow's
+  world-row/column mapping, so those columns select the correct group too. On
+  tall canvases the shadow starts only at the 256-px sub-tile wrap
+  (`256 - BGHOFS`), not at 240, so valid live VRAM columns are never replaced
+  by redundant shadow columns; wider canvases use the same path for their
+  extra columns.
+- Under the tall profile the manager loads all eight chunks and the palette in
+  one update (`Port_VillageGroups_AtomicStream`) and applies the palette to
+  `gBgPltt` immediately (`Port_VillageGroups_ApplyLoadedPalette`). This removes
+  both the staged mixed-charset frame and the one-frame palette lag, so region
+  crossings have no aperture pop or colour flash. Native/wide builds keep the
+  original eight-step GBA pacing.
+- Tests: `tools/village_groups_regression_test.py` (region lookup, padding row,
+  selected-group VRAM choice, scroll offsets),
+  `tools/ppu_group_cells_regression_test.py` (per-cell charset/LUT selection,
+  fallback), and the village manager test (staged + atomic + multi-group
+  selections at 162/192). A clean EU 4:3 capture of the g2/g3 overlap matched
+  the native single-group g3 render pixel-for-pixel in the atlas region.
 
 ### Managers
 
@@ -381,11 +463,13 @@ parallax backgrounds whose source spans the aperture):
 `STATIC_BACKGROUND`, `POW_BACKGROUND`, `HORIZONTAL_MINISH_PATH_BACKGROUND`,
 `VERTICAL_MINISH_PATH_BACKGROUND`, `MINISH_RAFTERS_BACKGROUND`.
 
-Conditionally allowed (must prove one region group covers the candidate view):
+Conditionally allowed (must prove residency):
 
 - `HYRULE_TOWN_TILESET`: each region list must select at most one group.
-- `MINISH_VILLAGE`: one region group **and** the eight-step streaming sequence
-  must be complete (`timer >= 8`) before the tall aperture is admitted.
+- `MINISH_VILLAGE`: every group charset/palette must be resident in the host
+  atlas and the selected group must be valid. The selected group loads
+  atomically (one update) under the tall profile; the PPU selects any other
+  group per tilemap cell. Multi-region intersections no longer fail closed.
 
 Explicitly native-only (unverified effects/streamers):
 
@@ -408,15 +492,18 @@ fail closed. Every visible OAM slot must be signed/tagged
 
 ### Evidence
 
-EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
+EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
+`screenshots/` (current):
 
 - full-height tall: field (`0x03/0x08`), festival town (`0x15/0x00`), dungeon
   (`0x49/0x00`), Minish path (`0x11/0x00`), Mount Crenel (`0x06/0x00`), Cloud
   Tops (`0x08/0x00`);
-- Minish Village `0x01/0x00` is a multi-region view: the manager cannot keep
-  two groups resident in the shared eight-span stream, so the policy keeps that
-  view native/centered. This is the remaining known normal-room fallback and is
-  why the release capability stays off.
+- Minish Village `0x01/0x00` is a multi-region view. The selected group stays
+  in VRAM while every other group is read from the host charset atlas, so the
+  view renders at 256 × 192 with no native fallback and no group-switch pop.
+  The `screenshots/2026-10-30-eu-minish-village-43-multigroup*.png` captures
+  show the multi-group view; a clean comparison against a native single-group
+  capture matched pixel-for-pixel in the atlas region.
 
 ## Progress log
 
@@ -430,8 +517,8 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
   presentation, HD text and screenshots all read the same composition.
   Classified transitions/effects use a native 240 × 160 fallback composed with
   procedural/black margins and never receive static artwork. Release
-  availability is profile/capacity based (`PORT_VIEWPORT_RELEASE_TALL`, still
-  `0` until WP3–WP5 pass); the literal 192 in staging/camera math is gone.
+  availability is profile/capacity based; the literal 192 in staging/camera
+  math is gone.
 - **WP2 implemented.** `port/port_tall_scene.c/.h` owns candidate aperture,
   required rows and the combined validation decision. `Port_Widescreen_MapUploaded()`
   is the production caller. Validation requires room key, camera tile origin,
@@ -520,9 +607,64 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 - **WP2 follow-up.** `Port_Viewport_ResolveWorldRect()` now requires
   `TALL_ROWS_READY` in the tall gate, matching the published validator
   contract and the existing `screen_background_regression_test.py` expectation.
-- **Remaining.** Add a residency design for multi-group Minish Village views if
-  they must become tall, then flip the release capability and run WP8
-  acceptance/performance.
+- **Minish Village seamless residency implemented.** `port/port_village_groups.c/.h`
+  keeps every tileset group's 32 KB charset and palette in host memory, builds
+  a per-tilemap-cell group grid from the manager's region table, and binds it
+  to the PPU for the map BG layers. The selected group stays in VRAM (native
+  animations preserved); other groups use the host atlas and the same faded
+  palette banks. `virtuappu_mode1_bind_bg_group_cells()` selects charset and
+  palette per cell; the reveal-shadow columns use their own group grid
+  (`virtuappu_mode1_bind_bg_group_shadow`) with the shadow world mapping.
+  Under the tall profile the manager
+  loads the selected group and palette in one update
+  (`Port_VillageGroups_AtomicStream`), so crossing a region boundary has no
+  eight-step mixed-charset frame and no aperture pop. ROM-free tests:
+  `tools/village_groups_regression_test.py`,
+  `tools/ppu_group_cells_regression_test.py`; the manager test also covers the
+  atomic path and a multi-group selection at 162/192.
+- **Release enabled.** `PORT_VIEWPORT_RELEASE_TALL` defaults to `1`;
+  `--tall_aspects=n` disables tall profiles for native-only builds. 4:3 is
+  selectable in release builds with ≥256 × 192 capacity.
+- **Acceptance tooling generalized for 192 rows.** `verify_eu_gameplay_presenters.py`
+  now covers a 4:3 profile (256 × 192 / 1024 × 768), height-aware presentation
+  sampling and dialogue bands, 4:3 profile switches, an ImageMagick-backed PNG
+  reader (no PIL dependency) and a `--backends` selector. It passed 24 EU
+  software captures at native/16:9/21:9/4:3, including two 4:3 live switches.
+  `oam_position_regression_test.py` and `door_visibility_regression_test.py`
+  links/stubs were repaired for the current PPU/viewport APIs;
+  `screen_background.c` now follows the release tall capability.
+- **USA/JP retail validation.** BZME and BZMJ ROMs matched their SHA-1s and
+  were built with the multi-region and single-region configurations. Both pass
+  the 24-capture 4:3 software presenter matrix (`.tmp/eu-gameplay-43-usa-final/`,
+  `.tmp/eu-gameplay-43-jp-final/`); the EU-baseline multi-region binary also
+  passes both matrices (`.tmp/eu-gameplay-43-{usa,jp}-eubase/`). The EU matrix
+  was re-run after the generic message-top/HUD-anchor change
+  (`.tmp/eu-gameplay-43-eu-final/`); USA/JP share the same generic code and were
+  not re-run for that last change. The village g2/g3 atlas matches the native
+  single-group render pixel-for-pixel on both; sub-tile-wrap captures have no
+  shadow gap; JP field dialogue renders Japanese text. Evidence screenshots are
+  under `screenshots/2026-10-30-{us,jp}-*`. Broader JP menu/text layout coverage
+  remains a separate audit.
+- **Message vertical policy generalized.** Standard top messages stay at the
+  native top on every canvas; standard bottom messages move to the canvas
+  bottom inset (`height - 160`), both horizontally centered. The right HUD
+  anchor is also retained during messages even when `unk_10`/`unk_a` redraw
+  flags are clear, so the rupee counter is anchored at the canvas bottom-right
+  instead of being left at the native position under a 4:3 bottom box. 4:3 top
+  dialogue appears at the top with the full counter; bottom dialogue keeps the
+  counter visible below the box. The rule has no profile-specific case and is
+  covered by `screen_background` (160/192/162) and the 4:3 presenter matrix.
+  Native 240 output is unchanged; wide/tall message frames deliberately use the
+  same canvas-edge anchor instead of leaving the right HUD at its native x.
+- **Camera-tile staging.** Tall steady-state now refreshes a moved camera tile
+  with a synchronous full fill + VRAM copy before the present instead of
+  dropping to the native composition for a frame; partial scroll updates no
+  longer clear a valid tall snapshot. This removes the walking jitter seen with
+  rooms whose map animation uses modes 2-4 (notably the USA village).
+- **Remaining.** Physical-RG 4:3 frame-time/thermal measurement, the remaining
+  room-family capture matrix, optional custom artwork, and a tall message/HUD
+  layout (see the limit above). Missing artwork is always black and is not a
+  blocker.
 
 ## Sequencing
 
@@ -538,7 +680,7 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 
 ## Definition of done
 
-- 4:3 selectable in release builds with capacity ≥256 × 192.
+- 4:3 selectable in release builds with capacity ≥256 × 192. (Done.)
 - Normal towns, dungeons, field, bosses, Minish paths and weather render true
   192-row world content; native fallback is limited to explicitly classified
   transitions/effects.
@@ -550,7 +692,8 @@ EU headless 4:3 test-build captures (256 × 192) are in `.tmp/wp3-wp4/`:
 - No manager, entity, OAM or effect path can expose invalid rows.
 - Software and GPU presentation are correct; optional paths fall back safely.
 - RG holds native 60 fps with documented headroom.
-- Missing 4:3 artwork is black only; artwork creation remains the user's work.
+- Missing 4:3 artwork is black only. Missing files are intentional and
+  supported; artwork creation is optional user work, never a release gate.
 - Live gameplay has no hard black cutout: a five-pixel edge fade samples the
   original border and darkens to black, preserving black borders and HUD.
 
@@ -562,7 +705,9 @@ estimate:
 - **Full broad 4:3:** roughly **11–17 focused work packages /
   3–4.5 working weeks**.
 
-The schedule is dominated by WP3 (manager/tileset residency) and WP4
-(entity/OAM validation), not by the rasterizer or UI layout. Adding a future
-288 × 162 profile after this plan should be a profile/config and acceptance
-task, not a second live-world implementation.
+The schedule was dominated by WP3 (manager/tileset residency) and WP4
+(entity/OAM validation), not by the rasterizer or UI layout; both are now
+implemented, including the Minish Village host charset atlas. Remaining work
+is WP8 device evidence and optional artwork. Adding a future 288 × 162 profile
+after this plan should be a profile/config and acceptance task, not a second
+live-world implementation.

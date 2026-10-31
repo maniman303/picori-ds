@@ -1,5 +1,6 @@
 /* Exercise real manager upload sequences against the PC immediate-copy path. */
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "manager/minishVillageTileSetManager.h"
@@ -28,6 +29,16 @@ int Port_Widescreen_RegionViewWidth(void) { return 240; }
 int Port_Widescreen_RegionViewHeight(void) { return viewHeight; }
 static int lastManagerSafe = -1;
 void Port_Widescreen_NoteManagerResidency(unsigned id, int safe) { (void)id; lastManagerSafe = safe; }
+static int atomicStream;
+static int residencyProven = 1;
+bool Port_VillageGroups_AtomicStream(void) { return atomicStream != 0; }
+void Port_VillageGroups_Publish(const uint16_t* regions, const uint32_t* chunks,
+                                const uint8_t* palette_ids, int group_count) {
+    (void)regions; (void)chunks; (void)palette_ids; (void)group_count;
+}
+bool Port_VillageGroups_ResidencyProven(void) { return residencyProven != 0; }
+static unsigned palettesApplied;
+void Port_VillageGroups_ApplyLoadedPalette(void) { palettesApplied++; }
 #include "region_intersection.inc"
 extern const u16 gUnk_08108050_eu[];
 
@@ -68,15 +79,17 @@ static void check_village(void) {
     MinishVillageTileSetManager m = {0};
     m.base.action = 1; m.base.timer = 8; m.unk_20 = 0xff;
     gRoomControls.area = 0xff;
+    atomicStream = 0;
+    residencyProven = 0; /* native/wide staged path: tall admission stays off */
     for (selection = 0; selection < 5; ++selection) {
         memset(vram, 0xee, sizeof(vram));
         lastManagerSafe = -1;
         for (int phase = 0; phase < 8; ++phase) {
             MinishVillageTileSetManager_Main(&m);
             assert(m.base.timer == phase + 1);
-            /* The first seven steps are not a resident tall aperture; the
-             * eighth chunk completes the group. */
-            assert(lastManagerSafe == (phase == 7));
+            /* The staged GBA stream is only used when the tall composition is
+             * not active; it must not claim residency itself. */
+            assert(lastManagerSafe == 0);
             for (int chunk = 0; chunk < 8; ++chunk) {
                 u32 dest = gUnk_081080A4_eu[selection * 16 + chunk * 2 + 1];
                 u8* actual = port_resolve_addr(dest);
@@ -84,7 +97,7 @@ static void check_village(void) {
                 else for (int i = 0; i < 0x1000; ++i) assert(actual[i] == 0xee);
             }
         }
-        assert(lastManagerSafe == 1); /* complete group is tall-safe */
+        assert(lastManagerSafe == 0);
         assert(palettes == selection + 1);
     }
     /* A region switch in the middle of streaming starts the new sequence. */
@@ -104,6 +117,36 @@ static void check_village(void) {
     MinishVillageTileSetManager_Main(&m);
     assert(m.base.timer == 8 && palettes == 7);
     for (size_t i = 0; i < sizeof(vram); ++i) assert(vram[i] == 0xee);
+}
+
+static void check_atomic_village(void) {
+    MinishVillageTileSetManager m = {0};
+    gRoomControls.area = 0xff;
+    atomicStream = 1;
+    residencyProven = 1;
+    palettes = 0;
+    palettesApplied = 0;
+    for (selection = 0; selection < 5; ++selection) {
+        memset(vram, 0xee, sizeof(vram));
+        m.base.action = 1; m.base.timer = 8; m.unk_20 = 0xff;
+        MinishVillageTileSetManager_Main(&m);
+        /* One update installs the complete group and its palette: no staged
+         * mixed-charset frame and therefore no aperture pop. */
+        assert(m.base.timer == 8 && m.unk_20 == selection);
+        assert(lastManagerSafe == 1);
+        assert(palettes == selection + 1);
+        assert(palettesApplied == selection + 1);
+        for (int chunk = 0; chunk < 8; ++chunk) {
+            u32 dest = gUnk_081080A4_eu[selection * 16 + chunk * 2 + 1];
+            assert(memcmp(port_resolve_addr(dest),
+                          source + gUnk_081080A4_eu[selection * 16 + chunk * 2], 0x1000) == 0);
+        }
+        /* A second update with the same group is a no-op. */
+        MinishVillageTileSetManager_Main(&m);
+        assert(palettes == selection + 1 && palettesApplied == selection + 1);
+    }
+    atomicStream = 0;
+    residencyProven = 1;
 }
 static void check_other_region_tables(void) {
     const int regions[] = {TMC_REGION_USA, TMC_REGION_JP};
@@ -188,7 +231,10 @@ static void check_tall_group_selection(int height) {
             viewHeight = height;
             u32 tall = CheckRegionsOnScreen(gUnk_08108050_eu);
             const u32 mask = CheckRegionsOnScreenMask(gUnk_08108050_eu);
-            if (tall == 0xff || (mask & (mask - 1)) != 0)
+            /* Exercise a view that intersects two regions: the selected group
+             * still loads its chunks, while the host charset atlas covers the
+             * other group in the tall aperture. */
+            if (tall == 0xff || (mask & (mask - 1)) == 0)
                 continue;
             MinishVillageTileSetManager m = {0};
             m.base.action = 1; m.base.timer = 8; m.unk_20 = 0xff;
@@ -215,7 +261,7 @@ static void check_tall_group_selection(int height) {
 
 int main(void) {
     for (size_t i = 0; i < sizeof(source); ++i) source[i] = (u8)((i >> 12) ^ (i >> 20));
-    check_village(); check_other_region_tables(); check_town_groups(); check_town();
+    check_village(); check_atomic_village(); check_other_region_tables(); check_town_groups(); check_town();
     check_region_boundaries(); check_tall_group_selection(162); check_tall_group_selection(192);
     puts("Town and village manager immediate upload timing: PASS");
     return 0;

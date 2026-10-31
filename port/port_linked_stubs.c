@@ -42,6 +42,7 @@
 #include "port_widescreen.h"
 #include "port_viewport.h"
 #include "port_tall_scene.h"
+#include "port_village_groups.h"
 
 #include <string.h>
 
@@ -1098,10 +1099,21 @@ int Port_Widescreen_HudRightAnchor(void) {
     if (!Port_Widescreen_LayoutActive()) {
         return 0;
     }
+    /* unk_10/unk_a are dirty/redraw flags, not permanent presence flags.
+     * During dialogue they can be clear while the last drawn key/rupee cells
+     * are still in BG0; leaving the anchor at zero then keeps that HUD at the
+     * native position, where a tall bottom box covers it completely. Treat an
+     * active message as "cells still present" so they are moved to the canvas
+     * bottom-right (and stay visible below a top-position box). */
+    int messageActive = 0;
+    {
+        int x, y, w, h;
+        messageActive = Message_GetWindowRect(&x, &y, &w, &h) != 0;
+    }
     int mask = 0;
-    if (!(gHUD.hideFlags & HUD_HIDE_KEYS) && gHUD.unk_10)
+    if (!(gHUD.hideFlags & HUD_HIDE_KEYS) && (gHUD.unk_10 || messageActive))
         mask |= MODE1_WS_HUD_KEYS;
-    if (!(gHUD.hideFlags & HUD_HIDE_RUPEES) && gHUD.unk_a)
+    if (!(gHUD.hideFlags & HUD_HIDE_RUPEES) && (gHUD.unk_a || messageActive))
         mask |= MODE1_WS_HUD_RUPEES;
     return mask;
 }
@@ -1169,6 +1181,18 @@ static void Port_WidescreenShadow_Populate(int bg_index, u16* mapSpecial, u16* s
      * The existing four spare columns still cover the trailing partial tile. */
     s32 ws_base_world_col = (xdiff >> 3) + (MODE1_GBA_BG_CLIP_X / 8) - 1;
     virtuappu_mode1_ws_shadow_base_tile[bg_index] = (MODE1_GBA_BG_CLIP_X / 8) + (((xdiff & 0xf) >= 8) ? 1 : 0) - 1;
+    /* A 256-wide tall canvas has valid live VRAM columns up to the 256-px
+     * screenblock wrap. Only the wrapped tail (at most 15 columns) needs the
+     * shadow; using it earlier replaced correct cells with redundant shadow
+     * columns (visible as a black strip in the village). Wide 160-row
+     * profiles keep the native 240 reveal start. */
+    int shadow_start = MODE1_GBA_BG_CLIP_X;
+    if (Port_Viewport_Get()->canvas.height > PORT_VIEWPORT_NATIVE_HEIGHT) {
+        const int wrap_start = 256 - (xdiff & 0xf);
+        if (wrap_start > shadow_start)
+            shadow_start = wrap_start;
+    }
+    virtuappu_mode1_ws_shadow_start_x[bg_index] = shadow_start;
 
     enum { kMapStride = 128, kMapRows = 128 };
     /* Clamp to the ROOM rect, not just the 128-tile buffer: the buffers are
@@ -1379,11 +1403,13 @@ void Port_Widescreen_SetTallValidated(int validated) {
 void Port_Widescreen_MapFilled(unsigned mode) {
     if (sWsStageHeight <= PORT_VIEWPORT_NATIVE_HEIGHT)
         return;
-    if (mode != 1) {
-        sWsUpload.filled = false;
-        sWsUpload.uploaded = false;
+    /* Modes 2-4 are partial scroll updates (animated tiles/rows). The
+     * unchanged rows retain the completed full staging, so a partial update
+     * must not clear a valid tall snapshot; only a full mode-1 fill proves the
+     * whole aperture. If the camera tile origin changed, the retained-upload
+     * check in PublishScene still drops to native and restarts staging. */
+    if (mode != 1)
         return;
-    }
     Port_Viewport_UploadFilled(&sWsUpload, Port_WidescreenRoomKey(), Port_Widescreen_MapTileX(),
                                Port_Widescreen_MapTileY(), Port_Widescreen_MapBufferSize() / 64);
 }
@@ -1394,6 +1420,32 @@ void Port_Widescreen_MapUploaded(void) {
                                       Port_Widescreen_MapTileY(), Port_Widescreen_MapBufferSize() / 64);
         /* Real production validation boundary: the staged rows now live in VRAM. */
         Port_Widescreen_SetTallValidated(1);
+    }
+}
+
+/* The tall aperture keeps its world when the camera moves one 16-px tile.
+ * The engine normally fills/uploads the map window after the present; doing
+ * that here, before the PPU render, avoids a one-frame native drop (visible
+ * as a vertical jitter while walking). The fill is a full mode-1 pass for the
+ * current tile origin, then the same VRAM copy WaitForNextFrame would do. */
+static bool Port_WidescreenMapSnapshotMatches(int height) {
+    return sWsUpload.filled && sWsUpload.uploaded &&
+           sWsUpload.roomKey == Port_WidescreenRoomKey() &&
+           sWsUpload.tileX == Port_Widescreen_MapTileX() &&
+           sWsUpload.tileY == Port_Widescreen_MapTileY() &&
+           sWsUpload.height == height &&
+           sWsUpload.rows >= Port_WidescreenTallRows();
+}
+
+static void Port_WidescreenUploadMapBuffers(void) {
+    const u32 mapBufferSize = Port_Widescreen_MapBufferSize();
+    if (gMapBottom.bgSettings != NULL) {
+        memcpy(gVram + (gMapBottom.bgSettings->control & 0x1f00) * 8, &gBG1Buffer,
+               mapBufferSize);
+    }
+    if (gMapTop.bgSettings != NULL) {
+        memcpy(gVram + (gMapTop.bgSettings->control & 0x1f00) * 8, &gBG2Buffer,
+               mapBufferSize);
     }
 }
 
@@ -1546,24 +1598,53 @@ void Port_Widescreen_PublishScene(void) {
             gUpdateVisibleTiles = 1;
             UpdateScrollVram();
         }
-    } else if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT) {
-        sWsStageHeight = 0;
-        /* Keep a verified fill/upload so a transient entity/manager gate can
-         * recover without discarding residency. A camera change or a wider
-         * shake envelope invalidates it and forces a fresh staging pass. */
-        if (sWsUpload.filled && sWsUpload.uploaded &&
-            sWsUpload.roomKey == Port_WidescreenRoomKey() &&
-            sWsUpload.tileX == Port_Widescreen_MapTileX() &&
-            sWsUpload.tileY == Port_Widescreen_MapTileY() &&
-            sWsUpload.height == targetHeight && sWsUpload.rows >= Port_WidescreenTallRows()) {
-            scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
-        } else {
+    } else if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT &&
+               !(scene.capabilities & PORT_SCENE_TALL_SHAKE_UNSAFE)) {
+        /* Steady tall. If the camera tile origin or required row count moved,
+         * refresh the full aperture synchronously instead of dropping to the
+         * native composition for a frame. An unsafe shake keeps the staged
+         * native fallback below. */
+        const bool sameRoom = sWsValidatedKey == Port_WidescreenRoomKey() &&
+                              sWsUpload.roomKey == Port_WidescreenRoomKey();
+        if (!Port_WidescreenMapSnapshotMatches(targetHeight) && sameRoom) {
+            sWsStageHeight = targetHeight;
+            const int rows = Port_Widescreen_MapBufferSize() / 64;
+            (void)Port_Viewport_UploadRequest(&sWsUpload, Port_WidescreenRoomKey(),
+                                              Port_Widescreen_MapTileX(), Port_Widescreen_MapTileY(),
+                                              targetHeight, rows);
+            gUpdateVisibleTiles = 1;
+            UpdateScrollVram();
+            Port_WidescreenUploadMapBuffers();
+            Port_Widescreen_MapUploaded();
+            gUpdateVisibleTiles = 0;
+            sWsStageHeight = 0;
+        } else if (!sameRoom) {
+            /* Room change: never authorize the new room with the old rows. */
+            sWsStageHeight = 0;
             Port_Viewport_UploadReset(&sWsUpload);
+        } else {
+            sWsStageHeight = 0;
         }
+        if (Port_WidescreenMapSnapshotMatches(targetHeight))
+            scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
+        else
+            Port_Viewport_UploadReset(&sWsUpload);
+    } else if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT) {
+        /* Unsafe shake: the aperture resolves native. Drop a stale upload so
+         * the next native staging pass can refresh the safe row count. */
+        sWsStageHeight = 0;
+        Port_Viewport_UploadReset(&sWsUpload);
     } else {
         sWsStageHeight = 0;
         Port_Viewport_UploadReset(&sWsUpload);
     }
+    /* A synchronous camera-tile refresh commits the map key after the OAM
+     * check above; re-check it before the combined publication so the same
+     * frame can stay tall instead of dropping native for one frame. */
+    if (sWsValidatedKey == Port_WidescreenRoomKey() && Port_Oam_VisibleSlotsTagged(gOamMem))
+        scene.capabilities |= PORT_SCENE_TALL_OAM_VERIFIED;
+    if (gMain.task == TASK_GAME && sWsValidatedKey == Port_WidescreenRoomKey())
+        scene.capabilities |= PORT_SCENE_TALL_VALIDATED;
     /* One combined publication boundary. Residency was committed by the map
      * upload caller; every other gate is re-evaluated against this frame so a
      * manager, entity, OAM or shake change cannot leave the aperture open. */
@@ -1601,15 +1682,36 @@ void Port_Widescreen_PublishScene(void) {
             trace = getenv("TMC_WS_TRACE") != NULL;
         if (trace && (scene.capabilities != lastCaps || (++tick % 120) == 0)) {
             fprintf(stderr,
-                    "[ws] area=0x%02x room=0x%02x canvas=%dx%d world=%dx%d+%d,%d caps=0x%04x tall=0x%02x\n",
+                    "[ws] area=0x%02x room=0x%02x canvas=%dx%d world=%dx%d+%d,%d caps=0x%04x tall=0x%02x "
+                    "target=%d up=%d/%d,%d,%d tile=%d,%d req=%d shake=%d\n",
                     (unsigned)gRoomControls.area, (unsigned)gRoomControls.room,
                     geometry->canvas.width, geometry->canvas.height,
                     geometry->world.width, geometry->world.height,
-                    geometry->world.x, geometry->world.y, scene.capabilities, tallStatus);
+                    geometry->world.x, geometry->world.y, scene.capabilities, tallStatus,
+                    targetHeight, (int)sWsUpload.height, (int)sWsUpload.rows, (int)sWsUpload.filled,
+                    (int)sWsUpload.uploaded, sWsUpload.tileX, sWsUpload.tileY,
+                    Port_WidescreenTallRows(), (int)gRoomControls.shake_duration);
             lastCaps = scene.capabilities;
         }
     }
     Port_Viewport_PublishScene(scene);
+    {
+        /* View-dependent charset groups (Minish Village) are selected per
+         * tilemap cell from the live map layers. Other rooms/games leave the
+         * override unbound. */
+        unsigned villageMask = 0;
+        if (gMapBottom.bgSettings != NULL) {
+            const int bg = Port_WidescreenPpuBgForControl(gMapBottom.bgSettings->control);
+            if (bg >= 0)
+                villageMask |= 1u << (unsigned)bg;
+        }
+        if (gMapTop.bgSettings != NULL) {
+            const int bg = Port_WidescreenPpuBgForControl(gMapTop.bgSettings->control);
+            if (bg >= 0)
+                villageMask |= 1u << (unsigned)bg;
+        }
+        Port_VillageGroups_Update(villageMask);
+    }
 }
 
 void Port_Widescreen_BeforePresent(void) {
@@ -1627,6 +1729,7 @@ void Port_Widescreen_RoomLoaded(void) {
     sWsContentKey = UINT64_MAX;
     /* Every view-dependent manager must re-prove its group coverage. */
     Port_TallScene_InvalidateManagerResidency();
+    Port_VillageGroups_Reset();
     Port_Widescreen_PublishScene();
     if (Port_Widescreen_TargetViewWidth() > 240 && getenv("TMC_WS_TRACE") != NULL) {
         fprintf(stderr, "[ws] area=0x%02x room=0x%02x width=%d content_px=%d -> %s\n",
@@ -1637,14 +1740,18 @@ void Port_Widescreen_RoomLoaded(void) {
 
 /* Called per-VBlank from src/interrupts.c::UpdateDisplayControls. */
 void Port_Widescreen_UpdateShadows(void) {
+    /* Publish before clearing the shadow pointers: the tall validator asks
+     * whether the reveal tilemaps are resident, and clearing first made that
+     * answer flicker between every VBlank and the next present. The pointers
+     * are repopulated below before the PPU renders. */
+    Port_Widescreen_PublishScene();
+
     for (int i = 0; i < MODE1_GBA_BG_COUNT; i++)
         virtuappu_mode1_ws_shadow[i] = NULL;
     virtuappu_mode1_ws_hud_right_anchor = 0;
     virtuappu_mode1_ws_hud_shift_y = 0;
     virtuappu_mode1_ws_msg_shift = 0;
     virtuappu_mode1_ws_msg_shift_y = 0;
-
-    Port_Widescreen_PublishScene();
 
     if (!Port_Widescreen_LayoutActive()) {
         return;

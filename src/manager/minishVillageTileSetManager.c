@@ -18,6 +18,7 @@ void sub_08057E7C(u32);
 #ifdef PC_PORT
 extern const u8* gGlobalGfxAndPalettes;
 #include "port_widescreen.h"
+#include "port_village_groups.h"
 #else
 extern const u8 gGlobalGfxAndPalettes[];
 #endif
@@ -89,6 +90,12 @@ void MinishVillageTileSetManager_Main_EU(MinishVillageTileSetManager* this) {
 
         RegisterTransitionHandler(this, sub_08057E30, NULL);
     }
+#ifdef PC_PORT
+    /* Publish the live region/chunk/palette tables. The host keeps every
+     * group's complete charset, so a taller aperture can show two groups
+     * without swapping VRAM or dropping to a native composition. */
+    Port_VillageGroups_Publish(gUnk_08108050_eu, gUnk_081080A4_eu, gUnk_081081E4, 5);
+#endif
     if (gRoomControls.reload_flags)
         return;
 
@@ -109,6 +116,27 @@ void MinishVillageTileSetManager_Main_EU(MinishVillageTileSetManager* this) {
     tmp2 = &gUnk_081080A4[tmp << 4];
     if (REGION_IS_EU)
         tmp2 = &gUnk_081080A4_eu[tmp << 4];
+#ifdef PC_PORT
+    /* Tall profile: load the whole group (and its palette) atomically. The
+     * GBA eight-step stream exists only to fit VBlank bandwidth; staging it on
+     * PC would briefly mix two groups in VRAM and force a visible aperture
+     * pop. Host charsets already cover every group, so one frame is enough. */
+    if (Port_VillageGroups_AtomicStream()) {
+        if (super->timer < 8) {
+            gPauseMenuOptions.disabled = 1;
+            for (u32 i = 0; i < 8; ++i)
+                LoadResourceAsync(&gGlobalGfxAndPalettes[tmp2[i << 1]],
+                                  (void*)(uintptr_t)tmp2[(i << 1) + 1], 0x1000);
+            LoadPaletteGroup(gUnk_081081E4[tmp]);
+            /* The engine's palette latch runs after the next present; apply it
+             * now so the same frame that swaps the group has the new colours. */
+            Port_VillageGroups_ApplyLoadedPalette();
+            super->timer = 8;
+            gPauseMenuOptions.disabled = 0;
+        }
+        return;
+    }
+#endif
     tmp3 = super->timer;
     if (tmp3 == 0) {
         gPauseMenuOptions.disabled = 1;
@@ -145,6 +173,9 @@ void MinishVillageTileSetManager_Main_USA(MinishVillageTileSetManager* this) {
         SetEntityPriority((Entity*)this, PRIO_PLAYER_EVENT);
         RegisterTransitionHandler(this, sub_08057E30, NULL);
     }
+#ifdef PC_PORT
+    Port_VillageGroups_Publish(gUnk_08108050, gUnk_081080A4, gUnk_081081E4, 5);
+#endif
     if (sub_08057E40(this)) {
         tmp = (u32)gRoomVars.graphicsGroups[0];
         if (this->unk_20 != tmp) {
@@ -162,6 +193,23 @@ void MinishVillageTileSetManager_Main_USA(MinishVillageTileSetManager* this) {
     tmp2 = &gUnk_081080A4[tmp << 4];
     if (REGION_IS_EU)
         tmp2 = &gUnk_081080A4_eu[tmp << 4];
+#ifdef PC_PORT
+    if (Port_VillageGroups_AtomicStream()) {
+        if (super->timer < 8) {
+            gPauseMenuOptions.disabled = 1;
+            for (u32 i = 0; i < 8; ++i)
+                LoadResourceAsync(&gGlobalGfxAndPalettes[tmp2[i << 1]],
+                                  (void*)(uintptr_t)tmp2[(i << 1) + 1], 0x1000);
+            LoadPaletteGroup(gUnk_081081E4[tmp]);
+            /* The engine's palette latch runs after the next present; apply it
+             * now so the same frame that swaps the group has the new colours. */
+            Port_VillageGroups_ApplyLoadedPalette();
+            super->timer = 8;
+            gPauseMenuOptions.disabled = 0;
+        }
+        return;
+    }
+#endif
     switch (super->timer) {
         case 0:
             gPauseMenuOptions.disabled = 1;
@@ -193,14 +241,10 @@ void MinishVillageTileSetManager_Main(MinishVillageTileSetManager* this) {
         MinishVillageTileSetManager_Main_USA(this);
     }
 #ifdef PC_PORT
-    /* The eight-step stream temporarily mixes outgoing and incoming chunks.
-     * Keep the tall aperture native until the selected group is complete and
-     * only one region group is visible. */
-    const u16* sel = REGION_IS_EU ? gUnk_08108050_eu : gUnk_08108050;
-    const u32 mask = CheckRegionsOnScreenMask(sel);
-    const int singleGroup = (mask & (mask - 1)) == 0;
-    const int streamComplete = this->unk_20 <= 4 && this->base.timer >= 8;
-    Port_Widescreen_NoteManagerResidency(MINISH_VILLAGE_MANAGER, singleGroup && streamComplete);
+    /* Every group is resident in host memory; only a valid selected group is
+     * required. Views that intersect two regions stay on the tall composition
+     * instead of falling back to native. */
+    Port_Widescreen_NoteManagerResidency(MINISH_VILLAGE_MANAGER, Port_VillageGroups_ResidencyProven());
 #endif
 }
 #else

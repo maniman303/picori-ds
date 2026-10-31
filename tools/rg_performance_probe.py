@@ -10,11 +10,15 @@ this tool never substitutes host or QEMU numbers for that acceptance.
 The snapshot contains ROM-derived graphics. Keep it in an untracked evidence
 directory, never in the repository.
 
-Example:
+Example (native):
     python3 tools/rg_performance_probe.py \
         --snapshot .tmp/rg-performance-2026-10-30/room.ppu \
         --threads 1,2,4 --iterations 1000 \
         --json .tmp/rg-performance-2026-10-30/results.json
+
+4:3 (256x192) snapshots are validated with:
+    python3 tools/rg_performance_probe.py --snapshot room43.ppu \
+        --require-width 256 --require-height 192 --width 256 --threads 1,2,4
 """
 import argparse
 import hashlib
@@ -23,12 +27,29 @@ import os
 import platform
 import re
 import shlex
+import struct
 import subprocess
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CFLAGS = ['-O3', '-mavx2', '-mfma', '-fopenmp']
+
+
+def snapshot_geometry(path):
+    """Read PPU1/PPU2 geometry without linking the PPU. PPU2 stores LE u32
+    width/height/pitch after the magic and five region sizes."""
+    with path.open('rb') as stream:
+        header = stream.read(4 + 5 * 4 + 3 * 4)
+    if len(header) < 4:
+        raise SystemExit(f'{path}: truncated snapshot')
+    magic = header[:4]
+    if magic == b'PPU1':
+        return 240, 160
+    if magic != b'PPU2' or len(header) < 4 + 5 * 4 + 3 * 4:
+        raise SystemExit(f'{path}: unsupported snapshot magic {magic!r}')
+    width, height, pitch = struct.unpack_from('<III', header, 4 + 5 * 4)
+    return width, height
 
 
 def sha256(path):
@@ -85,6 +106,10 @@ def main():
                         help='independent runs per worker count; median is reported')
     parser.add_argument('--width', type=int, default=240,
                         help='MODE1_GBA_WIDTH capacity for the benchmark build')
+    parser.add_argument('--require-width', type=int,
+                        help='fail unless the snapshot frame width matches')
+    parser.add_argument('--require-height', type=int,
+                        help='fail unless the snapshot frame height matches (192 for 4:3)')
     parser.add_argument('--cc', default=os.environ.get('CC', 'cc'))
     parser.add_argument('--cflags', default=' '.join(DEFAULT_CFLAGS))
     parser.add_argument('--json', type=Path)
@@ -93,6 +118,13 @@ def main():
     snapshot = args.snapshot.resolve()
     if not snapshot.is_file():
         parser.error(f'missing snapshot: {snapshot}')
+    frame_width, frame_height = snapshot_geometry(snapshot)
+    if args.require_width is not None and frame_width != args.require_width:
+        parser.error(f'snapshot width {frame_width}, expected {args.require_width}')
+    if args.require_height is not None and frame_height != args.require_height:
+        parser.error(f'snapshot height {frame_height}, expected {args.require_height}')
+    if args.width < frame_width:
+        parser.error(f'--width {args.width} is smaller than the snapshot frame {frame_width}')
     threads = [int(value) for value in args.threads.split(',') if value.strip()]
     if not threads or any(value < 1 for value in threads):
         parser.error('thread counts must be positive')
@@ -143,7 +175,8 @@ def main():
         },
         'build': {'width': args.width, 'cflags': cflags, 'iterations': args.iterations,
                   'repeats': args.repeats},
-        'snapshot': {'sha256': sha256(snapshot), 'bytes': snapshot.stat().st_size},
+        'snapshot': {'sha256': sha256(snapshot), 'bytes': snapshot.stat().st_size,
+                     'frame_width': frame_width, 'frame_height': frame_height},
         'checksum': next(iter(checksums)),
         'runs': [{key: value for key, value in run.items() if key != 'stdout'} for run in runs],
         'limitations': [
@@ -153,8 +186,8 @@ def main():
         ],
     }
 
-    print(f"snapshot: {snapshot.name} ({report['snapshot']['bytes']} bytes) "
-          f"sha256={report['snapshot']['sha256'][:16]}...")
+    print(f"snapshot: {snapshot.name} ({report['snapshot']['bytes']} bytes, "
+          f"{frame_width}x{frame_height}) sha256={report['snapshot']['sha256'][:16]}...")
     print(f"host: {report['host']['machine']} cpu_count={report['host']['cpu_count']} "
           f"width={args.width} iterations={args.iterations}")
     print('threads   ms/frame    fps    speedup   checksum')

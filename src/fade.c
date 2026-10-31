@@ -9,7 +9,9 @@
 #include "port_effect_geometry.h"
 #include "port_background_effect.h"
 #include "port_rom.h"
+#include "port_fade.h"
 #include <stdio.h>
+#include <stdbool.h>
 #endif
 
 static u32 sub_080501C0(FadeControl* ctl);
@@ -126,6 +128,32 @@ static void Port_MakeFadeBuff256(u8* src, u8* dest, u16 intensity, u8 color) {
         dstPtr[i] = tableR[r >> 1] | tableG[g >> 1] | tableB[b >> 1];
     }
 }
+
+/* Snapshot the fade parameters actually used by the most recent VBlank palette
+ * upload. The PPU present happens before FadeVBlank for the current tick, so
+ * non-resident charset palettes must use this snapshot to match gBgPltt. */
+static struct_020354C0 sLastFade[0x20];
+static bool sLastFadeValid;
+
+void Port_Fade_RecordVBlank(void) {
+    for (unsigned i = 0; i < 0x20; ++i)
+        sLastFade[i] = gUnk_020354C0[i];
+    sLastFadeValid = true;
+}
+
+void Port_Fade_TransformPaletteBank(const uint16_t* src, uint16_t* dst, unsigned bank) {
+    if (src == NULL || dst == NULL)
+        return;
+    if (bank >= 0x20) {
+        for (unsigned i = 0; i < 16; ++i)
+            dst[i] = src[i];
+        return;
+    }
+    const struct_020354C0 params = sLastFadeValid ? sLastFade[bank] : gUnk_020354C0[bank];
+    /* Brightness tables apply even without an active fade (intensity 0), so
+     * always run the same transform FadeVBlank used for palette RAM. */
+    Port_MakeFadeBuff256((u8*)src, (u8*)dst, params.unk2, params.unk1);
+}
 #endif
 
 void SetBrightness(u32 brightness) {
@@ -138,6 +166,9 @@ void FadeVBlank(void) {
     u32 usedPalettesTmp, palIdx;
 
     struct_020354C0* ptrUnk = gUnk_020354C0;
+#ifdef PC_PORT
+    Port_Fade_RecordVBlank();
+#endif
     usedPalettesTmp = gUsedPalettes;
     gUsedPalettes = 0;
     palIdx = 0;

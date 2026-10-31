@@ -379,6 +379,22 @@ jobs:
              -o /tmp/ppu_affine_test -lm
           /tmp/ppu_affine_test
 
+      # ROM-free viewport/tall geometry and PPU group-selection regressions.
+      # These compile only in-tree headers/PPU sources (no ROM, assets or SDL),
+      # so they run on every Linux target and catch 192-row regressions early.
+      - name: Viewport and tall geometry regressions (Linux)
+        if: matrix.os_name == 'linux'
+        shell: bash
+        run: |
+          python3 tools/tall_scene_regression_test.py
+          python3 tools/viewport_composition_regression_test.py
+          python3 tools/tall_composition_regression_test.py
+          python3 tools/presentation_geometry_regression_test.py
+          python3 tools/edge_fade_regression_test.py
+          python3 tools/ppu_group_cells_regression_test.py
+          python3 tools/oam_position_regression_test.py
+          python3 tools/door_visibility_regression_test.py
+
       - name: Resolve MinGW POSIX path (Windows)
         if: matrix.os_name == 'windows'
         shell: bash

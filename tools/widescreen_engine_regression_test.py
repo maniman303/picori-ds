@@ -39,6 +39,9 @@ def main():
         'static void Port_WidescreenShadow_PopulateOverlay(',
         'static int Port_WidescreenPpuBgForControl(',
         'static int Port_WidescreenMapShadowsLive(void)',
+        'void Port_Widescreen_SetTallValidated(int validated)',
+        'static bool Port_WidescreenMapSnapshotMatches(int height)',
+        'static void Port_WidescreenUploadMapBuffers(void)',
     )]
     functions.extend(function(stubs, name) for name in (
         'static int Port_WidescreenRepeatingOverlayLive(void)',
@@ -49,6 +52,7 @@ def main():
         'static int Port_WidescreenEntitiesSafe(int apertureHeight)',
         'int Port_Widescreen_ShadowsLive(void)',
         'void Port_Widescreen_PublishScene(void)',
+        'void Port_Widescreen_MapUploaded(void)',
         'void Port_Widescreen_BeforePresent(void)',
         'void Port_Widescreen_RoomLoaded(void)',
     ))

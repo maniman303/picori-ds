@@ -86,6 +86,10 @@ enum {
 #define MODE1_WS_SHADOW_COLS ((((MODE1_GBA_WIDTH - 240) / 8) + 4) < 32 ? 32 : (((MODE1_GBA_WIDTH - 240) / 8) + 4))
 extern uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT];
 extern int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT];
+/* First display x that needs the reveal shadow. 240 by default; a 256-wide
+ * tall canvas starts at the sub-tile wrap (256 - BGHOFS) so valid live VRAM
+ * columns are not replaced by redundant shadow columns. */
+extern int virtuappu_mode1_ws_shadow_start_x[MODE1_GBA_BG_COUNT];
 
 /* Runtime WIP widescreen HUD anchor. BG0 stays 32 tiles wide, but gameplay
  * HUD uses both left-anchored widgets (hearts/charge) and right-anchored
@@ -116,6 +120,25 @@ extern int virtuappu_mode1_ws_msg_y1;      /* one past last box line     */
  * rectangles and move by (frame_width - 240, hud_shift_y). Zero shift while
  * the canvas is 160 lines preserves the existing horizontal-only path. */
 extern int virtuappu_mode1_ws_hud_shift_y;
+
+/* Per-cell charset group override (PC port). `cells` is a rows*cols byte grid
+ * indexed by the VRAM tilemap cell the BG samples (row 0 = the buffer's
+ * leading padding row). Entry 0xFF keeps native VRAM + palette; 0..count-1
+ * select `palette_luts[group * 256 + color]` and `chars[group * char_stride +
+ * vram_offset]`. `bg_mask` is a bit per BG layer (BG0..BG3). The grid and
+ * arrays are read-only during the parallel scanline render. This is used for
+ * view-dependent tileset streams (Minish Village) where a tall aperture can
+ * show two groups that cannot both live in GBA char VRAM. Inert while unbound. */
+void virtuappu_mode1_bind_bg_group_cells(const uint8_t* cells, int cols, int rows,
+                                          const uint32_t* palette_luts, int palette_count,
+                                          const uint8_t* chars, int char_stride,
+                                          unsigned bg_mask);
+/* Optional grid for the reveal-shadow columns (x >= 240). Entry 0xFF keeps
+ * native VRAM/palette. Indexed by [row][shadow_idx] using the same row count
+ * as MODE1_WS_SHADOW_ROWS. Cleared by clear_bg_group_cells(). */
+void virtuappu_mode1_bind_bg_group_shadow(const uint8_t* cells, int cols, int rows);
+void virtuappu_mode1_clear_bg_group_shadow(void);
+void virtuappu_mode1_clear_bg_group_cells(void);
 
 enum {
     MODE1_IO_DISPCNT = 0x00,

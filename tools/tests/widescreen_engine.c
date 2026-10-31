@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include "port_viewport.h"
 #include "port_tall_scene.h"
+#include "port_village_groups.h"
 typedef uint8_t u8;
 typedef int16_t s16;
 typedef int32_t s32;
@@ -27,11 +28,14 @@ static struct { unsigned active, xPos, yPos, width, height; } gCurrentWindow;
 static struct { s16 buttonX[3]; unsigned hideFlags, unk_10, unk_a; } gHUD;
 static struct { struct { unsigned textWindowWidth, textWindowHeight, textWindowPosX, textWindowPosY; } message; } gTextRender;
 static int virtuappu_mode1_ws_shadow_base_tile[4];
+static int virtuappu_mode1_ws_shadow_start_x[4] = {240, 240, 240, 240};
 static u16* virtuappu_mode1_ws_shadow[4];
 static uint64_t sWsContentKey = UINT64_MAX;
 static int sWsContentPx, sWsStageHeight, sWsFixedInstalled;
 static u16 gOamMem[512];
 static bool Port_Oam_VisibleSlotsTagged(const u16* p) { (void)p; return true; }
+void Port_VillageGroups_Update(unsigned bg_mask) { (void)bg_mask; }
+void Port_VillageGroups_Reset(void) {}
 static uint64_t sWsValidatedKey = UINT64_MAX;
 static PortViewportUpload sWsUpload;
 static u8 gShakeOffsets[256], gManagerCount, gUnk_03003DE0, gUpdateVisibleTiles;
@@ -70,6 +74,7 @@ static struct { TestBg* bgSettings; } gMapBottom, gMapTop;
 static u16 gMapDataBottomSpecial[128*128], gMapDataTopSpecial[128*128];
 static u16 sWsShadowBG1[32*32], sWsShadowBG2[32*32], sWsShadowOverlay[32*32];
 static u16 vram[0x18000/2];
+static u16 gBG1Buffer[0x400], gBG2Buffer[0x400];
 #define gVram ((unsigned char*)vram)
 static int virtuappu_mode1_ws_hud_right_anchor, virtuappu_mode1_ws_msg_shift;
 static int virtuappu_mode1_ws_hud_shift_y, virtuappu_mode1_ws_msg_shift_y;
@@ -86,6 +91,13 @@ static u8 gUnk_02033290[32 * 0x80];
 #define MAX_AUX_PLAYER_ENTITIES 7
 static Entity* testBanner;
 static Entity* FindEntityByID(int kind, int id, int list) { (void)kind; (void)id; (void)list; return testBanner; }
+bool Message_GetWindowRect(int* x, int* y, int* width, int* height);
+static int Port_WidescreenTallRows(void);
+static int Port_WidescreenTallAperture(void);
+static int Port_WidescreenCandidateWidth(void);
+static bool Port_WidescreenMapSnapshotMatches(int height);
+static void Port_WidescreenUploadMapBuffers(void);
+void Port_Widescreen_MapUploaded(void);
 #include "widescreen_helpers.h"
 static int errors;
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #cond); ++errors; } } while (0)
@@ -435,12 +447,12 @@ int main(void) {
     CHECK(virtuappu_mode1_ws_msg_y0 == 96 && virtuappu_mode1_ws_msg_y1 == 144);
     CHECK(virtuappu_mode1_ws_msg_shift == 8 && virtuappu_mode1_ws_msg_shift_y == 32);
     CHECK(virtuappu_mode1_ws_hud_shift_y == 32);
-    /* Top-requested dialogue moves to the same final bottom anchor. */
+    /* Top-requested dialogue stays at the native top on every canvas. */
     gTextRender.message.textWindowPosY = 1;
     gCurrentWindow.yPos = 1;
     Port_Widescreen_UpdateShadows();
     CHECK(virtuappu_mode1_ws_msg_y0 == 8 && virtuappu_mode1_ws_msg_y1 == 56);
-    CHECK(virtuappu_mode1_ws_msg_shift_y == 120);
+    CHECK(virtuappu_mode1_ws_msg_shift_y == 0);
     /* Custom window geometry keeps only the tested horizontal policy. */
     gTextRender.message.textWindowPosY = 2;
     gCurrentWindow.yPos = 2;

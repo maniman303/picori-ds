@@ -1107,9 +1107,10 @@ combinations. The local EU export yields 24 PNGs with three distinct pixel
 outputs in each menu family. Existing normal reference/artwork files in `32/`
 and `43/` were renamed to the explicit `_normal` names with their bytes
 preserved. Damaged/critical native references and the contact sheet/README were
-regenerated; custom 4:3 damaged/critical artwork remains to be supplied. The RG
-ARM64 build and EU startup smoke under QEMU pass. Regional captures and runtime
-state-adapter/compositor integration remain pending.
+regenerated; missing 4:3 artwork is an intentional black fallback (custom
+artwork is optional). The RG ARM64 build and EU startup smoke under QEMU pass.
+Regional captures and runtime state-adapter/compositor integration remain
+pending.
 
 
 ## Build-capacity synchronization and named captures (2026-10-25)

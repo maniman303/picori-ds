@@ -42,6 +42,7 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_RENDER_THREADS` | port/port_ppu.cpp | OpenMP render thread count (default: cores - 1). |
 | `TMC_WS_VIEW_WIDTH` (removed) | — | Ignored; select an explicit `aspect_mode` in `config.json` instead. Window resizing no longer changes logical world width. |
 | `TMC_WS_TRACE` | port/port_linked_stubs.c | Log per-room widescreen width decisions. |
+| `TMC_VILLAGE_TRACE` | port/port_village_groups.c | Log the Minish Village selected group, per-cell group counts/bounds and scroll every 60 frames. |
 | `TMC_PUBLISH_FRAMEBUFFER` | port/port_shm_framebuffer.c | Publish the GBA framebuffer to shared memory. |
 | `TMC_DUMP_ICON` | port/port_icon.cpp | Write the ROM-extracted window icon to this BMP path. |
 | `OMP_NUM_THREADS` | port/port_ppu.cpp | Standard OpenMP; when set, the port keeps its value instead of picking a count. |

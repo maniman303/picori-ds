@@ -86,16 +86,21 @@ static void CheckStandardMessageGeometry(void) {
     const PortViewportRect bottom = { 8, 96, 224, 48 };
     PortUITranslation t = { -1, -1 };
     assert(Port_Viewport_StandardMessageTranslation(top, 256, 192, &t));
-    assert(t.x == 8 && t.y == 120);
+    assert(t.x == 8 && t.y == 0); /* top stays at the native top */
     /* Every animation frame uses this same offset, including a smaller
      * rectangle centered inside the fully open native window. */
-    assert(24 + t.y == 144 && 16 + t.y == 136);
+    assert(24 + t.y == 24 && 16 + t.y == 16);
     assert(Port_Viewport_StandardMessageTranslation(bottom, 256, 192, &t));
-    assert(t.x == 8 && t.y == 32);
+    assert(t.x == 8 && t.y == 32); /* bottom follows the canvas bottom */
     assert(Port_Viewport_StandardMessageTranslation(top, 285, 160, &t));
     assert(t.x == 22 && t.y == 0);
     assert(Port_Viewport_StandardMessageTranslation(bottom, 374, 160, &t));
     assert(t.x == 67 && t.y == 0);
+    /* Generic height rule: top always 0, bottom always height - 160. */
+    assert(Port_Viewport_StandardMessageTranslation(top, 288, 162, &t));
+    assert(t.x == 24 && t.y == 0);
+    assert(Port_Viewport_StandardMessageTranslation(bottom, 288, 162, &t));
+    assert(t.x == 24 && t.y == 2);
     PortViewportRect custom = top;
     custom.y = 16;
     t.x = 7; t.y = 9;
@@ -115,8 +120,13 @@ static void CheckPublication(void) {
     assert(Port_Viewport_ProfileForAspect(PORT_ASPECT_DS_4_3) == Port_Viewport_FindProfile("43"));
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_WIDESCREEN_16_9, 240, 160));
     assert(Port_Viewport_AspectSupported(PORT_ASPECT_ULTRAWIDE_21_9, 384, 160));
-    /* Capacity does not imply that height/raster/OBJ support exists yet. */
+#if PORT_VIEWPORT_RELEASE_TALL
+    /* Tall canvases are a release capability; capacity alone still gates. */
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 569, 192));
+    assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 384, 160));
+#else
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 569, 192));
+#endif
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 192));
 
     const PortViewportGeometry* geometry = Port_Viewport_Get();

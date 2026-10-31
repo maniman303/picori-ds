@@ -59,9 +59,11 @@ PortUITranslation Port_Viewport_UITranslation(PortUIAnchor anchor, int width, in
 /* Resolve a stable translation for an ordinary gameplay message. `finalRect`
  * describes the fully open native frame, including its border. Only the
  * standard top/bottom positions are classified; custom windows fail closed.
- * A 160-row canvas preserves the requested vertical position. On a taller
- * canvas both standard positions use the normal bottom window's inset.
- * The same translation must be applied to every animated rectangle and OBJ. */
+ * Standard top messages stay at the native top on every canvas; standard
+ * bottom messages move to the canvas bottom inset (height - 160). The rule is
+ * derived from the published height, not a profile id, so every future canvas
+ * behaves like the 160-row one. The same translation must be applied to every
+ * animated rectangle and OBJ. */
 bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int width, int height,
                                               PortUITranslation* translation);
 
@@ -75,20 +77,19 @@ const PortViewportProfile* Port_Viewport_ProfileForAspect(PortAspectMode aspect)
  * A renderer must also validate raster/sprite support before exposing a mode. */
 bool Port_Viewport_ProfileFits(const PortViewportProfile* profile, int capacityWidth, int capacityHeight);
 
-/* Current raster/OBJ support is separate from allocated capacity. Taller
- * frames and X > 511 remain unavailable until their rendering paths land.
- * Availability is decided from the published profile/capacity, not from a
- * profile-specific case: any future canvas taller than native needs the same
- * release capability, and any width beyond the OBJ-safe bound is rejected. */
+/* Current raster/OBJ support is separate from allocated capacity. Tall
+ * canvases are release-enabled (see PORT_VIEWPORT_RELEASE_TALL below); any
+ * width beyond the OBJ-safe bound is rejected. Availability is decided from
+ * the published profile/capacity, not from a profile-specific case. */
 bool Port_Viewport_AspectSupported(PortAspectMode aspect, int capacityWidth, int capacityHeight);
 
-/* Release capability for canvases taller than the native 160 rows. It stays
- * off until the scene validator plus manager/entity/OAM/effect audits in
- * docs/4-3-aspect-implementation.md (WP2-WP5) pass. Builds that exercise the
- * tall geometry may define PORT_VIEWPORT_TEST_TALL; production builds must
- * not depend on that test macro. */
+/* Release capability for canvases taller than the native 160 rows. It is on
+ * in production builds; the xmake `tall_aspects` option can turn it off for
+ * bisects/native-only test builds. The per-room scene validator plus
+ * manager/entity/OAM/effect gates still decide whether a given room uses the
+ * tall aperture; Minish Village groups are rendered from host charsets. */
 #ifndef PORT_VIEWPORT_RELEASE_TALL
-#define PORT_VIEWPORT_RELEASE_TALL 0
+#define PORT_VIEWPORT_RELEASE_TALL 1
 #endif
 
 enum {
@@ -97,7 +98,8 @@ enum {
 };
 
 /* Semantic inputs supplied by the engine adapter, never inferred in pixel
- * loops. Vertical world reveal remains disabled regardless of these flags. */
+ * loops. The per-frame validator combines these flags into the tall
+ * aperture decision. */
 enum {
     PORT_SCENE_WORLD = 1u << 0,
     PORT_SCENE_WIDE_WORLD = 1u << 1,

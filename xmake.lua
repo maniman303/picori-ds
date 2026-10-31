@@ -116,6 +116,15 @@ option("widescreen_width")
     set_description("Framebuffer width capacity (legacy name; aspect_mode selects the viewport)")
 option_end()
 
+-- Canvases taller than the native 160 rows (currently the 4:3 256x192
+-- profile). The live-world aperture and manager/entity/effect gates decide
+-- per room whether a tall composition is safe; this only exposes the profile.
+option("tall_aspects")
+    set_default(true)
+    set_showmenu(true)
+    set_description("Enable tall aspect profiles (4:3 256x192)")
+option_end()
+
 -- Build directories
 local build_dir = "build/$(plat)"
 local tools_bin = "tools/bin"
@@ -679,6 +688,14 @@ target("tmc_pc")
     local ws_width = get_config("widescreen_width") or 240
     add_defines("MODE1_GBA_WIDTH=" .. ws_width)
 
+    -- Tall canvases are production-ready; the build option exists so bisects
+    -- and native-only test builds can turn the profile off entirely.
+    if get_config("tall_aspects") ~= false then
+        add_defines("PORT_VIEWPORT_RELEASE_TALL=1")
+    else
+        add_defines("PORT_VIEWPORT_RELEASE_TALL=0")
+    end
+
     -- Discord Rich Presence application ID — optional, gitignored.
     -- Local devs/release builders drop their Discord App ID into
     -- discord_app_id.txt at repo root and it gets baked in as the
@@ -754,6 +771,7 @@ target("tmc_pc")
     add_files("port/port_viewport.c")
     add_files("port/port_edge_fade.c")
     add_files("port/port_tall_scene.c")
+    add_files("port/port_village_groups.c")
     add_files("port/port_effect_geometry.c")
     add_files("port/port_oam.c")
     add_files("port/port_title_cap.c")

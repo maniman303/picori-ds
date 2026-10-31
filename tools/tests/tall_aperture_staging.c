@@ -12,6 +12,7 @@
 #include "vram.h"
 #include "port_widescreen.h"
 #include "port_tall_scene.h"
+#include "port_village_groups.h"
 #include "port_oam.h"
 #include "manager.h"
 #include "object.h"
@@ -36,6 +37,7 @@ u16 gOamMem[512];
 GenericEntity gEntities[MAX_ENTITIES], gAuxPlayerEntities[MAX_AUX_PLAYER_ENTITIES];
 u16 gMapDataBottomSpecial[0x4000], gMapDataTopSpecial[0x4000];
 u8 gEwram[0x40000];
+u8 gVram[0x18000];
 u8 gUnk_02033290[32 * 0x80];
 u8 gIoMem[0x400];
 static BgSettings bg;
@@ -57,6 +59,11 @@ void sub_0807D280(u16* a, u16* b) { (void)a; (void)b; }
 void sub_0807D46C(u16* a, u16* b) { (void)a; (void)b; }
 void sub_0807D6D8(u16* a, u16* b) { (void)a; (void)b; }
 #include "tall_aperture_functions.inc"
+
+/* The production scene body calls the village hook; this fixture does not link
+ * the village module (no ROM-derived groups). */
+void Port_VillageGroups_Update(unsigned bg_mask) { (void)bg_mask; }
+void Port_VillageGroups_Reset(void) {}
 
 int main(void) {
     assert(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 569, 192, 569));
@@ -149,12 +156,11 @@ int main(void) {
     gManagerCount = 0;
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192); /* per-frame policy recovers */
-    gRoomControls.scroll_y += 16; /* stale fill must not authorize new camera */
-    Port_Widescreen_MapUploaded();
+    gRoomControls.scroll_y += 16; /* new camera tile refreshes without a drop */
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160 && !sWsUpload.uploaded);
-    Port_Widescreen_PublishScene();
-    assert(sWsUpload.filled && !sWsUpload.uploaded);
+    assert(Port_Viewport_Get()->world.height == 192);
+    assert(sWsUpload.filled && sWsUpload.uploaded);
+    assert(sWsUpload.tileY == Port_Widescreen_MapTileY());
     Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
     gShakeOffsets[15] = (u8)-9;

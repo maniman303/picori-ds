@@ -1,9 +1,11 @@
 # JP (BZMJ) version support on the PC port
 
-*Status (2026-06-13): **booting and core-correct.** A JP build runs against the
-retail JP ROM with all data tables resolving correctly — verified by boot test.
-Remaining for full speedrun parity: Japanese text rendering and JP script-address
-tables (see "Remaining gaps").*
+*Status (2026-10-30): **booting, core-correct, 4:3-validated.** A JP build runs
+against the retail JP ROM with all data tables resolving correctly. The 24-case
+4:3 live-gameplay presenter matrix passes, Minish Village's multi-group atlas
+matches a native single-group render pixel-for-pixel, and field dialogue renders
+Japanese text. Remaining for full speedrun parity: broader Japanese menu/text
+layout auditing (see "Remaining gaps").*
 
 The Minish Cap speedrun scene runs the **Japanese** version (RNG manipulations are
 version-exclusive and were authored for JP). The decomp supports JP at the source
@@ -14,7 +16,9 @@ runtime, and supplies the JP ROM data-table offsets.
 
 1. **Provide a legal JP baserom** (`BZMJ`, SHA-1 `6c5404a1effb17f481f352181d0f1c61a2765c5d`,
    see `tmc_jp.sha1`) as `baserom_jp.gba` in the repo root. (Gitignored — never committed.)
-2. **Build:** `python build.py --jp` (or `xmake f --game_version=JP -y && xmake build -y tmc_pc`).
+2. **Build:** `python build.py --jp` (or
+   `xmake f --game_version=JP -y && xmake extract_assets && xmake build -y tmc_pc`;
+   `build/JP/assets` must exist before the binary compiles).
 3. **Run:** point the binary at the JP ROM. It auto-detects `JP (BZMJ)` and selects the
    JP offset table. Verified boot log:
    ```
@@ -79,12 +83,26 @@ Resolved since the original writeup:
 
 Still needing JP treatment:
 
-1. **Japanese text rendering.** Basic kana render (the intro `こっちよ` textbox
-   is correct), but the full JP text *system* (kanji 2-byte encoding, font
-   widths/layout) is unverified — audit menus/dialogue against this JP build.
+1. **Broader Japanese text/menu layout audit.** Field dialogue now renders kana
+   and kanji correctly (verified capture:
+   `screenshots/2026-10-30-jp-field-43-dialogue-4x.png`), but every menu, item
+   name, hint and fusion layout has not yet been replayed against the JP build.
+   The encoding/font-width path is working; this is coverage, not a known
+   rendering break.
 
 This is the remaining path from "JP boots" to "JP speedrun-faithful". Pair a JP
 build with `--console-parity` for hardware-equivalent JP runs.
+
+## 4:3 and Minish Village validation (2026-10-30)
+
+- Retail JP ROM SHA-1 matched `6c5404a1…`; build with
+  `xmake f --game_version=JP -y && xmake extract_assets && xmake build -y tmc_pc`.
+- The 24-capture 4:3 software presenter matrix passed for JP; evidence under
+  `.tmp/eu-gameplay-43-jp-final/`.
+- The Minish Village multi-group view (g2/g3) matched the native single-group
+  g3 render pixel-for-pixel in the atlas region; the sub-tile-wrap capture had
+  no shadow gap (`screenshots/2026-10-30-jp-*`).
+- JP field dialogue renders Japanese text at 256×192 (see the screenshot).
 
 ## Related
 

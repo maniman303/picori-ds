@@ -31,6 +31,9 @@ typedef struct Mode1TilemapEntry {
  * Other layers and the backdrop still composite normally. */
 uint16_t* virtuappu_mode1_ws_shadow[MODE1_GBA_BG_COUNT] = { NULL, NULL, NULL, NULL };
 int virtuappu_mode1_ws_shadow_base_tile[MODE1_GBA_BG_COUNT] = { 0, 0, 0, 0 };
+int virtuappu_mode1_ws_shadow_start_x[MODE1_GBA_BG_COUNT] = {
+    MODE1_GBA_BG_CLIP_X, MODE1_GBA_BG_CLIP_X, MODE1_GBA_BG_CLIP_X, MODE1_GBA_BG_CLIP_X
+};
 int virtuappu_mode1_ws_hud_right_anchor = 0;
 int virtuappu_mode1_ws_hud_shift_y = 0;
 /* Widescreen message-box centering (see mode1.h). All zero = inactive. */
@@ -40,6 +43,70 @@ int virtuappu_mode1_ws_msg_x0 = 0;
 int virtuappu_mode1_ws_msg_x1 = 0;
 int virtuappu_mode1_ws_msg_y0 = 0;
 int virtuappu_mode1_ws_msg_y1 = 0;
+
+/* View-dependent charset groups (PC port). Some rooms stream several tileset
+ * "groups" through the same VRAM span and choose one from the camera region.
+ * A taller aperture can show two regions at once, which cannot be resident in
+ * GBA VRAM. The port keeps the complete group charsets in host memory and
+ * publishes a per-tilemap-cell group id; the tile fetch below then reads the
+ * matching charset and palette without swapping VRAM or changing composition.
+ * group 0xFF = native VRAM + native palette (inert default). */
+static const uint8_t* mode1_group_cells;
+static int mode1_group_cols;
+static int mode1_group_rows;
+static const uint32_t* mode1_group_luts;
+static int mode1_group_count;
+static const uint8_t* mode1_group_chars;
+static int mode1_group_char_stride;
+static unsigned mode1_group_bg_mask;
+static const uint8_t* mode1_group_shadow_cells;
+static int mode1_group_shadow_cols;
+static int mode1_group_shadow_rows;
+
+void virtuappu_mode1_bind_bg_group_cells(const uint8_t* cells, int cols, int rows,
+                                          const uint32_t* palette_luts, int palette_count,
+                                          const uint8_t* chars, int char_stride,
+                                          unsigned bg_mask) {
+    if (cells == NULL || palette_luts == NULL || chars == NULL ||
+        cols < 1 || cols > 64 || rows < 1 || rows > 64 ||
+        palette_count < 1 || palette_count > 8 ||
+        char_stride < 0xC000 || (bg_mask & ~0xFu) != 0u) {
+        virtuappu_mode1_clear_bg_group_cells();
+        return;
+    }
+    mode1_group_cells = cells;
+    mode1_group_cols = cols;
+    mode1_group_rows = rows;
+    mode1_group_luts = palette_luts;
+    mode1_group_count = palette_count;
+    mode1_group_chars = chars;
+    mode1_group_char_stride = char_stride;
+    mode1_group_bg_mask = bg_mask;
+}
+
+void virtuappu_mode1_bind_bg_group_shadow(const uint8_t* cells, int cols, int rows) {
+    if (cells == NULL || cols < 1 || cols > 64 || rows < 1 || rows > 64) {
+        virtuappu_mode1_clear_bg_group_shadow();
+        return;
+    }
+    mode1_group_shadow_cells = cells;
+    mode1_group_shadow_cols = cols;
+    mode1_group_shadow_rows = rows;
+}
+
+void virtuappu_mode1_clear_bg_group_shadow(void) {
+    mode1_group_shadow_cells = NULL;
+    mode1_group_shadow_cols = 0;
+    mode1_group_shadow_rows = 0;
+}
+
+void virtuappu_mode1_clear_bg_group_cells(void) {
+    mode1_group_cells = NULL;
+    mode1_group_luts = NULL;
+    mode1_group_chars = NULL;
+    mode1_group_bg_mask = 0;
+    virtuappu_mode1_clear_bg_group_shadow();
+}
 
 typedef struct Mode1OAMAttr {
     uint16_t attr0;
@@ -554,6 +621,10 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
     int pixel_y = src_y % 8;
     int x;
     const int frame_width = render_width;
+    /* View-dependent charset group override (Minish Village). Only the tall
+     * live-world path binds it; every other render keeps native VRAM. */
+    const bool group_bg = mode1_group_cells != NULL && mode1_group_chars != NULL &&
+                          (mode1_group_bg_mask & (1u << bg_index)) != 0;
     /* Widescreen Option A: 32-tile BGs have valid VRAM tile data only
      * within the native 240 px. Cull the line to the current visible frame
      * width, but keep the fixed framebuffer pitch separate for presentation. */
@@ -631,6 +702,9 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
     int bg_tpy = 0;
     uint32_t bg_row_base = 0u;
     size_t bg_pal_bank = 0u;
+    const uint8_t* bg_char_base = mode1_memory.vram;
+    uint32_t bg_char_limit = MODE1_VRAM_SIZE;
+    const uint32_t* bg_color_lut = mode1_bg_abgr_lut;
 
     /* The per-pixel body is identical for the fast (native / no-remap) and the
      * widescreen-remap paths; keep it in one macro so the two loops can never
@@ -642,15 +716,20 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
         int src_x = (eff_x + scroll_x) & (map_width_tiles * 8 - 1);                                                    \
         int tile_col = src_x / 8;                                                                                      \
         int pixel_x = src_x % 8;                                                                                       \
-        int cache_use_shadow = (ws_shadow_active && x >= MODE1_GBA_BG_CLIP_X) ? 1 : 0;                                 \
+        int cache_use_shadow = (ws_shadow_active && x >= virtuappu_mode1_ws_shadow_start_x[bg_index]) ? 1 : 0;         \
         int cache_key = (tile_col << 1) | cache_use_shadow;                                                            \
         if (cache_key != bg_cache_key) {                                                                               \
             bg_cache_key = cache_key;                                                                                  \
+            int group_cell = 0xFF;                                                                                     \
             if (cache_use_shadow) {                                                                                    \
                 int shadow_idx = (tile_col - ws_shadow_base + 32) % 32;                                                \
                 bg_tile_entry.raw = (shadow_idx < MODE1_WS_SHADOW_COLS)                                                \
                                         ? ws_shadow[(size_t)local_row * MODE1_WS_SHADOW_COLS + shadow_idx]             \
                                         : (uint16_t)0u;                                                                \
+                if (mode1_group_shadow_cells != NULL && shadow_idx < mode1_group_shadow_cols) {                        \
+                    group_cell = mode1_group_shadow_cells[(local_row % mode1_group_shadow_rows) *                    \
+                                                              mode1_group_shadow_cols + shadow_idx];                   \
+                }                                                                                                      \
             } else {                                                                                                   \
                 int screen_block_x = tile_col / 32;                                                                    \
                 int screen_block_index = screen_block_x + screen_block_y * blocks_per_row;                             \
@@ -668,23 +747,40 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
                 bg_row_base = char_base + (uint32_t)mode1_tile_index(bg_tile_entry) * 32u + (uint32_t)bg_tpy * 4u;     \
             }                                                                                                          \
             bg_pal_bank = (size_t)mode1_tile_palette(bg_tile_entry) * 16u;                                             \
+            bg_char_base = mode1_memory.vram;                                                                          \
+            bg_char_limit = MODE1_VRAM_SIZE;                                                                           \
+            bg_color_lut = mode1_bg_abgr_lut;                                                                          \
+            if (group_bg && !cache_use_shadow) {                                                                       \
+                const bool group_addr = bg_row_base < 0x4000u ||                                                       \
+                                        (bg_row_base >= 0x8000u && bg_row_base < 0xC000u);                             \
+                group_cell = group_addr                                                                                 \
+                                 ? mode1_group_cells[(local_row % mode1_group_rows) * mode1_group_cols +               \
+                                                     (tile_col % mode1_group_cols)]                                    \
+                                 : 0xFF;                                                                               \
+            }                                                                                                          \
+            if (group_cell < mode1_group_count) {                                                                      \
+                bg_char_base = mode1_group_chars + (size_t)group_cell * mode1_group_char_stride;                       \
+                bg_char_limit = 0xC000u;                                                                               \
+                bg_color_lut = mode1_group_luts + (size_t)group_cell * MODE1_PALETTE_COLORS;                           \
+            }                                                                                                          \
         }                                                                                                              \
         int tile_pixel_x = bg_hflip ? (7 - pixel_x) : pixel_x;                                                         \
         uint8_t color_index;                                                                                           \
         if (bpp8) {                                                                                                    \
             uint32_t addr = bg_row_base + (uint32_t)tile_pixel_x;                                                      \
-            color_index = (addr < MODE1_VRAM_SIZE) ? mode1_memory.vram[addr] : 0u;                                     \
+            color_index = (addr < bg_char_limit) ? bg_char_base[addr] : 0u;                                            \
         } else {                                                                                                       \
             uint32_t addr = bg_row_base + (uint32_t)(tile_pixel_x / 2);                                                \
-            uint8_t packed = (addr < MODE1_VRAM_SIZE) ? mode1_memory.vram[addr] : 0u;                                  \
+            uint8_t packed = (addr < bg_char_limit) ? bg_char_base[addr] : 0u;                                         \
             color_index = (tile_pixel_x & 1) ? (packed >> 4u) : (packed & 0x0Fu);                                      \
         }                                                                                                              \
         if (color_index != 0u) {                                                                                       \
             size_t pal_idx = bpp8 ? (size_t)color_index : (bg_pal_bank + color_index);                                 \
-            if (!(x >= MODE1_GBA_BG_CLIP_X && (mode1_memory.bg_palette[pal_idx] & 0x7FFFu) == 0x7C1Fu)) {              \
-                line_buffer[dst_x + x] = mode1_bg_abgr_lut[pal_idx];                                                           \
+            if (!(x >= virtuappu_mode1_ws_shadow_start_x[bg_index] && bg_color_lut == mode1_bg_abgr_lut &&             \
+                  (mode1_memory.bg_palette[pal_idx] & 0x7FFFu) == 0x7C1Fu)) {                                           \
+                line_buffer[dst_x + x] = bg_color_lut[pal_idx];                                                        \
                 if (priority_buffer != NULL) {                                                                         \
-                    priority_buffer[dst_x + x] = priority;                                                                     \
+                    priority_buffer[dst_x + x] = priority;                                                             \
                 }                                                                                                      \
             }                                                                                                          \
         }                                                                                                              \
@@ -705,7 +801,7 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
         int pixel_y_sy = src_y_sy % 8;                                                                                 \
         int screen_block_y_sy = tile_row_sy / 32;                                                                      \
         int local_row_sy = tile_row_sy % 32;                                                                           \
-        int cache_use_shadow_sy = (ws_shadow_active && x >= MODE1_GBA_BG_CLIP_X) ? 1 : 0;                             \
+        int cache_use_shadow_sy = (ws_shadow_active && x >= virtuappu_mode1_ws_shadow_start_x[bg_index]) ? 1 : 0;     \
         int cache_key_sy = (tile_row_sy << 8) | (tile_col_sy << 1) | cache_use_shadow_sy;                             \
         if (cache_key_sy != bg_cache_key) {                                                                            \
             bg_cache_key = cache_key_sy;                                                                               \
@@ -733,23 +829,40 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
                               (uint32_t)bg_tpy * 4u;                                                                   \
             }                                                                                                          \
             bg_pal_bank = (size_t)mode1_tile_palette(bg_tile_entry) * 16u;                                             \
+            bg_char_base = mode1_memory.vram;                                                                          \
+            bg_char_limit = MODE1_VRAM_SIZE;                                                                           \
+            bg_color_lut = mode1_bg_abgr_lut;                                                                          \
+            if (group_bg && !cache_use_shadow_sy) {                                                                    \
+                const bool group_addr_sy = bg_row_base < 0x4000u ||                                                    \
+                                           (bg_row_base >= 0x8000u && bg_row_base < 0xC000u);                          \
+                int group_cell_sy = group_addr_sy                                                                      \
+                                        ? mode1_group_cells[(local_row_sy % mode1_group_rows) * mode1_group_cols +     \
+                                                            (tile_col_sy % mode1_group_cols)]                          \
+                                        : 0xFF;                                                                    \
+                if (group_cell_sy < mode1_group_count) {                                                               \
+                    bg_char_base = mode1_group_chars + (size_t)group_cell_sy * mode1_group_char_stride;                \
+                    bg_char_limit = 0xC000u;                                                                           \
+                    bg_color_lut = mode1_group_luts + (size_t)group_cell_sy * MODE1_PALETTE_COLORS;                    \
+                }                                                                                                      \
+            }                                                                                                          \
         }                                                                                                              \
         int tile_pixel_x_sy = bg_hflip ? (7 - pixel_x_sy) : pixel_x_sy;                                                \
         uint8_t color_index_sy;                                                                                        \
         if (bpp8) {                                                                                                    \
             uint32_t addr_sy = bg_row_base + (uint32_t)tile_pixel_x_sy;                                                \
-            color_index_sy = (addr_sy < MODE1_VRAM_SIZE) ? mode1_memory.vram[addr_sy] : 0u;                           \
+            color_index_sy = (addr_sy < bg_char_limit) ? bg_char_base[addr_sy] : 0u;                                  \
         } else {                                                                                                       \
             uint32_t addr_sy = bg_row_base + (uint32_t)(tile_pixel_x_sy / 2);                                          \
-            uint8_t packed_sy = (addr_sy < MODE1_VRAM_SIZE) ? mode1_memory.vram[addr_sy] : 0u;                        \
-            color_index_sy = (tile_pixel_x_sy & 1) ? (packed_sy >> 4u) : (packed_sy & 0x0Fu);                         \
+            uint8_t packed_sy = (addr_sy < bg_char_limit) ? bg_char_base[addr_sy] : 0u;                               \
+            color_index_sy = (tile_pixel_x_sy & 1) ? (packed_sy >> 4u) : (packed_sy & 0x0Fu);                          \
         }                                                                                                              \
         if (color_index_sy != 0u) {                                                                                    \
             size_t pal_idx_sy = bpp8 ? (size_t)color_index_sy : (bg_pal_bank + color_index_sy);                        \
-            if (!(x >= MODE1_GBA_BG_CLIP_X && (mode1_memory.bg_palette[pal_idx_sy] & 0x7FFFu) == 0x7C1Fu)) {          \
-                line_buffer[dst_x + x] = mode1_bg_abgr_lut[pal_idx_sy];                                                        \
+            if (!(x >= virtuappu_mode1_ws_shadow_start_x[bg_index] && bg_color_lut == mode1_bg_abgr_lut &&             \
+                  (mode1_memory.bg_palette[pal_idx_sy] & 0x7FFFu) == 0x7C1Fu)) {                                        \
+                line_buffer[dst_x + x] = bg_color_lut[pal_idx_sy];                                                     \
                 if (priority_buffer != NULL) {                                                                         \
-                    priority_buffer[dst_x + x] = priority;                                                                     \
+                    priority_buffer[dst_x + x] = priority;                                                             \
                 }                                                                                                      \
             }                                                                                                          \
         }                                                                                                              \

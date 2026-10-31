@@ -105,8 +105,9 @@ remain to be sampled.
 
 The device has no usable SDL_GPU backend (`SDL_CreateGPUDevice failed`), so the
 forced GPU-raster preference falls back to the SDL_Renderer `opengles2`
-presentation path and the software PPU. A `4:3` config remains effective-native
-on this build: the captured gameplay frame is exactly 240 × 160.
+presentation path and the software PPU. In this historical run a `4:3` config
+was effective-native and the captured gameplay frame is exactly 240 × 160.
+Current builds enable 4:3; the 256 × 192 device measurement is still pending.
 
 ## Memory and cache limits
 
@@ -138,14 +139,16 @@ allocations and shader-preset intermediates remain unmeasured.
 
 ## Optional paths and regional gaps
 
-- `4:3` and `32:9` remain runtime-disabled behind their independent scene,
-  layout, sprite and profile gates. Tall-canvas layout is test-only.
+- `4:3` is now enabled; `32:9` remains runtime-disabled behind its independent
+  scene, layout, sprite and profile gates. RG 4:3 frame-time/thermal numbers
+  are still pending (the capture below predates enablement).
 - GPU raster/presentation requires a working SDL_GPU backend. The RG has none
   available, so `gpu_raster=true` falls back to SDL_Renderer `opengles2` plus
   the software PPU. Vulkan/GLES parity was exercised separately through
   `tools/ppu_gpu_parity` on local software drivers.
-- The RG `4:3` preference remains effective-native (240 × 160) on this build,
-  with the captured frame confirming the fallback.
+- The RG `4:3` preference in this historical capture was effective-native
+  (240 × 160); the current build enables 4:3. Physical-RG 4:3 performance is
+  the remaining WP8 measurement.
 - Internal scale above 1, xBRZ, voxel view, custom `.glslp` presets and HD
   dialogue keep their documented safe fallbacks. Their worst-case pools are
   bounded in `docs/presentation-allocation-audit.md`; they were not exercised on

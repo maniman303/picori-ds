@@ -30,7 +30,8 @@ def main():
                 '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
                 '-DPC_PORT', '-DMULTI_REGION', '-DUSA', f'-DMODE1_GBA_WIDTH={capacity}',
                 '-I.', '-Iinclude', '-Iport', '-Iport/ppu/include', '-I' + directory,
-                'tools/tests/oam_position.c', 'port/port_oam.c', 'port/ppu/src/mode1.c',
+                'tools/tests/oam_position.c', 'port/port_oam.c', 'port/port_viewport.c',
+                'port/ppu/src/mode1.c',
                 'port/ppu/src/virtuappu.c', '-lm', '-o', str(binary)]
             subprocess.run(command, cwd=ROOT, check=True)
             subprocess.run([str(binary)], check=True)

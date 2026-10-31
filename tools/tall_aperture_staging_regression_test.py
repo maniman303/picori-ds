@@ -19,6 +19,8 @@ with tempfile.TemporaryDirectory(prefix='tmc-tall-stage-') as directory:
                   'static int Port_WidescreenManagersSafe(int apertureHeight)',
                   'static int Port_WidescreenEntitiesSafe(int apertureHeight)',
                   'static int Port_WidescreenMapShadowsLive(void)',
+                  'static bool Port_WidescreenMapSnapshotMatches(int height)',
+                  'static void Port_WidescreenUploadMapBuffers(void)',
                   'void Port_Widescreen_SetTallValidated(int validated)',
                   'void Port_Widescreen_MapFilled(unsigned mode)', 'void Port_Widescreen_MapUploaded(void)',
                   'static void ram_sub_080B197C_c(', 'void UpdateScrollVram(void)',

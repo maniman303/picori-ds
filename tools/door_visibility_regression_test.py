@@ -21,6 +21,8 @@ typedef uint32_t u32;
 struct { int scroll_x, scroll_y, origin_x, origin_y; } gRoomControls;
 static int width;
 int Port_Widescreen_EffectiveViewWidth(void) { return width; }
+int Port_Widescreen_RegionViewWidth(void) { return width; }
+int Port_Widescreen_RegionViewHeight(void) { return 160; }
 '''
 harness += source[start:end]
 harness += r'''

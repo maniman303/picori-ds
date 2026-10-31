@@ -41,7 +41,11 @@ bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int wi
         finalRect.width != 224 || finalRect.height != 48)
         return false;
     translation->x = (width - 240) / 2;
-    translation->y = height == 160 ? 0 : height - 160 + 96 - finalRect.y;
+    /* Standard top messages stay at the native top on every canvas; standard
+     * bottom messages move with the canvas bottom inset. This is derived from
+     * the published height, not from a profile id: 160 -> 0/0, 192 -> 0/32,
+     * any future canvas follows the same rule. */
+    translation->y = finalRect.y == 8 ? 0 : height - 160;
     return true;
 }
 
