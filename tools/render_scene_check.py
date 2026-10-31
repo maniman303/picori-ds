@@ -125,7 +125,7 @@ def main():
                        TMC_ROOMCAP_OUT=str(artifacts / (name if len(outputs) == 2 else outputs[0])),
                        TMC_ROOMCAP_PRESENTATION='0' if args.profile == 'original' else '1',
                        TMC_BASEROM=str(rom), TMC_COLOR_CORRECTION='0', TMC_LCD_PERSISTENCE='0',
-                       TMC_NO_UPDATE_CHECK='1', SDL_VIDEODRIVER=args.video_driver,
+                       SDL_VIDEODRIVER=args.video_driver,
                        SDL_AUDIODRIVER='dummy', SDL_RENDER_DRIVER='software', OMP_NUM_THREADS='1')
             if args.profile != 'original':
                 env['TMC_ROOMCAP_WINDOW'] = '960,540'

@@ -77,8 +77,8 @@ std::string sActiveSaveProfile = "tmc.sav";
  * back to a save point first. */
 bool sAutosaveEnabled = true;
 u32 sAutosaveIntervalMs = 60000;
-/* Touch input scheme from matheo's launcher integration — kept for
- * Android compatibility. */
+/* Touch input scheme for the on-screen touch controls — persisted so a
+ * touch layout survives config reloads. */
 PortTouchScheme sTouchScheme = PORT_TOUCH_SCHEME_JOYSTICK;
 float sTouchScale = 1.0f;   /* multiplies the touch layout unit  */
 float sTouchOpacity = 1.0f; /* multiplies every control's alpha  */
@@ -457,8 +457,8 @@ T JsonValue(const nlohmann::json& j, const char* key, const T& fallback) {
 }
 
 /* Serialize a Bind to the config.json token shape (`SDLK:0x...`,
- * `SDL_GAMEPAD:0x...`, `SDL_AXIS:0x...`). Shared by the capture/persist
- * path and (under launcher) the rebind writers. */
+ * `SDL_GAMEPAD:0x...`, `SDL_AXIS:0x...`). Used by the capture/persist
+ * path. */
 std::string FormatBindForJson(const Bind& b) {
     char buf[40];
     if (b.key != SDLK_UNKNOWN) {
@@ -472,155 +472,6 @@ std::string FormatBindForJson(const Bind& b) {
     }
     return std::string(buf);
 }
-
-#ifdef launcher
-static void WriteBindingsJsonFromState(void) {
-    for (const auto& d : kDefaults) {
-        nlohmann::json arr = nlohmann::json::array();
-        for (const Bind& b : sBinds[d.input]) {
-            std::string tok = FormatBindForJson(b);
-            if (!tok.empty()) {
-                arr.push_back(std::move(tok));
-            }
-        }
-        sConfigJson["bindings"][d.name] = std::move(arr);
-    }
-    SaveConfig();
-}
-
-extern "C" void Port_Config_SetPortSettingsMenuEnabled(bool enabled) {
-    sPortSettingsMenuEnabled = enabled;
-    sConfigJson["port_settings_menu"] = enabled;
-    SaveConfig();
-}
-
-extern "C" const char* Port_Config_InputUiLabel(PortInput input) {
-    static const char* const kLabels[PORT_INPUT_COUNT] = {
-        "A (jump / talk)",   "B (attack / cancel)", "Select",      "Start", "D-pad Right", "D-pad Left",
-        "D-pad Up",          "D-pad Down",          "R",           "L",     "Soft slot X", "Soft slot Y",
-        "Soft slot L2 / LT", "Soft slot R2 / RT",   "Roll attack",
-    };
-    if (input < 0 || input >= PORT_INPUT_COUNT) {
-        return "?";
-    }
-    return kLabels[input];
-}
-
-/* Shared formatter for the launcher bindings rows. padOnly skips keyboard
- * binds so the gamepad column lists only pad/axis entries; otherwise every
- * bind (keyboard + pad + axis) is shown. Output byte-identical to the two
- * former hand-copied functions. */
-static void FormatBindingsLineImpl(PortInput input, char* out, size_t outCap, bool padOnly) {
-    if (!out || outCap == 0) {
-        return;
-    }
-    out[0] = '\0';
-    if (input < 0 || input >= PORT_INPUT_COUNT) {
-        return;
-    }
-    size_t pos = 0;
-    bool first = true;
-    for (const Bind& b : sBinds[input]) {
-        if (padOnly && b.key != SDLK_UNKNOWN)
-            continue;
-        char piece[112];
-        piece[0] = '\0';
-        if (b.key != SDLK_UNKNOWN) {
-            const char* nm = SDL_GetKeyName(b.key);
-            if (nm && nm[0] != '\0') {
-                std::snprintf(piece, sizeof(piece), "%s", nm);
-            } else {
-                std::snprintf(piece, sizeof(piece), "key 0x%x", static_cast<unsigned>(b.key));
-            }
-        } else if (b.pad != SDL_GAMEPAD_BUTTON_INVALID) {
-            const char* nm = SDL_GetGamepadStringForButton(b.pad);
-            if (nm && nm[0] != '\0') {
-                std::snprintf(piece, sizeof(piece), "%s", nm);
-            } else {
-                std::snprintf(piece, sizeof(piece), "pad btn %u", static_cast<unsigned>(b.pad));
-            }
-        } else if (b.axis != SDL_GAMEPAD_AXIS_INVALID) {
-            const char* nm = SDL_GetGamepadStringForAxis(b.axis);
-            if (nm && nm[0] != '\0') {
-                std::snprintf(piece, sizeof(piece), "%s", nm);
-            } else {
-                std::snprintf(piece, sizeof(piece), "axis %u", static_cast<unsigned>(b.axis));
-            }
-        }
-        if (piece[0] == '\0') {
-            continue;
-        }
-        if (!first) {
-            if (pos + 2 < outCap) {
-                out[pos++] = ',';
-                out[pos++] = ' ';
-                out[pos] = '\0';
-            }
-        }
-        first = false;
-        const size_t plen = std::strlen(piece);
-        if (pos + plen >= outCap) {
-            break;
-        }
-        std::memcpy(out + pos, piece, plen);
-        pos += plen;
-        out[pos] = '\0';
-    }
-    if (out[0] == '\0' && outCap > 1) {
-        std::snprintf(out, outCap, "(none)");
-    }
-}
-
-extern "C" void Port_Config_FormatBindingsLine(PortInput input, char* out, size_t outCap) {
-    FormatBindingsLineImpl(input, out, outCap, false);
-}
-
-extern "C" void Port_Config_SetKeyboardBindExclusive(PortInput input, int sdl_keycode) {
-    if (input < 0 || input >= PORT_INPUT_COUNT) {
-        return;
-    }
-    const SDL_Keycode nk = static_cast<SDL_Keycode>(sdl_keycode);
-    std::vector<Bind> kept;
-    kept.reserve(sBinds[input].size());
-    for (const Bind& b : sBinds[input]) {
-        if (b.pad != SDL_GAMEPAD_BUTTON_INVALID || b.axis != SDL_GAMEPAD_AXIS_INVALID) {
-            kept.push_back(b);
-        }
-    }
-    sBinds[input] = std::move(kept);
-    if (nk != SDLK_UNKNOWN) {
-        Bind kb;
-        kb.key = nk;
-        sBinds[input].insert(sBinds[input].begin(), kb);
-    }
-    WriteBindingsJsonFromState();
-}
-
-extern "C" void Port_Config_FormatGamepadBindingsLine(PortInput input, char* out, size_t outCap) {
-    FormatBindingsLineImpl(input, out, outCap, true);
-}
-
-extern "C" void Port_Config_SetGamepadBindExclusive(PortInput input, int sdl_gamepad_button) {
-    if (input < 0 || input >= PORT_INPUT_COUNT) {
-        return;
-    }
-    const SDL_GamepadButton nb = static_cast<SDL_GamepadButton>(sdl_gamepad_button);
-    std::vector<Bind> kept;
-    kept.reserve(sBinds[input].size());
-    for (const Bind& b : sBinds[input]) {
-        if (b.pad == SDL_GAMEPAD_BUTTON_INVALID) {
-            kept.push_back(b);
-        }
-    }
-    sBinds[input] = std::move(kept);
-    if (nb != SDL_GAMEPAD_BUTTON_INVALID && nb >= 0 && nb < SDL_GAMEPAD_BUTTON_COUNT) {
-        Bind pb;
-        pb.pad = nb;
-        sBinds[input].insert(sBinds[input].begin(), pb);
-    }
-    WriteBindingsJsonFromState();
-}
-#endif
 
 } // namespace
 
@@ -1351,9 +1202,9 @@ extern "C" void Port_Config_SetNintendoLayout(bool on) {
 }
 
 extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
-    /* Touch-controls dispatch first so finger / virtual-pad events on
-     * Android route to the touch handler before the keyboard / pad
-     * paths below see them. From matheo's launcher integration. */
+    /* Touch-controls dispatch first so finger / virtual-pad events route
+     * to the touch handler before the keyboard / pad paths below see
+     * them. */
     Port_TouchControls_HandleEvent(e);
 
     /* Rebind capture: when the user's pressed an action-edit button in

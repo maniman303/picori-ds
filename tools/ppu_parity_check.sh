@@ -102,7 +102,6 @@ capture() {
         TMC_PERFCAP_DUMP="$out" \
         TMC_COLOR_CORRECTION=0 \
         TMC_LCD_PERSISTENCE=0 \
-        TMC_NO_UPDATE_CHECK=1 \
         SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
         TMC_BASEROM="$TMC_BASEROM" \
         "$TMC_PC" --no-audio) >"$log" 2>&1 || {

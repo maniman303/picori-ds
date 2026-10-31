@@ -139,7 +139,7 @@ jobs:
         shell: bash
         run: |
           BOOT_DIR=$(mktemp -d)
-          env TMC_AUTOPLAY=1 TMC_NO_UPDATE_CHECK=1 \
+          env TMC_AUTOPLAY=1 \
             SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
             sh -c "cd '$BOOT_DIR' && exec '$TMC_PC' --no-audio" > "$BOOT_DIR/boot.log" 2>&1 &
           pid=$!

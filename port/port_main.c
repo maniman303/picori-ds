@@ -28,13 +28,11 @@
 #include "port_runtime_config.h"
 #include "port_tts.h"
 #include "port_types.h"
-#include "port_update_check.h"
 #include "rando/rando_file_menu.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <SDL3/SDL.h>
-#include "port_launcher_bootstrap.h"
 #include "port_imgui_menu.h"
 #include "port_mods.h"
 
@@ -517,7 +515,7 @@ int main(int argc, char* argv[]) {
                     stderr,
                     "                          (no input edge-cache, no save-states, no widescreen, 59.7275 Hz).\n");
                 fprintf(stderr,
-                        "  --skip-launcher:        Skip the prelaunch Play screen and update-check dialog.\n");
+                        "  --skip-launcher:        Skip the prelaunch Play screen.\n");
                 fprintf(stderr,
                         "                          Equivalent to setting TMC_AUTOPLAY=1 env var for this run.\n");
                 fprintf(stderr, "  config.json: Set window_scale and bindings defaults; \"skip_launcher\": true "
@@ -551,11 +549,10 @@ int main(int argc, char* argv[]) {
 
     /* --skip-launcher and config.json's "skip_launcher" both apply by setting
      * TMC_AUTOPLAY=1 in-process, same as --glslp= above: the prelaunch check
-     * (below) and Port_CheckForUpdates() keep reading TMC_AUTOPLAY unchanged,
-     * so this one env var stays the single source of truth for "skip the
-     * menu" instead of duplicating the check at every call site. Only set
-     * it when true — never unset an env var the user's shell may have
-     * exported for their own reasons. */
+     * (below) keeps reading TMC_AUTOPLAY unchanged, so this one env var stays
+     * the single source of truth for "skip the menu" instead of duplicating
+     * the check at every call site. Only set it when true — never unset an
+     * env var the user's shell may have exported for their own reasons. */
     if (skipLauncher || Port_Config_GetSkipLauncher()) {
 #if defined(_WIN32)
         extern int _putenv_s(const char*, const char*);
@@ -649,14 +646,6 @@ int main(int argc, char* argv[]) {
     SDL_ShowWindow(window);
     SDL_RaiseWindow(window);
     SDL_SyncWindow(window);
-
-#ifdef launcher
-    if (!Port_RunBootstrapLauncher(window)) {
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 0;
-    }
-#endif
 
     /* Paint a "LOADING" splash IMMEDIATELY so the window never
      * shows a blank black rectangle.
@@ -891,7 +880,6 @@ int main(int argc, char* argv[]) {
     Port_EnsureAssetsReadyWithDisplay(window, gRomData, gRomSize);
 #endif
     { Port_RandoFileMenu_RestorePersistedSettings(); }
-    Port_CheckForUpdates(window);
 
     /* Now that the ROM and asset tables are loaded, re-set the window
      * icon — Port_CreateAppIcon prefers the ROM-extracted Ezlo sprite

@@ -353,14 +353,6 @@ int Port_Config_PreferredRegion(void);
 void Port_Config_SetPreferredRegion(int region);
 int Port_Config_PreferredLanguage(void);
 void Port_Config_SetPreferredLanguage(int lang);
-#ifdef launcher
-void Port_Config_SetPortSettingsMenuEnabled(bool enabled);
-const char* Port_Config_InputUiLabel(PortInput input);
-void Port_Config_FormatBindingsLine(PortInput input, char* out, size_t outCap);
-void Port_Config_SetKeyboardBindExclusive(PortInput input, int sdl_keycode);
-void Port_Config_FormatGamepadBindingsLine(PortInput input, char* out, size_t outCap);
-void Port_Config_SetGamepadBindExclusive(PortInput input, int sdl_gamepad_button);
-#endif
 
 /* Debug flag notifications (persisted to config.json as "debug_flag_notifications").
  * When enabled every flag that flips 0->1 (engine SetLocalFlagByBank or the F8

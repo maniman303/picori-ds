@@ -285,16 +285,11 @@ def check_deps(non_interactive: bool = False) -> bool:
 
     # Git submodules
     #
-    # The xmake build gates optional submodules (tmc-Modern-Launcher,
-    # tmc-Android-Experimental — both private MatheoVignaud repos) on
-    # working-tree presence, so a fork without push access to those
-    # repos still builds tmc_pc fine. The software PPU is now vendored
-    # in-tree (port/ppu), so only VirtuaAPU remains build-blocking; fetch
-    # the others best-effort and continue on failure (private clone returns
-    # "could not read Username for https://github.com" when no PAT is
-    # configured — that's expected on public forks). Matches the workflow's
-    # no-token path in .github/workflows/_build.yaml.
-    virtua = REPO_ROOT / "libs" / "VirtuaAPU"
+    # VirtuaAPU is the only submodule and it is build-blocking: the software
+    # PPU is vendored in-tree (port/ppu) and the Android/launcher submodules
+    # are gone. The loop stays generic (any future .gitmodules entry is
+    # fetched best-effort, failures only fatal for required ones) and matches
+    # the workflow's no-token path in .github/workflows/_build.yaml.
     REQUIRED_SUBMODULES = {"libs/VirtuaAPU"}
 
     submodule_paths = []
@@ -305,7 +300,7 @@ def check_deps(non_interactive: bool = False) -> bool:
             if line.startswith("path = "):
                 submodule_paths.append(line.split("=", 1)[1].strip())
     if not submodule_paths:
-        # No .gitmodules — fall back to the two required ones we know
+        # No .gitmodules — fall back to the required one we know
         # about so we still try to fetch.
         submodule_paths = list(REQUIRED_SUBMODULES)
 

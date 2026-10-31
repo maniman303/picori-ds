@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Removed the unused `libs/tmc-Android-Experimental` git submodule. Android is
+  not a supported target in this fork, and the private repo was never built by
+  `xmake.lua`; `.gitmodules`, `THIRD-PARTY-LICENSES.md` and `build.py` no longer
+  reference it. `libs/VirtuaAPU` remains the only required submodule.
+- Removed the optional `tmc-Modern-Launcher` submodule and every `launcher`-gated
+  code path (`port/port_launcher_bootstrap.*`, the in-game touch settings modal,
+  the launcher-only rebind helpers). The touch gear button keeps opening the F8
+  menu, and the in-engine prelaunch card is unchanged. This also drops the
+  `guilite` package, so builds no longer fetch an unused UI toolkit.
+- Removed the startup update checker (`port/port_update_check.*`) and the
+  `TMC_NO_UPDATE_CHECK` env var. It queried a different upstream repository's
+  releases, so the fork never announced its own builds. `--skip-launcher` /
+  `"skip_launcher"` still skip the prelaunch screen via `TMC_AUTOPLAY`.
+
 ## v0.9.6 (2026-10-20)
 
 - Quicksaves replace disk snapshots atomically and preserve the previous save

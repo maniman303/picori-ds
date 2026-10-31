@@ -17,10 +17,6 @@
 #include "port_background_compose.h"
 #include "port_edge_fade.h"
 
-#ifdef launcher
-#include "tmc_launcher.h"
-#endif
-
 #include <cpu/mode1.h>
 #include <virtuappu.h>
 
@@ -123,23 +119,10 @@ static int Port_PPU_WindowBaseHeight(void) {
     return Port_Viewport_ProfileForAspect(Port_Config_EffectiveAspectMode())->height;
 }
 
-#ifdef launcher
-static SDL_Window* sBootstrapWindow = nullptr;
-#endif
-
 extern "C" SDL_Window* Port_PPU_ActiveWindow(void) {
-#ifdef launcher
-    return sWindow ? sWindow : sBootstrapWindow;
-#else
     return sWindow;
-#endif
 }
 
-#ifdef launcher
-extern "C" void Port_SetBootstrapWindow(SDL_Window* window) {
-    sBootstrapWindow = window;
-}
-#endif
 static SDL_Surface* sFrameSurface = nullptr;
 static PresentMode sPresentMode = PresentMode::NearestRaw;
 static PortFilterType sFilter = PORT_FILTER_NONE;
@@ -835,10 +818,6 @@ extern "C" unsigned Port_PPU_DisplayRefreshRate(void) {
         countdown = 120;
         cached = 0;
         SDL_Window* win = sWindow;
-#ifdef launcher
-        if (win == nullptr)
-            win = sBootstrapWindow;
-#endif
         if (win != nullptr) {
             SDL_DisplayID disp = SDL_GetDisplayForWindow(win);
             if (disp != 0) {
@@ -1094,9 +1073,6 @@ extern "C" void Port_PPU_Init(SDL_Window* window) {
     if (captureWindow && std::sscanf(captureWindow, "%d,%d", &captureW, &captureH) == 2 &&
         captureW >= 240 && captureH >= 160 && captureW <= 7680 && captureH <= 4320)
         SDL_SetWindowSize(window, captureW, captureH);
-#endif
-#ifdef launcher
-    sBootstrapWindow = nullptr;
 #endif
     Port_PPU_LoadConfig();
 
@@ -2280,44 +2256,15 @@ extern "C" const char* Port_PPU_FilterName(void) {
 }
 
 extern "C" bool Port_InGameSettingsModalIsOpen(void) {
-#ifdef launcher
-    return TmcSettings_IsModalOpen();
-#else
     return false;
-#endif
 }
 
 extern "C" void Port_OpenInGameSettingsModal(void) {
-#ifdef launcher
-    if (TmcSettings_IsModalOpen()) {
-        return;
-    }
-    SDL_Window* w = sWindow ? sWindow : sBootstrapWindow;
-    if (!w) {
-        return;
-    }
-    SDL_Renderer* r = sRenderer;
-    if (!r) {
-        r = SDL_GetRenderer(w);
-    }
-    if (!r) {
-        return;
-    }
-    if (!TmcSettings_RunModalInGame(w, r)) {
-        SDL_Event ev;
-        std::memset(&ev, 0, sizeof(ev));
-        ev.type = SDL_EVENT_QUIT;
-        SDL_PushEvent(&ev);
-    }
-#else
-    /* No launcher module linked (public builds): route the touch gear
-     * button to the F8 ribbon menu instead of silently doing nothing —
-     * it carries every setting the modal would have (Display, Controls,
-     * Audio, Saves...). Previously this was a no-op and the gear button
-     * looked broken on Android. */
+    /* No separate in-game settings modal: route the touch gear button to the
+     * F8 ribbon menu instead of silently doing nothing — it carries every
+     * setting a modal would have (Display, Controls, Audio, Saves...). */
     extern void Port_DebugMenu_Toggle(void);
     Port_DebugMenu_Toggle();
-#endif
 }
 /* True only when the active backend presents the SDL_Renderer 2D overlays
  * (soft-slots/touch/file-select randomizer). The GPU and surface-fallback

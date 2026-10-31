@@ -39,7 +39,6 @@ reproduced/redistributed here under their respective licenses.
 | Dear ImGui | https://github.com/ocornut/imgui | MIT |
 | {fmt} | https://github.com/fmtlib/fmt | MIT |
 | nlohmann/json | https://github.com/nlohmann/json | MIT |
-| GuiLite | https://github.com/idea4good/GuiLite | Apache-2.0 |
 | SDL3 | https://github.com/libsdl-org/SDL | Zlib |
 | zlib | https://zlib.net | Zlib |
 | libpng | http://www.libpng.org/pub/png/libpng.html | libpng (PNG Reference Library) |
@@ -104,7 +103,6 @@ before redistributing binaries.
 |-----------|------|----------|---------|
 | VirtuaAPU | `libs/VirtuaAPU` | https://github.com/MatheoVignaud/VirtuaAPU | none published |
 | tmc-Modern-Launcher | `libs/tmc-Modern-Launcher` | https://github.com/MatheoVignaud/tmc-Modern-Launcher | none published |
-| tmc-Android-Experimental | `libs/tmc-Android-Experimental` | https://github.com/MatheoVignaud/tmc-Android-Experimental | none published |
 
 ## Upstream decompilation & game IP
 

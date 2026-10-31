@@ -151,7 +151,7 @@ extern "C" void Port_ImGui_Init(SDL_Window* window, SDL_Renderer* renderer) {
      * inspired by the Dusklight TP PC port UI. The previous blue palette
      * stayed for the in-game F8 dev menu vibe; this theme leans into the
      * Minish-Cap green character (Ezlo, Link's hat, Minish leaves) and
-     * card-like surfaces with bigger rounding so the launcher screen
+     * card-like surfaces with bigger rounding so the prelaunch screen
      * and config tabs feel cohesive. */
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();

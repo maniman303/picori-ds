@@ -596,7 +596,7 @@ def main():
                           preferred_language=args.language)
             (Path(temporary) / 'config.json').write_text(json.dumps(config))
             env = {key: value for key, value in os.environ.items() if not key.startswith(('TMC_', 'SDL_'))}
-            env.update(TMC_AUTOPLAY='1', TMC_BASEROM=str(rom), TMC_NO_UPDATE_CHECK='1',
+            env.update(TMC_AUTOPLAY='1', TMC_BASEROM=str(rom),
                        TMC_BACKGROUND_AUDIT=scenario, TMC_BACKGROUND_AUDIT_OUT=str(directory),
                        TMC_FIGURINE_ACTION_START=str(args.figurine_start_case),
                        SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_DRIVER='software',

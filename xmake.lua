@@ -222,7 +222,6 @@ else
         add_requires("libsdl3 3.4.12", {configs = {shared = false}})
     end
 end
-add_requires("guilite")
 
 -- libpng + zlib are linked by port_bugreport (F9 screenshot codec) and
 -- by gbagfx (build-time PNG codec). On Linux + macOS we have system
@@ -737,22 +736,6 @@ target("tmc_pc")
     add_includedirs("libs/agbplay_core")
     add_includedirs("tools/src/assets_extractor") -- AssetExtractorApi linked in-process
 
-    -- tmc-Modern-Launcher is a private matheo repo; gate on submodule
-    -- presence so checkouts without access still build. Detect by
-    -- looking for the launcher's public header (the submodule pointer
-    -- exists in .gitmodules but the working tree is empty when the
-    -- clone fails).
-    if os.isfile("libs/tmc-Modern-Launcher/include/tmc_launcher.h") then
-        add_defines("launcher", "GUILITE_ON", "TMC_HAS_MODERN_LAUNCHER=1")
-        add_includedirs("libs/tmc-Modern-Launcher/include")
-        add_includedirs("libs/tmc-Modern-Launcher/3p")
-        add_rules("utils.bin2c", {extensions = {".png"}})
-        add_files("libs/tmc-Modern-Launcher/assets/github.png", {rule = "utils.bin2c", nozeroend = true})
-        add_files("libs/tmc-Modern-Launcher/src/launcher_github_icon.cpp")
-        add_files("libs/tmc-Modern-Launcher/src/tmc_launcher.cpp")
-        add_files("port/port_launcher_bootstrap.cpp")
-    end
-
     add_files("port/port_main.c")
     add_files("port/port_android_log.c") -- stderr->logcat bridge (no-op off Android)
     add_files("port/port_audio.c")
@@ -795,7 +778,6 @@ target("tmc_pc")
     add_files("port/port_offset_remap.c")  -- per-region compiled blob-offset remap (M7, generated)
     add_files("port/port_asset_bootstrap.cpp")
     add_files("port/port_asset_index.c")
-    add_files("port/port_update_check.c")
     add_files("port/port_asset_loader.cpp")
     add_files("port/port_asset_pipeline.cpp")
     add_files("port/port_asset_log.cpp")
@@ -1065,9 +1047,7 @@ target("tmc_pc")
     
     -- libpng + zlib are needed by port_bugreport.cpp for F9 screenshot
     -- PNG encoding. imgui drives the F8/ribbon menus (HEAD).
-    -- guilite is matheo's mobile/touch UI overlay.
-    -- Keep all of them so both UI stacks build cleanly.
-    add_packages("libsdl3", "nlohmann_json", "fmt", "libpng", "zlib", "imgui", "guilite")
+    add_packages("libsdl3", "nlohmann_json", "fmt", "libpng", "zlib", "imgui")
 
 
     -- Build a standalone Windows binary with MinGW (static SDL + runtimes).

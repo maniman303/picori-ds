@@ -157,7 +157,6 @@ def run_case(binary, rom, output, name, profile_name, scene_name, backend, switc
         'TMC_BASEROM': str(rom),
         'TMC_COLOR_CORRECTION': '0',
         'TMC_LCD_PERSISTENCE': '0',
-        'TMC_NO_UPDATE_CHECK': '1',
         'SDL_AUDIODRIVER': 'dummy',
         'SDL_VIDEODRIVER': 'offscreen' if backend == 'gpu' else 'dummy',
         'OMP_NUM_THREADS': '1',
