@@ -72,6 +72,10 @@ void Port_Widescreen_SetTallValidated(int validated);
 void Port_Widescreen_MapFilled(unsigned mode);
 void Port_Widescreen_MapUploaded(void);
 void Port_Widescreen_BeforePresent(void);
+/* Simulation-phase map-window refresh for the tall aperture. Called after the
+ * camera scroll update so the refilled rows and the new BGxVOFS become visible
+ * in the same presented frame (the present hook runs before DispCtrlSet). */
+void Port_Widescreen_SyncMapWindow(void);
 /* Manager residency policy. View-dependent graphics managers call
  * NoteManagerResidency() every update to prove a single region group covers
  * the candidate aperture. */

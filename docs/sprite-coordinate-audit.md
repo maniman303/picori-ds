@@ -85,8 +85,9 @@ dynamic entity or auxiliary player entity since room load, and signed metadata
 matching every visible OAM entry. A non-player entity created and deleted
 between presentation boundaries still blocks the room until reload. This is
 an exhaustive default-deny decision for entity kinds, not a claim that all
-individual AI or effect behavior has been adapted. No production scene
-currently grants the separate validation bit; 4:3 remains disabled.
+individual AI or effect behavior has been adapted. The production policy is now
+the per-kind/class allow-list in `port/port_tall_scene.c`; 4:3 is release-enabled
+and normal rooms grant the separate validation bit.
 
 The source-level screen-relative cases resolve as follows:
 

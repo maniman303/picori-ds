@@ -49,9 +49,10 @@ when compiled against the host's newer headers. The launcher uses the private
 The release uses the existing GPU/SDL_Renderer fallback, a 569-pixel width
 capacity and bounded 192-row software raster scratch, and no RetroAchievements
 (avoids a cross-built curl/TLS dependency
-chain). Capacity does not enable 4:3 or 32:9: scene, streaming and layout gates
-still keep those profiles unavailable. Optional upscale pools retain a
-`569 * 160` source-pixel budget; see `docs/presentation-allocation-audit.md`.
+chain). 4:3 (256 × 192) is release-enabled and was measured on the device; 32:9
+remains runtime-disabled by its independent scene, streaming and layout gates.
+Optional upscale pools retain a `569 * 160` source-pixel budget; see
+`docs/presentation-allocation-audit.md`.
 The USA asset baseline and `multi_region=y` match Picori's checked-in
 offset headers; the EU ROM is detected at runtime. No ROM or generated assets
 are needed on the build host. The embedded extractor generates assets on the

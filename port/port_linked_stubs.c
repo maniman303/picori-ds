@@ -1437,16 +1437,51 @@ static bool Port_WidescreenMapSnapshotMatches(int height) {
            sWsUpload.rows >= Port_WidescreenTallRows();
 }
 
-static void Port_WidescreenUploadMapBuffers(void) {
-    const u32 mapBufferSize = Port_Widescreen_MapBufferSize();
-    if (gMapBottom.bgSettings != NULL) {
-        memcpy(gVram + (gMapBottom.bgSettings->control & 0x1f00) * 8, &gBG1Buffer,
-               mapBufferSize);
-    }
-    if (gMapTop.bgSettings != NULL) {
-        memcpy(gVram + (gMapTop.bgSettings->control & 0x1f00) * 8, &gBG2Buffer,
-               mapBufferSize);
-    }
+/* Fill the rolling map buffers for the current camera tile.
+ *
+ * Deliberately does NOT touch VRAM. WaitForNextFrame() presents before
+ * VBlankIntr()/DispCtrlSet() write REG_BGxVOFS, but the engine's own map DMA
+ * runs after them; copying the freshly filled rows into VRAM any earlier pairs
+ * them with the *previous* vertical offset and jumps the world by one 16-px
+ * tile at every camera tile crossing. Leaving gUpdateVisibleTiles set lets
+ * that DMA move the rows at the same point in the frame as the offsets. */
+static void Port_WidescreenStageMapWindow(int targetHeight) {
+    sWsStageHeight = targetHeight;
+    const int rows = Port_Widescreen_MapBufferSize() / 64;
+    (void)Port_Viewport_UploadRequest(&sWsUpload, Port_WidescreenRoomKey(),
+                                      Port_Widescreen_MapTileX(), Port_Widescreen_MapTileY(),
+                                      targetHeight, rows);
+    gUpdateVisibleTiles = 1;
+    UpdateScrollVram();
+}
+
+/* A filled window whose VRAM copy is still queued for this frame's DMA. It is
+ * safe to present the tall aperture: the upload lands before the next render. */
+static bool Port_WidescreenMapWindowPending(int height) {
+    return sWsUpload.requested && sWsUpload.filled && !sWsUpload.uploaded &&
+           sWsUpload.roomKey == Port_WidescreenRoomKey() &&
+           sWsUpload.tileX == Port_Widescreen_MapTileX() &&
+           sWsUpload.tileY == Port_Widescreen_MapTileY() &&
+           sWsUpload.height == height &&
+           sWsUpload.rows >= Port_WidescreenTallRows();
+}
+
+/* Simulation-phase refresh of the tall map window. Called right after the
+ * camera scroll update so the rows and the offsets they belong to are both
+ * produced by the same update. */
+void Port_Widescreen_SyncMapWindow(void) {
+    if (gMain.task != TASK_GAME)
+        return;
+    const int targetHeight = Port_WidescreenTallAperture();
+    if (targetHeight <= PORT_VIEWPORT_NATIVE_HEIGHT ||
+        Port_Viewport_Get()->world.height <= PORT_VIEWPORT_NATIVE_HEIGHT)
+        return;
+    if (sWsUpload.roomKey != Port_WidescreenRoomKey())
+        return;
+    if (Port_WidescreenMapSnapshotMatches(targetHeight) ||
+        Port_WidescreenMapWindowPending(targetHeight))
+        return;
+    Port_WidescreenStageMapWindow(targetHeight);
 }
 
 /* Classify only on the simulation side. Content width is sampled once at
@@ -1601,31 +1636,28 @@ void Port_Widescreen_PublishScene(void) {
     } else if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT &&
                !(scene.capabilities & PORT_SCENE_TALL_SHAKE_UNSAFE)) {
         /* Steady tall. If the camera tile origin or required row count moved,
-         * refresh the full aperture synchronously instead of dropping to the
-         * native composition for a frame. An unsafe shake keeps the staged
-         * native fallback below. */
+         * refill the buffers for the new origin; the engine's own map DMA
+         * (after DispCtrlSet) moves them into VRAM, so the rows and the
+         * offsets that address them are written in the same frame. Copying
+         * VRAM from here would preview the new rows with the old offsets and
+         * jump the world by one tile at every crossing. An unsafe shake keeps
+         * the staged native fallback below. */
         const bool sameRoom = sWsValidatedKey == Port_WidescreenRoomKey() &&
                               sWsUpload.roomKey == Port_WidescreenRoomKey();
-        if (!Port_WidescreenMapSnapshotMatches(targetHeight) && sameRoom) {
-            sWsStageHeight = targetHeight;
-            const int rows = Port_Widescreen_MapBufferSize() / 64;
-            (void)Port_Viewport_UploadRequest(&sWsUpload, Port_WidescreenRoomKey(),
-                                              Port_Widescreen_MapTileX(), Port_Widescreen_MapTileY(),
-                                              targetHeight, rows);
-            gUpdateVisibleTiles = 1;
-            UpdateScrollVram();
-            Port_WidescreenUploadMapBuffers();
-            Port_Widescreen_MapUploaded();
-            gUpdateVisibleTiles = 0;
-            sWsStageHeight = 0;
-        } else if (!sameRoom) {
-            /* Room change: never authorize the new room with the old rows. */
-            sWsStageHeight = 0;
-            Port_Viewport_UploadReset(&sWsUpload);
-        } else {
+        if (!Port_WidescreenMapSnapshotMatches(targetHeight) &&
+            !Port_WidescreenMapWindowPending(targetHeight)) {
+            if (sameRoom)
+                Port_WidescreenStageMapWindow(targetHeight);
+            else {
+                /* Room change: never authorize the new room with the old rows. */
+                sWsStageHeight = 0;
+                Port_Viewport_UploadReset(&sWsUpload);
+            }
+        } else if (Port_WidescreenMapSnapshotMatches(targetHeight)) {
             sWsStageHeight = 0;
         }
-        if (Port_WidescreenMapSnapshotMatches(targetHeight))
+        if (Port_WidescreenMapSnapshotMatches(targetHeight) ||
+            Port_WidescreenMapWindowPending(targetHeight))
             scene.capabilities |= PORT_SCENE_TALL_ROWS_READY;
         else
             Port_Viewport_UploadReset(&sWsUpload);
@@ -1874,6 +1906,7 @@ void Port_Widescreen_EntityCreated(void) {}
 void Port_Widescreen_BeforePresent(void) {}
 void Port_Widescreen_MapFilled(unsigned mode) { (void)mode; }
 void Port_Widescreen_MapUploaded(void) {}
+void Port_Widescreen_SyncMapWindow(void) {}
 int Port_Widescreen_RegionViewWidth(void) { return 240; }
 int Port_Widescreen_RegionViewHeight(void) { return 160; }
 void Port_Widescreen_PublishScene(void) {

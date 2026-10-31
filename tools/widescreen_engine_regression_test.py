@@ -41,7 +41,8 @@ def main():
         'static int Port_WidescreenMapShadowsLive(void)',
         'void Port_Widescreen_SetTallValidated(int validated)',
         'static bool Port_WidescreenMapSnapshotMatches(int height)',
-        'static void Port_WidescreenUploadMapBuffers(void)',
+        'static void Port_WidescreenStageMapWindow(int targetHeight)',
+        'static bool Port_WidescreenMapWindowPending(int height)',
     )]
     functions.extend(function(stubs, name) for name in (
         'static int Port_WidescreenRepeatingOverlayLive(void)',
@@ -63,7 +64,7 @@ def main():
     functions.append(function((ROOT / 'port/port_ppu.cpp').read_text(), 'int Port_PPU_VisibleFrameWidth(void)'))
     with tempfile.TemporaryDirectory(prefix='tmc-ws-engine-') as directory:
         generated = Path(directory) / 'widescreen_helpers.h'
-        generated.write_text('\n'.join(functions))
+        generated.write_text('void UpdateScrollVram(void);\n' + '\n'.join(functions))
         binary = Path(directory) / 'test'
         command = shlex.split(os.environ.get('CC', 'cc')) + [
             '-std=c11', '-Wall', '-Wextra', '-Werror', '-DPORT_VIEWPORT_TEST_TALL', '-DPC_PORT', '-DMULTI_REGION', '-DUSA',

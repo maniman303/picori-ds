@@ -4,6 +4,12 @@ Tracks implementation of [the design](aspect-ratio-and-background-overrides-plan
 Work proceeds in the dependency order below. Checked items describe implemented
 contracts or completed checks, not a claim that the renderer supports the new profiles.
 
+> **Status (2026-10-31):** 4:3 (256 × 192) is release-enabled, accepted on both
+> host and physical RG, and recorded in
+> [the 4:3 implementation plan](4-3-aspect-implementation.md). Statements below
+> that describe 4:3 as disabled are historical gates from earlier passes; 32:9
+> remains runtime-disabled.
+
 ## Remaining implementation order
 
 The sections below group contracts by subject; their section order is not the

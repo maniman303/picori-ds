@@ -159,10 +159,14 @@ int main(void) {
     gRoomControls.scroll_y += 16; /* new camera tile refreshes without a drop */
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
-    assert(sWsUpload.filled && sWsUpload.uploaded);
+    /* The refill only fills the rolling buffer and queues the engine's map
+     * DMA; it must not touch VRAM before the offsets are written. */
+    assert(sWsUpload.filled && !sWsUpload.uploaded);
+    assert(gUpdateVisibleTiles == 1);
     assert(sWsUpload.tileY == Port_Widescreen_MapTileY());
     Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);
+    assert(sWsUpload.filled && sWsUpload.uploaded);
     gShakeOffsets[15] = (u8)-9;
     InitScreenShake(1, 0);
     assert(Port_Viewport_Get()->world.height == 160);

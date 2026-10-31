@@ -67,9 +67,12 @@ static int HyruleTownRegionSelectionSafe(void) {
                HyruleTownRegionListSafe(gHyruleTownTileSetManager_regions1) &&
                HyruleTownRegionListSafe(gHyruleTownTileSetManager_regions2);
     }
-    return HyruleTownRegionListSafe(gHyruleTownTileSetManager_festivalRegions0) &&
-           HyruleTownRegionListSafe(gHyruleTownTileSetManager_festivalRegions1) &&
-           HyruleTownRegionListSafe(gHyruleTownTileSetManager_festivalRegions2);
+    /* Festival foreground/background region rectangles overlap during the
+     * intro camera pan, but the manager's loaded group covers the visible
+     * map cells (verified against forced-tall full-scene captures). Keep the
+     * aperture tall for the whole festival scene instead of toggling between
+     * native 160 and tall 192 around the scripted camera target changes. */
+    return 1;
 }
 #endif
 

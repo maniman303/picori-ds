@@ -1,9 +1,9 @@
 # Vertical world streaming audit
 
 Source audit: 2026-10-24. This separates verified tile addressing from graphics
-residency and scene support. **4:3 remains disabled**; the runtime world-height
-accessor returns 160. Tests inject 192 into the production camera/copy/render
-paths without advertising unsupported gameplay.
+residency and scene support. The gate text below is historical: 4:3 is now
+release-enabled and the runtime world-height accessor follows the published
+aperture. Tests still inject 192 into the production camera/copy/render paths.
 
 ## Camera contract
 

@@ -3,8 +3,10 @@
 Audited 2026-10-25 for the five version-1 profiles and the prospective PC
 capacity envelope 569 × 192. The audit baseline was width 384; the subsequent
 build-synchronization batch switched release helpers to width 569 and verified
-unchanged native/widescreen captures. 4:3 and 32:9 remain unavailable. This is a source/storage audit with synthetic
-sanitizer coverage, not a device memory or performance measurement.
+unchanged native/widescreen captures. 4:3 is now release-enabled (2026-10-31);
+32:9 remains unavailable. This is a source/storage audit with synthetic
+sanitizer coverage; device memory/performance is recorded in
+[the RG record](rg-performance-and-memory-2026-10-30.md).
 
 ## Storage policy
 

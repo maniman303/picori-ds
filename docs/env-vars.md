@@ -124,6 +124,10 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_ROOMCAP` | port/port_repro_roomcap.c, port/port_bios.c | **(harness)** Warp to a room and save its framebuffer; also forces legacy pacing. |
 | `TMC_ROOMCAP_WARP` | port/port_repro_roomcap.c | **(harness)** Target room for roomcap. |
 | `TMC_ROOMCAP_SETTLE` | port/port_repro_roomcap.c | **(harness)** Frames to wait after the warp before capturing (default 300). |
+| `TMC_ROOMCAP_TIMEOUT` | port/port_repro_roomcap.c | **(harness)** Frames before the harness aborts if it cannot reach a capture; raise it for long thermal/profile runs (default 5000). |
+| `TMC_ROOMCAP_HOLD` | port/port_repro_roomcap.c | **(harness)** Keep the settled room running after the capture instead of exiting; used for long device profile/thermal windows. |
+| `TMC_ROOMCAP_SERIES` | port/port_repro_roomcap.c | **(harness)** `start,count,step` frame series of composed framebuffer captures, written under `TMC_ROOMCAP_SERIES_OUT`. |
+| `TMC_ROOMCAP_SERIES_OUT` | port/port_repro_roomcap.c | **(harness)** Output directory for `TMC_ROOMCAP_SERIES`. |
 | `TMC_ROOMCAP_OUT` | port/port_repro_roomcap.c | **(harness)** Output PNG path (default `roomcap.png`). |
 | `TMC_ROOMCAP_WINDOW` | port/port_ppu.cpp | **(harness)** Presentation test window `width,height` (240..7680 by 160..4320); scene runner uses `960,540`. |
 | `TMC_ROOMCAP_PRESENTATION` | port/port_repro_roomcap.c | **(harness)** Capture composed presentation, including overlays, instead of the base framebuffer. |
@@ -140,4 +144,5 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_ROOMCAP_COF_PROBE` | port/port_repro_roomcap.c | **(harness)** Scripted flag probe after the warp. |
 | `TMC_ROOMCAP_LEVER_PROBE` | port/port_repro_roomcap.c | **(harness)** Scripted lever/flag probe after the warp. |
 | `TMC_ROOMCAP_PAN_PROBE` | port/port_repro_roomcap.c | **(harness)** Camera-pan probe for widescreen room borders. |
+| `TMC_PAN_ASPECT` | port/port_repro_roomcap.c | **(harness)** Aspect-mode index used by the pan probe (default `2`, 21:9; `4` is 4:3). |
 | `TMC_ROOMCAP_TOWN_PROBE` | port/port_repro_roomcap.c | **(harness)** Hyrule Town flag probe stage (integer). |

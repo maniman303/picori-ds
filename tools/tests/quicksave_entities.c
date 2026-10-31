@@ -33,6 +33,10 @@ static int TestRename(const char* from, const char* to) {
 #undef fclose
 #undef rename
 #include <assert.h>
+bool Port_Config_GetConsoleParity(void) { return false; }
+void Port_Reborn_NotifyJustResumed(void) {}
+void Port_Widescreen_RoomLoaded(void) {}
+Uint64 SDL_GetTicks(void) { return 0; }
 static unsigned sEffectClears;
 void Port_Effect_ClearFadeIris(void) { ++sEffectClears; }
 static unsigned sBackgroundResets;

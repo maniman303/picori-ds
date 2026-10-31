@@ -2,9 +2,9 @@
 
 This is the source-level ownership record for the semantic HUD and dialogue
 layout. Coordinates below are native BG0 tile coordinates unless stated
-otherwise. Production 4:3 is still disabled; the tall path is exercised through
-the test-only geometry rather than a released profile. BG0 has a 32-tile
-stride, so an index is `(row * 32 + column)`.
+otherwise. Production 4:3 is released; the tall path is exercised by the
+published canvas geometry. BG0 has a 32-tile stride, so an index is
+`(row * 32 + column)`.
 
 | Owner in `src/ui.c` | Native footprint or position | Implemented anchor / constraints |
 | --- | --- | --- |
@@ -29,8 +29,10 @@ the cells. Messages and other UI can overwrite BG0; position alone cannot
 identify the active semantic owner. In particular, the existing mode-1 wide
 path now moves only the installed key and rupee rectangles, except on published
 message/banner lines. Each counter has its own installed-state and hide-flag
-gate; nonzero BG0 scroll fails closed to native placement. A bottom-anchored
-layout still needs vertical relocation and verified handling of other writers.
+gate; nonzero BG0 scroll fails closed to native placement. A canvas-bottom
+box overwrites the key/rupee source cells exactly as on GBA, so those cells
+cannot be recovered by moving the box; the top message position is the
+supported full-HUD layout.
 
 `ChangeWindowSize` in `src/message.c` derives the animated `gNewWindow` from
 the final message dimensions and position, and `CreateWindow` copies it to
@@ -62,7 +64,9 @@ banks: top and bottom message requests, opening/closing publication, key and
 rupee movement, uninstalled counter behavior, message/HUD overlap, banner
 separation, fixed-screen clearing, and 160-line preservation. Software, Vulkan
 and GLES agree byte-for-byte in `tools/ppu_gpu_parity.cpp`; the CPU expectations
-are asserted independently in `tools/tests/widescreen_ppu.c`. Production 4:3
-and 32:9 remain disabled by their independent world, scene and profile gates.
-Item-get/special-minigame visual captures and physical-device acceptance remain
-open; touch overlays do not consume HUD coordinates.
+are asserted independently in `tools/tests/widescreen_ppu.c`. 4:3 is released;
+32:9 remains disabled by its independent world, scene and profile gates.
+Item-get/special-minigame visual captures remain separate; the physical RG 4:3
+device run is recorded in
+[the RG performance record](rg-performance-and-memory-2026-10-30.md). Touch
+overlays do not consume HUD coordinates.

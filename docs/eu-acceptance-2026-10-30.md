@@ -93,6 +93,34 @@ the per-region asset trees, non-USA runs never fall back to the flat USA asset
 tree, and JP sprite/animation resolution stays on ROM-resolved data. Broader JP
 menu/text layout coverage remains a separate audit.
 
+## Room-family and physical 4:3 completion (2026-10-31)
+
+The remaining room families were captured at exact 4× (1024 × 768) with the
+release tall capability:
+
+- festival town `0x15/0x00` after advancing its entry scene:
+  `screenshots/2026-10-31-eu-town-43-4x.png`; the entry camera pan is verified
+  full-height in `screenshots/2026-10-31-eu-festival-zelda-{castle,pan,town}-43-4x.png`
+  (Festival Town keeps its tall aperture through the scripted camera target);
+- normal dungeon `0x48/0x00`: `screenshots/2026-10-31-eu-dungeon-43-4x.png`;
+- boss `0x49/0x00`: `screenshots/2026-10-31-eu-boss-43-4x.png`;
+- Crenel Minish rain path `0x12/0x02`:
+  `screenshots/2026-10-31-eu-crenel-rain-43-4x.png`;
+- interior `0x22/0x12`: `screenshots/2026-10-31-eu-interior-43-4x.png`. The
+  room is 240 × 160 and stays centered in the 256 × 192 canvas; the margin
+  fade extends its edge colors into the added rows/columns.
+- boss with a top message and the full key/rupee HUD:
+  `screenshots/2026-10-31-eu-boss-43-dialogue-top-4x.png`.
+
+The physical Anbernic RG DS Plus was measured with the 4:3 preference enabled
+and the field/town rooms warped through the harness. Device captures are true
+256 × 192 (`screenshots/2026-10-31-rg-eu-{field,town,boss}-43-256x192.png`).
+The field-room decoupled matrix, boss check and five-minute town thermal/PSS
+run are in
+[the RG performance record](rg-performance-and-memory-2026-10-30.md). A final
+24-capture EU software matrix was re-run after the harness change and passes;
+its evidence is in `.tmp/eu-gameplay-43-final-2026-10-31/`.
+
 ## Limitations
 
 - The live matrix uses the EU field room; it does not multiply every functional
@@ -103,6 +131,6 @@ menu/text layout coverage remains a separate audit.
   example 960 × 540 for a 285-wide frame) differ more. Base-framebuffer byte
   parity and block-center native samples are asserted at the exact 4× profile
   sizes used by the acceptance captures.
-- 32:9, optional upscale/filter/voxel paths, SDL_GPU 4:3 presentation (no GPU
-  device available on the test host) and USA/JP remain outside this run's
-  tested envelope.
+- 32:9, optional upscale/filter/voxel paths and SDL_GPU 4:3 presentation (no
+  GPU device is available on the test host) remain outside this run's tested
+  envelope. USA/JP use the separate 24-capture matrices documented above.

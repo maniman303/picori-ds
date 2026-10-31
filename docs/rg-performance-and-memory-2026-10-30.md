@@ -3,7 +3,8 @@
 This records both the host proxy and an actual Anbernic RG DS Plus run. The
 device was reached over SSH and ran the same EU room profile through the ARM64
 release-like build. QEMU and WSL2 numbers are still labelled as host proxies;
-they are not substitutes for the physical run.
+they are not substitutes for the physical run. The 2026-10-31 section adds the
+physical 256 × 192 4:3 matrix and a five-minute tall-town thermal window.
 
 ## Acceptance target
 
@@ -107,7 +108,56 @@ The device has no usable SDL_GPU backend (`SDL_CreateGPUDevice failed`), so the
 forced GPU-raster preference falls back to the SDL_Renderer `opengles2`
 presentation path and the software PPU. In this historical run a `4:3` config
 was effective-native and the captured gameplay frame is exactly 240 × 160.
-Current builds enable 4:3; the 256 × 192 device measurement is still pending.
+The current 4:3 measurement with the release capability enabled is below.
+
+## Physical RG 4:3 results (2026-10-31)
+
+Device and build:
+
+- Anbernic RG DS Plus, same kernel/CPU/RAM as above; `aspect_mode=4:3`,
+  `decouple_render=true`, `internal_scale=1`, `upscale_method=nearest`,
+  `window_scale=1`.
+- ARM64 cross build: `pc_avx2=n`, width capacity 569, `gpu_renderer=y`, `ra=n`,
+  `repro_harness=y`, static packages. Measured executable SHA256
+  `1a40d3e4511bdf8db12e75ac2fd706f629a2e83d8a39ef03587a975ef4d0b2ab`.
+- EU ROM, field room `0x03/0x08`, 4:3 profile. The harness now supports
+  `TMC_ROOMCAP_HOLD=1` and `TMC_ROOMCAP_TIMEOUT` so the settled room stays live
+  for long profile/thermal windows.
+
+Decoupled steady-state medians after the warp (23 report windows per worker
+count; the first post-warp window is excluded because it contains the warp
+asset hitch):
+
+| Workers | Game tick | Present | PPU render | Game+present | Headroom in 16.67 ms |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.514 ms | 10.741 ms | 8.463 ms | 11.255 ms | 5.41 ms |
+| 2 | 0.515 ms | 7.825 ms | 5.227 ms | 8.340 ms | 8.33 ms |
+| 4 | 0.726 ms | 6.605 ms | 3.677 ms | 7.331 ms | 9.34 ms |
+
+A 4-worker boss-room check (`0x49/0x00`, 23 windows, HUD and live boss
+entities) measured game 0.569 ms, present 6.689 ms, render 3.570 ms, work
+7.258 ms and 9.41 ms of headroom, so a heavy entity scene also stays inside
+the 60 fps budget.
+
+A 4-worker five-minute tall Hyrule Town (`0x15/0x00`, entry scene advanced,
+clean 256 × 192 world) run is the heavier thermal sample: 156 steady report
+windows after the warp, game 0.589 ms, present 5.916 ms, render 2.802 ms, work
+6.505 ms (10.16 ms of headroom). The worst single window was 22.10 ms game and
+16.92 ms present; there was no upward frame-time trend over the run. PSS
+stayed flat at 101,480 KiB (127,964 KiB RSS, 135,488 KiB VmHWM) across all 150
+samples. Post-run temperatures were 41.875 °C and 40.625 °C on the two
+reported thermal zones. The five-minute window did not reach a thermal or
+memory saturation point.
+
+All three worker counts hold 60 fps in this field room. The 4:3 raster adds
+about 28% pixels over 240 × 160; four workers still leave roughly 9.3 ms of the
+16.67 ms frame for engine work, presentation and headroom. The device captures
+are true 256 × 192 (`screenshots/2026-10-31-rg-eu-{field,town,boss}-43-256x192.png`),
+confirming that the preference is not effective-native.
+
+PSS/RSS during the field windows stayed flat at about 100.5 MiB PSS and
+123.3 MiB RSS (VmHWM 123.5 MiB), close to the native-profile run. These are
+process values from `/proc/<pid>`; GPU/driver allocations remain outside them.
 
 ## Memory and cache limits
 
@@ -139,16 +189,15 @@ allocations and shader-preset intermediates remain unmeasured.
 
 ## Optional paths and regional gaps
 
-- `4:3` is now enabled; `32:9` remains runtime-disabled behind its independent
-  scene, layout, sprite and profile gates. RG 4:3 frame-time/thermal numbers
-  are still pending (the capture below predates enablement).
+- `4:3` is enabled and measured above; `32:9` remains runtime-disabled behind
+  its independent scene, layout, sprite and profile gates.
 - GPU raster/presentation requires a working SDL_GPU backend. The RG has none
   available, so `gpu_raster=true` falls back to SDL_Renderer `opengles2` plus
   the software PPU. Vulkan/GLES parity was exercised separately through
   `tools/ppu_gpu_parity` on local software drivers.
-- The RG `4:3` preference in this historical capture was effective-native
-  (240 × 160); the current build enables 4:3. Physical-RG 4:3 performance is
-  the remaining WP8 measurement.
+- The older native-profile capture in this record was effective-native
+  (240 × 160); the 2026-10-31 run uses the release 4:3 capability and produces
+  true 256 × 192 device frames.
 - Internal scale above 1, xBRZ, voxel view, custom `.glslp` presets and HD
   dialogue keep their documented safe fallbacks. Their worst-case pools are
   bounded in `docs/presentation-allocation-audit.md`; they were not exercised on
@@ -210,10 +259,38 @@ reported separately. Evidence is retained under
 `device-gameplay-decoupled-t1.log`, `-t2.log`, `-t4.log`, the long-run journal,
 and the 240 × 160 `room-native.png` capture.
 
+The 2026-10-31 4:3 matrix used the same staging with the settled room held
+live and, for the long window, a raised harness timeout:
+
+```sh
+systemd-run --unit=picori-perf --collect \
+  --property=WorkingDirectory=/storage/roms/ports/picori \
+  --setenv=TMC_PROFILE=1 --setenv=TMC_PROFILE_DECOUPLED=1 \
+  --setenv=TMC_ROOMCAP=1 --setenv=TMC_ROOMCAP_HOLD=1 \
+  --setenv=TMC_ROOMCAP_TIMEOUT=1000000 \
+  --setenv=TMC_ROOMCAP_WARP=0x03,0x08,0x1d8,0x138,0 \
+  --setenv=TMC_ROOMCAP_SETTLE=900 \
+  --setenv=OMP_NUM_THREADS=4 \
+  /storage/roms/ports/picori/launch-perf.sh --no-audio
+```
+
+The town thermal window used `TMC_ROOMCAP_WARP=0x15,0x00,0x80,0x40,1`,
+`TMC_ROOMCAP_SETTLE=1200` and `TMC_ROOMCAP_CLEAN=1` to advance the entry scene;
+the capture is a full 256 × 192 clean town world. Evidence is under
+`.tmp/rg-physical-2026-10-31/` (`device-43-field-t{1,2,4}.log`,
+`device-43-boss.log`, `device-43-town-tall-long.log`,
+`device-43-town-tall-test.log`, the device captures and the
+`device-perf-run.sh` helper). The earlier
+`device-43-town-cutscene-native-long.log` is retained only to show why the
+unadvanced entry cutscene is a classified native-height fallback. The
+256 × 192 device frames are also copied to `screenshots/`.
+
 ## Remaining coverage
 
-The native-profile field room meets the immediate 60 fps target with ~10.6 ms of
-measured headroom at four workers. Still unmeasured: heavier rooms/effect
-scenes, longer thermal saturation, optional upscale/filter/voxel paths, and
-USA/JP behavior. A future dual-screen implementation must measure its own
-render/present cost; the headroom estimate above is not a dual-screen result.
+The 4:3 field room meets the immediate 60 fps target with ~9.3 ms of measured
+headroom at four workers; the five-minute town run leaves ~8.6 ms and stays
+well below thermal saturation, and the boss-room check covers a heavy entity
+scene. Still unmeasured: the densest effect/transition scenes, optional
+upscale/filter/voxel paths, and USA/JP performance/memory behavior. A future
+dual-screen implementation must measure its own render/present cost; the
+headroom estimate above is not a dual-screen result.

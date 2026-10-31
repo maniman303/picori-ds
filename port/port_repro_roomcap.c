@@ -102,6 +102,7 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
     static int msg_posY = -1;
     static unsigned int a = 0x03, r = 0x08, x = 0x1d8, y = 0x138, l = 0;
 
+    static unsigned int timeout = 5000;
     if (active < 0) {
         const char* env = getenv("TMC_ROOMCAP");
         active = (env && *env && strcmp(env, "0") != 0) ? 1 : 0;
@@ -109,18 +110,58 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             const char* st = getenv("TMC_ROOMCAP_SETTLE");
             if (st && *st)
                 settle = atoi(st);
+            const char* to = getenv("TMC_ROOMCAP_TIMEOUT");
+            if (to && *to) {
+                long value = strtol(to, NULL, 0);
+                if (value > 0 && value <= 0x7fffffffL)
+                    timeout = (unsigned int)value;
+            }
             const char* w = getenv("TMC_ROOMCAP_WARP");
             if (w && *w)
                 sscanf(w, "%i,%i,%i,%i,%i", &a, &r, &x, &y, &l);
-            fprintf(stderr, "[roomcap] active warp=0x%02x/0x%02x (%u,%u) layer=%u settle=%d\n", a, r, x, y, l, settle);
+            fprintf(stderr, "[roomcap] active warp=0x%02x/0x%02x (%u,%u) layer=%u settle=%d timeout=%u\n", a, r, x, y,
+                    l, settle, timeout);
         }
     }
     if (!active)
         return;
-    if (frame >= 5000 && !(booted && tour_running)) {
+    if (frame >= timeout && !(booted && tour_running)) {
         fprintf(stderr, "[roomcap] timeout (task=%u)\n", (unsigned)gMain.task);
         fflush(stderr);
         _Exit(3);
+    }
+
+    /* TMC_ROOMCAP_SERIES=<start>,<count>,<step> with TMC_ROOMCAP_SERIES_OUT=<dir>
+     * captures the composed base framebuffer over a frame window. Used to
+     * analyse camera/aperture transitions frame by frame. */
+    {
+        static int seriesStart = -2, seriesCount = 0, seriesStep = 0, seriesIndex = 0;
+        if (seriesStart == -2) {
+            const char* s = getenv("TMC_ROOMCAP_SERIES");
+            seriesStart = -1;
+            if (s && *s) {
+                int start = 0, count = 0, step = 0;
+                if (sscanf(s, "%d,%d,%d", &start, &count, &step) == 3 &&
+                    start >= 0 && count > 0 && step > 0) {
+                    seriesStart = start;
+                    seriesCount = count;
+                    seriesStep = step;
+                }
+            }
+        }
+        if (booted && warp_done && seriesStart >= 0 && seriesIndex < seriesCount &&
+            (int)frame >= seriesStart && ((int)frame - seriesStart) % seriesStep == 0) {
+            const char* dir = getenv("TMC_ROOMCAP_SERIES_OUT");
+            if (!dir || !*dir)
+                dir = ".";
+            char path[512];
+            if ((size_t)snprintf(path, sizeof path, "%s/frame_%05u.png", dir, frame) < sizeof path) {
+                if (Port_CaptureBaseFramebufferPNG(path) > 0)
+                    fprintf(stderr, "[roomcap] series %d/%d -> %s (game f=%d)\n", seriesIndex + 1,
+                            seriesCount, path, (int)gRoomTransition.frameCount);
+            }
+            ++seriesIndex;
+        }
     }
 
     /* Press START at the title to reach file-select. */
@@ -657,9 +698,18 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             switch (pstage) {
                 case 0: /* park the pan target at an interior rest position */
                     if ((int)frame >= cap_frame - settle + 120) {
-                        /* Pin an explicit wide profile; window dimensions and
-                         * the obsolete toggle no longer determine geometry. */
-                        Port_Config_SetAspectMode(PORT_ASPECT_ULTRAWIDE_21_9);
+                        /* Pin an explicit profile; window dimensions and the
+                         * obsolete toggle no longer determine geometry. The
+                         * aspect is selectable so the same probe can run on a
+                         * tall profile. */
+                        const char* pa = getenv("TMC_PAN_ASPECT");
+                        PortAspectMode aspect = PORT_ASPECT_ULTRAWIDE_21_9;
+                        if (pa && *pa) {
+                            long value = strtol(pa, NULL, 0);
+                            if (value >= 0 && value < PORT_ASPECT_COUNT)
+                                aspect = (PortAspectMode)value;
+                        }
+                        Port_Config_SetAspectMode(aspect);
                     }
                     if ((int)frame >= cap_frame - settle + 120) {
                         /* Interior rest: in a 480px room at viewW=384 the
@@ -865,6 +915,9 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
     }
 
     if (warp_done && cap_frame && (int)frame >= cap_frame) {
+        static int captured_once = 0;
+        if (captured_once)
+            return;
         /* TMC_ROOMCAP_SAVE: write a quicksave (state_quick.bin) at the warped
          * spot so it can be F6-loaded interactively, then exit. */
         if (getenv("TMC_ROOMCAP_SAVE")) {
@@ -910,6 +963,13 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
         if (dump && *dump)
             RoomCap_DumpPpu(dump);
         fflush(stderr);
+        captured_once = 1;
+        /* Keep the settled room live for profile/thermal runs. TMC_PROFILE
+         * already keeps perfcap alive; roomcap used to exit unconditionally,
+         * which cut long device measurements short. */
+        const char* hold = getenv("TMC_ROOMCAP_HOLD");
+        if (hold && *hold && strcmp(hold, "0") != 0)
+            return;
         _Exit(ok > 0 ? 0 : 2);
     }
 }

@@ -51,16 +51,20 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Viewport_Get()->capacityWidth == MODE1_GBA_WIDTH);
     assert(Port_Viewport_Get()->pitchPixels == MODE1_GBA_WIDTH);
     assert(Port_Viewport_Get()->capacityHeight == 192);
-    assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_DS_4_3));
+    /* 4:3 is release-enabled and fits both test capacities; 32:9 remains
+     * unavailable because its width exceeds the OBJ-safe bound. */
+    assert(Port_Config_AspectModeAvailable(PORT_ASPECT_DS_4_3));
     assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_SUPER_ULTRAWIDE_32_9));
     Port_Config_CycleAspectMode(1);
     assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
     Port_Config_CycleAspectMode(1);
     assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
     Port_Config_CycleAspectMode(1);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
+    Port_Config_CycleAspectMode(1);
     assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
     Port_Config_CycleAspectMode(-1);
-    assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
+    assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
 
     load(path, R"({"aspect_mode":"WIDESCREEN"})");
     assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
@@ -71,7 +75,10 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_NATIVE_3_2);
     load(path, R"({"aspect_mode":"4:3"})");
     assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
-    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_NATIVE_3_2);
+    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_DS_4_3);
+    Port_Config_PublishViewport();
+    assert(Port_Viewport_Get()->canvas.width == 256);
+    assert(Port_Viewport_Get()->canvas.height == 192);
     Port_Config_SetAspectMode(PORT_ASPECT_DS_4_3);
     Port_Config_Load(path);
     assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);

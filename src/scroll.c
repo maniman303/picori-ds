@@ -91,6 +91,14 @@ void UpdateScroll(void) {
 #endif
     gRoomControls.scroll_flags &= 0xfb;
     gUnk_0811E768[gRoomControls.scrollAction](&gRoomControls);
+#ifdef PC_PORT
+    /* Scroll1 has now moved the camera tile. Re-publish and refill the tall
+     * map window here, in the update phase: the present hook runs before
+     * DispCtrlSet() writes BGxVOFS, so refilling there paired the new rows
+     * with the previous offset and jumped the world one tile per crossing. */
+    Port_Widescreen_PublishScene();
+    Port_Widescreen_SyncMapWindow();
+#endif
 }
 
 void Scroll0(RoomControls* controls) {

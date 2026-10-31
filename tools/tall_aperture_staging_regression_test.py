@@ -20,7 +20,8 @@ with tempfile.TemporaryDirectory(prefix='tmc-tall-stage-') as directory:
                   'static int Port_WidescreenEntitiesSafe(int apertureHeight)',
                   'static int Port_WidescreenMapShadowsLive(void)',
                   'static bool Port_WidescreenMapSnapshotMatches(int height)',
-                  'static void Port_WidescreenUploadMapBuffers(void)',
+                  'static void Port_WidescreenStageMapWindow(int targetHeight)',
+                  'static bool Port_WidescreenMapWindowPending(int height)',
                   'void Port_Widescreen_SetTallValidated(int validated)',
                   'void Port_Widescreen_MapFilled(unsigned mode)', 'void Port_Widescreen_MapUploaded(void)',
                   'static void ram_sub_080B197C_c(', 'void UpdateScrollVram(void)',
@@ -29,7 +30,7 @@ with tempfile.TemporaryDirectory(prefix='tmc-tall-stage-') as directory:
                   'unsigned Port_Widescreen_MapBufferSize(void)')
     bodies = [function(source, sig) for sig in signatures]
     bodies.append(function((ROOT / 'src/scroll.c').read_text(), 'void InitScreenShake(u32 time, u32 magnitude)'))
-    (tmp / 'tall_aperture_functions.inc').write_text('\n'.join(bodies))
+    (tmp / 'tall_aperture_functions.inc').write_text('void UpdateScrollVram(void);\n' + '\n'.join(bodies))
     cmd = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=gnu11', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
         '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-DPC_PORT', '-DMULTI_REGION',

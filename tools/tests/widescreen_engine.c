@@ -74,7 +74,6 @@ static struct { TestBg* bgSettings; } gMapBottom, gMapTop;
 static u16 gMapDataBottomSpecial[128*128], gMapDataTopSpecial[128*128];
 static u16 sWsShadowBG1[32*32], sWsShadowBG2[32*32], sWsShadowOverlay[32*32];
 static u16 vram[0x18000/2];
-static u16 gBG1Buffer[0x400], gBG2Buffer[0x400];
 #define gVram ((unsigned char*)vram)
 static int virtuappu_mode1_ws_hud_right_anchor, virtuappu_mode1_ws_msg_shift;
 static int virtuappu_mode1_ws_hud_shift_y, virtuappu_mode1_ws_msg_shift_y;
@@ -96,7 +95,8 @@ static int Port_WidescreenTallRows(void);
 static int Port_WidescreenTallAperture(void);
 static int Port_WidescreenCandidateWidth(void);
 static bool Port_WidescreenMapSnapshotMatches(int height);
-static void Port_WidescreenUploadMapBuffers(void);
+static void Port_WidescreenStageMapWindow(int targetHeight);
+static bool Port_WidescreenMapWindowPending(int height);
 void Port_Widescreen_MapUploaded(void);
 #include "widescreen_helpers.h"
 static int errors;

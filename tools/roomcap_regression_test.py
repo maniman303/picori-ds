@@ -23,7 +23,7 @@ def main():
     source = (ROOT / 'port/port_repro_roomcap.c').read_text()
     tour_start = source.index('    /* TMC_ROOMCAP_TOUR=<plan>')
     tour_end = source.index('    /* Once stable in TASK_GAME', tour_start)
-    timeout = function(source, '    if (frame >= 5000')
+    timeout = function(source, '    if (frame >= timeout')
     helpers = function(source, 'static int RoomCap_ParseTourRow')
     harness = r'''
 #include <assert.h>
@@ -76,6 +76,7 @@ int Port_CapturePresentationPNG(const char* path) { return Capture(path); }
 ''' + function(source, 'static int RoomCap_Capture') + '\n' + helpers + r'''
 static void Tick(unsigned int frame) {
  static int tour_running;
+ unsigned int timeout=getenv("TEST_TIMEOUT")?(unsigned int)strtoul(getenv("TEST_TIMEOUT"),NULL,0):5000;
  int booted=!getenv("TEST_BOOTSTRAP"), settle=getenv("TEST_SETTLE")?atoi(getenv("TEST_SETTLE")):1;
 ''' + timeout + '\n' + source[tour_start:tour_end] + r'''
 }

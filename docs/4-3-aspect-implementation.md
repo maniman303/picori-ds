@@ -1,10 +1,12 @@
 # Plan: finish proper 4:3 (256 × 192)
 
-Status: WP1–WP9 implemented. The Minish Village multi-group residency is
-solved with host charset groups plus an atomic group switch, and the release
-profile is enabled. WP8 software acceptance (including 4:3) is done;
-physical-RG performance and the remaining room-family captures are follow-up
-evidence.
+Status: WP1–WP9 implemented and accepted. The Minish Village multi-group
+residency is solved with host charset groups plus an atomic group switch, and
+the release profile is enabled. WP8 now includes the physical RG 4:3
+frame-time/thermal matrix and the remaining room-family captures (town,
+dungeon, boss, Crenel rain path and interior). The tall message/HUD ownership
+rule is final
+and verified. Missing 4:3 artwork remains the supported final state.
 Scope owner: code/geometry/streaming/validation/composition/tests  
 Artwork: **optional**. Missing 4:3 artwork is intentional and must render solid
 black; no work package depends on custom files being supplied.
@@ -130,6 +132,20 @@ Already implemented and tested:
 - Height-aware 4:3 live-gameplay presenter matrix (native/16:9/21:9/4:3,
   software; two 4:3 profile switches) and a 192-row snapshot guard in the RG
   performance probe.
+- Physical RG 4:3: true 256 × 192 device captures (field at 1/2/4 workers,
+  boss and tall town), a decoupled field-room frame-time matrix, a boss-scene
+  check, a five-minute town thermal/PSS run, and a 4:3 60 fps target with
+  measured headroom (see
+  [the RG performance record](rg-performance-and-memory-2026-10-30.md)).
+- Remaining room families: festival town (`0x15/0x00`, after its entry scene),
+  normal dungeon (`0x48/0x00`), boss (`0x49/0x00`), Crenel Minish rain path
+  (`0x12/0x02`) and interior (`0x22/0x12`) host captures at exact 4× (1024 ×
+  768) in `screenshots/2026-10-31-eu-{town,dungeon,boss,crenel-rain,interior}-43-4x.png`.
+  The festival entry camera pan stays full-height end to end (see
+  `screenshots/2026-10-31-eu-festival-zelda-{castle,pan,town}-43-4x.png`), so
+  it no longer toggles between native and tall around the scripted camera
+  target. The interior is a 240 × 160 room centered in the 256 × 192 canvas;
+  the margin fade extends its edge colors into the added rows/columns.
 
 Still intentionally limited (not release blockers):
 
@@ -143,7 +159,13 @@ Still intentionally limited (not release blockers):
 - Minish Village views that intersect two region groups are fully supported:
   the selected group stays in VRAM, every other group is selected per tilemap
   cell from a host charset atlas, and the group switch is atomic so there is
-  no eight-step aperture pop.
+  no eight-step aperture pop. Normal Hyrule Town keeps its single-group
+  residency rule. Festival Town is now exempt from that proof: its two
+  foreground region groups overlap the camera rectangles during the intro
+  pan, but the loaded group covers the visible map cells. Forced-tall
+  full-scene captures of the castle/town pan and the Zelda stage are clean,
+  so the aperture stays tall for the whole festival scene instead of
+  toggling native/tall at the camera target changes.
 - Hardware windows, GBA affine modes and non-constant HDMA keep the native
   aperture; only a verified constant-brightness HDMA may extend into the tall
   canvas. Rolling/special transitions and the explicitly denied effect
@@ -162,17 +184,19 @@ Still intentionally limited (not release blockers):
   live/native view at the same world cell has content. The retaken sub-tile
   capture uses a nearby camera Y that avoids the affected cell; a shadow
   map/layer fallback for that edge is a remaining polish item.
-- Tall message layout follows the 160-row rule generically: standard top
-  messages stay at the native top and standard bottom messages move to the
-  canvas bottom inset, both horizontally centered. The rule uses the published
-  height (`bottom shift = height - 160`), not a profile id. The right HUD
-  anchor is retained while a message is open even when its redraw flags are
-  clear, so the rupee counter stays at the canvas bottom-right; a 4:3 bottom
-  box leaves the counter visible below it (the keys row above can still be
-  covered). Use the top position for the full HUD. Comparison captures:
+- Tall message/HUD ownership is final. Standard top messages stay at the
+  native top and standard bottom messages move to the canvas bottom inset,
+  both horizontally centered. The rule uses the published height
+  (`bottom shift = height - 160`), not a profile id. The lower-right HUD moves
+  with the canvas and the rupee counter stays visible below a 4:3 bottom box.
+  The key row shares BG0 cells with a bottom box and is overwritten by it
+  exactly as on GBA; it is not recoverable after the box writes, and moving
+  the box up only re-samples box pixels as HUD. Use the top position for the
+  full HUD. Evidence:
+  `screenshots/2026-10-31-eu-boss-43-dialogue-top-4x.png` (full key/rupee HUD
+  with a 4:3 top message). Comparison captures:
   `screenshots/2026-10-31-eu-field-169-dialogue-{bottom,top}-4x.png` versus
-  `screenshots/2026-10-31-eu-field-43-dialogue-{bottom,top}-4x.png` (4:3 top
-  retaken after the generic top-anchor change).
+  `screenshots/2026-10-31-eu-field-43-dialogue-{bottom,top}-4x.png`.
 
 Implemented (WP1 + WP2):
 
@@ -495,9 +519,10 @@ fail closed. Every visible OAM slot must be signed/tagged
 EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
 `screenshots/` (current):
 
-- full-height tall: field (`0x03/0x08`), festival town (`0x15/0x00`), dungeon
-  (`0x49/0x00`), Minish path (`0x11/0x00`), Mount Crenel (`0x06/0x00`), Cloud
-  Tops (`0x08/0x00`);
+- full-height tall: field (`0x03/0x08`), festival town (`0x15/0x00`), normal
+  dungeon (`0x48/0x00`), boss (`0x49/0x00`), Minish path (`0x11/0x00`),
+  Crenel rain path (`0x12/0x02`), Mount Crenel (`0x06/0x00`), Cloud Tops
+  (`0x08/0x00`) and interior (`0x22/0x12`);
 - Minish Village `0x01/0x00` is a multi-region view. The selected group stays
   in VRAM while every other group is read from the host charset atlas, so the
   view renders at 256 × 192 with no native fallback and no group-switch pop.
@@ -661,10 +686,68 @@ EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
   dropping to the native composition for a frame; partial scroll updates no
   longer clear a valid tall snapshot. This removes the walking jitter seen with
   rooms whose map animation uses modes 2-4 (notably the USA village).
-- **Remaining.** Physical-RG 4:3 frame-time/thermal measurement, the remaining
-  room-family capture matrix, optional custom artwork, and a tall message/HUD
-  layout (see the limit above). Missing artwork is always black and is not a
-  blocker.
+- **Remaining (optional/separate).** Optional custom artwork, broader JP
+  menu/text layout audits, and USA/JP re-runs of the final generic message
+  change. Missing artwork is always black and is not a blocker.
+
+- **WP8 physical RG 4:3 evidence.** The Anbernic RG DS Plus ran the EU field
+  room at 256 × 192 with the release tall capability. Decoupled medians over
+  23 steady windows: 1 worker game 0.514 / present 10.741 / render 8.463 ms
+  (11.255 ms work, 5.41 ms headroom); 2 workers 0.515 / 7.825 / 5.227 ms
+  (8.340 ms, 8.33 ms); 4 workers 0.726 / 6.605 / 3.677 ms (7.331 ms,
+  9.34 ms). A 4-worker boss-room check measured 7.258 ms work (9.41 ms
+  headroom); a five-minute tall-town run (156 windows) stayed at 6.505 ms work
+  (10.16 ms headroom), 41.875 °C / 40.625 °C, and flat 101,480 KiB PSS. Device
+  captures are true 256 × 192. See the updated
+  [RG performance record](rg-performance-and-memory-2026-10-30.md).
+- **Room-family matrix completed.** Festival town `0x15/0x00` (after its entry
+  scene), normal dungeon `0x48/0x00`, boss `0x49/0x00`, Crenel Minish rain path
+  `0x12/0x02` and interior `0x22/0x12` host captures at 1024 × 768 show full
+  256 × 192 live worlds. The Festival Town entry camera pan stays full-height
+  for the whole scene; the town's overlapping foreground groups are visually
+  compatible and the manager proof is relaxed only for `AREA_FESTIVAL_TOWN`.
+  The
+  interior's 240 × 160 world is centered with the WP9 edge fade. The final
+  24-capture EU software presenter matrix was re-run from
+  `.tmp/eu-gameplay-43-final-2026-10-31/`.
+- **Tall message/HUD ownership closed.** Top messages keep the full key/rupee
+  HUD; a bottom box uses the canvas bottom inset and overwrites the BG0 key
+  cells exactly as GBA does, so moving the box above them re-samples box
+  pixels rather than restoring the HUD. The rule is documented in
+  [the HUD audit](live-hud-layout-source-audit.md) and demonstrated by
+  `screenshots/2026-10-31-eu-boss-43-dialogue-top-4x.png`.
+- **Harness support for device windows.** `TMC_ROOMCAP_TIMEOUT` raises the
+  abort limit and `TMC_ROOMCAP_HOLD=1` keeps the settled room live after a
+  capture, so long profile/thermal windows no longer end at the old fixed
+  5000-frame exit. `tools/roomcap_regression_test.py` covers the new timeout
+  block.
+- **Festival Town camera-pan aperture stability.** The Zelda intro pans the
+  camera while `HYRULE_TOWN_TILESET` reports overlapping foreground region
+  rectangles, which previously toggled Festival Town between native 160 and
+  tall 192 at the start/end of the pan. Full-scene forced-tall captures of the
+  castle-to-town pan and the Zelda stage show the loaded group covers the
+  visible cells, so `HyruleTownRegionSelectionSafe()` now reports safe for
+  `AREA_FESTIVAL_TOWN` only. The aperture stays tall for the whole scene, so
+  there is no camera/world jump and no camera-scroll re-anchor. Normal Hyrule
+  Town keeps the single-group proof. Evidence:
+  `screenshots/2026-10-31-eu-festival-zelda-{castle,pan,town}-43-4x.png`.
+- **Tall map-window upload ordering (16-px pan jump).** With the aperture
+  stable, the pan still stepped one world tile (16 px) down and back at every
+  camera tile crossing. The tall window was refilled and copied to VRAM from
+  `Port_Widescreen_PublishScene()`'s present hook
+  (`Port_Widescreen_BeforePresent`), which runs at the top of
+  `VBlankIntrWait()` — *before* `VBlankIntr()`/`DispCtrlSet()` write the new
+  `REG_BGxVOFS`. The new rows were therefore rendered with the previous
+  vertical offset. The map buffer is now filled in the simulation phase
+  (`Port_Widescreen_SyncMapWindow()`, called from `UpdateScroll()` right after
+  `Scroll1`) and never copied to VRAM by the port: it only queues
+  `gUpdateVisibleTiles`, so `WaitForNextFrame()`'s map DMA moves it after
+  `DispCtrlSet()` in the same frame as the offsets. `PublishScene()` keeps the
+  tall aperture while that DMA is pending (`Port_WidescreenMapWindowPending`).
+  Verified with a 3000-frame 1-frame-step capture of the pan: every frame delta
+  now equals the 1–2 px/frame scripted scroll, with no 16-px pairs. Evidence:
+  `screenshots/2026-10-31-eu-festival-pan-{f180,f183-tile-crossing,f186}-4x3.png`
+  and the crossing strip `2026-10-31-eu-festival-pan-tile-crossing-strip-4x3.png`.
 
 ## Sequencing
 
@@ -691,7 +774,8 @@ EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
   margins and effects.
 - No manager, entity, OAM or effect path can expose invalid rows.
 - Software and GPU presentation are correct; optional paths fall back safely.
-- RG holds native 60 fps with documented headroom.
+- RG holds 4:3 60 fps with documented headroom (1/2/4 workers, field and a
+  five-minute town thermal run).
 - Missing 4:3 artwork is black only. Missing files are intentional and
   supported; artwork creation is optional user work, never a release gate.
 - Live gameplay has no hard black cutout: a five-pixel edge fade samples the
@@ -707,7 +791,8 @@ estimate:
 
 The schedule was dominated by WP3 (manager/tileset residency) and WP4
 (entity/OAM validation), not by the rasterizer or UI layout; both are now
-implemented, including the Minish Village host charset atlas. Remaining work
-is WP8 device evidence and optional artwork. Adding a future 288 × 162 profile
-after this plan should be a profile/config and acceptance task, not a second
+implemented, including the Minish Village host charset atlas, and the WP8
+device/room-family evidence is recorded. Remaining work is optional custom
+artwork and broader regional audits. Adding a future 288 × 162 profile after
+this plan should be a profile/config and acceptance task, not a second
 live-world implementation.
