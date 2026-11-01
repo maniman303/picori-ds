@@ -169,6 +169,10 @@ const uint8_t* virtuappu_mode1_frame_io_for_line(int line) {
 }
 static int mode1_frame_pitch = MODE1_GBA_WIDTH;
 static int mode1_frame_height = MODE1_GBA_HEIGHT;
+/* Last rendered VPPU mode: 2 = BG2 affine. Avoids a link-time dependency on
+ * the global PPUMemory for fixed-screen overlay users that compile this
+ * translation unit standalone. */
+static bool mode1_affine_mode;
 /* Host-visible canvas/HUD mask for the live-world margin fade. One byte per
  * rendered pixel, indexed with the current frame width. */
 static uint8_t mode1_ui_mask[MODE1_MAX_RENDER_HEIGHT * MODE1_GBA_WIDTH];
@@ -595,7 +599,8 @@ static void virtuappu_mode1_publish_palette_luts(void) {
 }
 
 static void mode1_render_text_bg_line_internal(int bg_index, int line, int render_width, int dst_x,
-                                                  uint32_t* line_buffer, uint8_t* priority_buffer) {
+                                                  uint32_t* line_buffer, uint8_t* priority_buffer,
+                                                  int sample_x_offset, bool extend) {
     uint16_t bgcnt = virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg_index * 2));
     uint8_t priority = (uint8_t)(bgcnt & 3u);
     uint32_t char_base = (uint32_t)((bgcnt >> 2u) & 3u) * 0x4000u;
@@ -628,9 +633,10 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
     /* Widescreen Option A: 32-tile BGs have valid VRAM tile data only
      * within the native 240 px. Cull the line to the current visible frame
      * width, but keep the fixed framebuffer pitch separate for presentation. */
-    int render_max_x = (map_width_tiles >= 64)
+    int render_max_x = (map_width_tiles >= 64 || extend ||
+                        virtuappu_mode1_ws_shadow[bg_index] != NULL)
                            ? frame_width
-                           : ((virtuappu_mode1_ws_shadow[bg_index] != NULL) ? frame_width : MODE1_GBA_BG_CLIP_X);
+                           : MODE1_GBA_BG_CLIP_X;
     if (render_max_x > frame_width)
         render_max_x = frame_width;
     const bool ws_shadow_active = (map_width_tiles < 64) && (virtuappu_mode1_ws_shadow[bg_index] != NULL);
@@ -868,7 +874,23 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
         }                                                                                                              \
     } while (0)
 
-    if (ws_vertical_line) {
+    if (extend) {
+        /* Fixed-screen margin extension: sample the BG outside the native
+         * 240-pixel aperture. Negative coordinates wrap to the opposite map
+         * edge (the same continuation a wider hardware viewport would show),
+         * but coordinates past the source map are left transparent so a
+         * wider canvas does not invent extra copies of the overlay. */
+        const int map_width = map_width_tiles * 8;
+        for (x = 0; x < render_max_x; ++x) {
+            const int sample_x = x + sample_x_offset;
+            /* Rays only extend to the right. A left margin would have to
+             * reuse columns already visible on the right edge, which reads as
+             * an unwanted second shaft rather than a continuation. */
+            if (sample_x < 0 || sample_x >= map_width)
+                continue;
+            MODE1_BG_PIXEL(sample_x);
+        }
+    } else if (ws_vertical_line) {
         /* Tall canvases: the message and lower-right HUD keep their native
          * tilemap content but move to the canvas corners. Sample the source
          * scanline only inside the published x band; unrelated BG0 pixels on
@@ -961,7 +983,8 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
 }
 
 void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_buffer, uint8_t* priority_buffer) {
-    mode1_render_text_bg_line_internal(bg_index, line, mode1_frame_width, 0, line_buffer, priority_buffer);
+    mode1_render_text_bg_line_internal(bg_index, line, mode1_frame_width, 0, line_buffer, priority_buffer, 0,
+                                       false);
 }
 
 bool virtuappu_mode1_sample_below_bg(int line, int x, int source_bg, unsigned visible_bgs,
@@ -1758,8 +1781,8 @@ void virtuappu_mode1_affine_precompute(int height, int32_t init_ref_x, int32_t i
  * BG2CNT through the IO accessors — in the parallel pass the thread override
  * points at this line's snapshot — so it is independent per line. Byte-for-byte
  * the former mode2.c inner loop. */
-static void mode1_render_affine_bg2_line(int frame_width, int32_t ref_x, int32_t ref_y, uint32_t* line_buffer,
-                                         uint8_t* priority_buffer) {
+static void mode1_render_affine_bg2_range(int start_x, int width, int32_t ref_x, int32_t ref_y,
+                                          uint32_t* line_buffer, uint8_t* priority_buffer, bool extend) {
     static const int affine_sizes[4] = { 128, 256, 512, 1024 };
     VirtuaPPUMode1GbaMemory memory;
     virtuappu_mode1_get_bound_gba_memory(&memory);
@@ -1775,11 +1798,12 @@ static void mode1_render_affine_bg2_line(int frame_width, int32_t ref_x, int32_t
     const int16_t pa = (int16_t)virtuappu_mode1_io_read16(0x20u);
     const int16_t pc = (int16_t)virtuappu_mode1_io_read16(0x24u);
 
-    for (int x = 0; x < frame_width; ++x) {
+    for (int i = 0; i < width; ++i) {
+        const int x = start_x + i;
         int32_t src_x = (ref_x + pa * x) >> 8;
         int32_t src_y = (ref_y + pc * x) >> 8;
 
-        if (wrap) {
+        if (wrap && !extend) {
             /* map_size is a power of two (128..1024) — mask instead of the
              * former double-idiv per axis per pixel (same trick as the text
              * BG path). */
@@ -1802,11 +1826,166 @@ static void mode1_render_affine_bg2_line(int frame_width, int32_t ref_x, int32_t
             continue;
         }
 
-        line_buffer[x] = mode1_bg_abgr_lut[color_index];
+        line_buffer[i] = mode1_bg_abgr_lut[color_index];
         if (priority_buffer != NULL) {
-            priority_buffer[x] = bg_priority_value; /* see render_text_bg_line */
+            priority_buffer[i] = bg_priority_value; /* see render_text_bg_line */
         }
     }
+}
+
+static void mode1_render_affine_bg2_line(int frame_width, int32_t ref_x, int32_t ref_y,
+                                         uint32_t* line_buffer, uint8_t* priority_buffer) {
+    mode1_render_affine_bg2_range(0, frame_width, ref_x, ref_y, line_buffer, priority_buffer, false);
+}
+
+/* Fixed-screen extension: sample the affine BG2 beyond the native aperture.
+ * The GBA reference advances by PB/PD per scanline. Extra canvas rows and
+ * columns use the same matrix, so the sword's scale/rotation continues into
+ * the margins instead of being clipped at 240x160. */
+static void mode1_render_affine_bg2_extended(int line, int start_x, int width, uint32_t* line_buffer,
+                                             uint8_t* priority_buffer) {
+    if (line_buffer == NULL || width <= 0 || width > MODE1_GBA_WIDTH)
+        return;
+    const int snap_line = line < 0 ? 0 : (line >= MODE1_GBA_HEIGHT ? MODE1_GBA_HEIGHT - 1 : line);
+    const uint8_t* previous = virtuappu_mode1_io_thread_override;
+    if (mode1_frame_has_io_snapshots)
+        virtuappu_mode1_io_thread_override = mode1_frame_io_snapshots[snap_line];
+
+    int32_t ref_x = mode1_sign_extend_28(virtuappu_mode1_io_read32(0x28u));
+    int32_t ref_y = mode1_sign_extend_28(virtuappu_mode1_io_read32(0x2Cu));
+    if (!mode1_frame_has_io_snapshots) {
+        /* No HDMA: BG2X/BG2Y are the frame-start reference; advance by PB/PD
+         * to reach the requested scanline (which may lie outside the native
+         * 160-row raster). */
+        const int16_t pb = (int16_t)virtuappu_mode1_io_read16(0x22u);
+        const int16_t pd = (int16_t)virtuappu_mode1_io_read16(0x26u);
+        ref_x += (int32_t)pb * line;
+        ref_y += (int32_t)pd * line;
+    } else if (line != snap_line) {
+        const int16_t pb = (int16_t)virtuappu_mode1_io_read16(0x22u);
+        const int16_t pd = (int16_t)virtuappu_mode1_io_read16(0x26u);
+        ref_x += (int32_t)pb * (line - snap_line);
+        ref_y += (int32_t)pd * (line - snap_line);
+    }
+
+    /* Extension samples treat source texels outside the affine map as
+     * transparent instead of wrapping originals into the margin. This keeps
+     * a centred sword from duplicating in side borders while still drawing
+     * the enlarged early animation frames that genuinely extend past 240. */
+    mode1_render_affine_bg2_range(start_x, width, ref_x, ref_y, line_buffer, priority_buffer, true);
+    virtuappu_mode1_io_thread_override = previous;
+}
+
+bool virtuappu_mode1_composite_overlay_line(int line, int source_x_offset, int width,
+                                            const uint32_t* background, uint32_t* output,
+                                            unsigned bg_mask, int artwork_bg) {
+    if (background == NULL || output == NULL || width <= 0 || width > MODE1_GBA_WIDTH ||
+        artwork_bg < 0 || artwork_bg >= MODE1_GBA_BG_COUNT || (bg_mask & ~0x0Fu) != 0)
+        return false;
+
+    const int snap_line = line < 0 ? 0 : (line >= MODE1_GBA_HEIGHT ? MODE1_GBA_HEIGHT - 1 : line);
+    const uint8_t* previous = virtuappu_mode1_io_thread_override;
+    if (mode1_frame_has_io_snapshots)
+        virtuappu_mode1_io_thread_override = mode1_frame_io_snapshots[snap_line];
+
+    const uint16_t dispcnt = virtuappu_mode1_io_read16(MODE1_IO_DISPCNT);
+    const uint16_t bldcnt = virtuappu_mode1_io_read16(MODE1_IO_BLDCNT);
+    const uint16_t bldalpha = virtuappu_mode1_io_read16(MODE1_IO_BLDALPHA);
+    const uint16_t bldy = virtuappu_mode1_io_read16(MODE1_IO_BLDY);
+    const Mode1BlendEffect effect = (Mode1BlendEffect)((bldcnt >> 6u) & 3u);
+    int eva = bldalpha & 0x1Fu;
+    int evb = (bldalpha >> 8u) & 0x1Fu;
+    int evy = bldy & 0x1Fu;
+    if (eva > 16) eva = 16;
+    if (evb > 16) evb = 16;
+    if (evy > 16) evy = 16;
+
+    unsigned enabled = 0;
+    uint8_t priority[MODE1_GBA_BG_COUNT] = { 0, 0, 0, 0 };
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        priority[bg] = (uint8_t)(virtuappu_mode1_io_read16((uint16_t)(MODE1_IO_BG0CNT + bg * 2)) & 3u);
+        if ((bg_mask & (1u << bg)) != 0 && (dispcnt & (MODE1_DISP_BG0_ON << bg)) != 0)
+            enabled |= 1u << bg;
+    }
+    if (!enabled) {
+        virtuappu_mode1_io_thread_override = previous;
+        for (int x = 0; x < width; ++x) output[x] = background[x];
+        return false;
+    }
+
+    /* The live BG layers are rendered across the whole canvas. The static
+     * artwork is not re-rendered: the caller supplies it as the bottom row. */
+    /* Each shaft is a straight diagonal line (source x = x0 - line). Above the
+     * native top there is no source row, so extrapolate the line upward from
+     * source line 0, shifting it right by -line per border row. This draws one
+     * continuous line across the seam instead of duplicating a whole band
+     * (which broke short shafts) or shifting the whole layer (which broke
+     * alignment with the background). */
+    int text_line;
+    int text_x_offset;
+    if (line < 0) {
+        text_line = 0;
+        text_x_offset = source_x_offset + line; /* line < 0 => shift right */
+    } else {
+        text_line = line;
+        text_x_offset = source_x_offset;
+    }
+    if (text_line >= MODE1_GBA_HEIGHT) text_line = MODE1_GBA_HEIGHT - 1;
+    uint32_t layers[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH];
+    for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+        if ((enabled & (1u << bg)) == 0)
+            continue;
+        memset(layers[bg], 0, (size_t)width * sizeof(uint32_t));
+        if (mode1_affine_mode && bg == 2)
+            mode1_render_affine_bg2_extended(line, source_x_offset, width, layers[bg], NULL);
+        else
+            mode1_render_text_bg_line_internal(bg, text_line, width, 0, layers[bg], NULL, text_x_offset, true);
+    }
+
+    const uint8_t art_priority = priority[artwork_bg];
+    bool changed = false;
+    for (int x = 0; x < width; ++x) {
+        int top = -1;
+        int top_priority = 5;
+        for (int bg = 0; bg < MODE1_GBA_BG_COUNT; ++bg) {
+            if ((enabled & (1u << bg)) == 0 || layers[bg][x] == 0u)
+                continue;
+            if (priority[bg] < top_priority ||
+                (priority[bg] == top_priority && (top < 0 || bg < top))) {
+                top = bg;
+                top_priority = priority[bg];
+            }
+        }
+        if (top < 0) {
+            output[x] = background[x];
+            continue;
+        }
+        /* Stable priority ties: the lower BG index is on top. A live layer
+         * below the artwork layer cannot cover the opaque static artwork. */
+        if (top_priority > art_priority || (top_priority == art_priority && top > artwork_bg)) {
+            output[x] = background[x];
+            continue;
+        }
+
+        uint32_t color = layers[top][x];
+        const bool first = mode1_is_first_target(bldcnt, top);
+        if (effect == MODE1_BLEND_ALPHA) {
+            if (first && mode1_is_second_target(bldcnt, artwork_bg))
+                color = mode1_alpha_blend(color, background[x], eva, evb);
+        } else if (effect == MODE1_BLEND_BRIGHTEN) {
+            if (first)
+                color = mode1_brighten(color, evy);
+        } else if (effect == MODE1_BLEND_DARKEN) {
+            if (first)
+                color = mode1_darken(color, evy);
+        }
+        output[x] = color;
+        if (color != background[x])
+            changed = true;
+    }
+
+    virtuappu_mode1_io_thread_override = previous;
+    return changed;
 }
 
 int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, uint16_t* dispcnt_per_line,
@@ -1817,6 +1996,7 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
      * rasterizer does that. Kept byte-identical to render_frame's setup so the
      * GPU path sees exactly the CPU's per-line inputs. */
     const bool affine = (ppu->mode == 2);
+    mode1_affine_mode = affine;
     uint16_t dispcnt;
     int line;
 
@@ -1876,13 +2056,13 @@ int virtuappu_mode1_prepare_frame(const PPUMemory* ppu, uint8_t* io_per_line, ui
  * HUD/dialogue anchors remain independent of the room aperture. */
 static void mode1_render_world_bg_line(int bg_index, int line, uint32_t* line_buffer) {
     if (!mode1_world_enabled || bg_index == 0) {
-        mode1_render_text_bg_line_internal(bg_index, line, mode1_frame_width, 0, line_buffer, NULL);
+        mode1_render_text_bg_line_internal(bg_index, line, mode1_frame_width, 0, line_buffer, NULL, 0, false);
         return;
     }
     if (line < mode1_world_y || line >= mode1_world_y + mode1_world_h)
         return; /* caller cleared the layer; margins keep the backdrop */
     mode1_render_text_bg_line_internal(bg_index, line - mode1_world_y, mode1_world_w,
-                                       mode1_world_x, line_buffer, NULL);
+                                       mode1_world_x, line_buffer, NULL, 0, false);
 }
 
 void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
@@ -1893,6 +2073,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
      * mode2.c); they now share this one loop, differing only in how BG2 is
      * drawn and that the affine path latches DISPCNT once per frame. */
     const bool affine = (ppu->mode == 2);
+    mode1_affine_mode = affine;
 
     virtuappu_mode1_set_frame_geometry(ppu);
     const int frame_width = mode1_frame_width;

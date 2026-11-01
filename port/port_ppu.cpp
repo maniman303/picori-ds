@@ -262,44 +262,153 @@ extern "C" const uint32_t* Port_PPU_GetComposedFrame(int* width, int* height, in
  * normal scene that merely contains white does not. Sampling the composed
  * pixels keeps brightness/colour correction and region-specific white levels
  * exact. */
-static bool Port_PPU_RectIsUniformWhite(const uint32_t* frame, int pitch, PortViewportRect rect) {
+/* True when every pixel in `rect` is effectively one colour. A full-canvas
+ * fade or blank screen produces exactly this; a normal scene that merely
+ * contains a large flat area does not. Sampling the composed pixels keeps
+ * brightness/colour correction and region-specific fade levels exact. The
+ * small per-channel tolerance absorbs colour-correction rounding while still
+ * rejecting dithered or textured content. */
+static bool Port_PPU_RectIsUniformColor(const uint32_t* frame, int pitch, PortViewportRect rect) {
     if (!frame || rect.width <= 0 || rect.height <= 0 || rect.x < 0 || rect.y < 0 ||
         rect.x + rect.width > pitch)
         return false;
+    const uint32_t first = frame[(size_t)rect.y * (size_t)pitch + (size_t)rect.x] & 0x00ffffffu;
+    const unsigned firstR = (first >> 16) & 0xffu;
+    const unsigned firstG = (first >> 8) & 0xffu;
+    const unsigned firstB = first & 0xffu;
     for (int y = rect.y; y < rect.y + rect.height; ++y) {
         const uint32_t* row = frame + (size_t)y * (size_t)pitch;
         for (int x = rect.x; x < rect.x + rect.width; ++x) {
-            const uint32_t p = row[x];
+            const uint32_t p = row[x] & 0x00ffffffu;
             const unsigned r = (p >> 16) & 0xffu;
             const unsigned g = (p >> 8) & 0xffu;
             const unsigned b = p & 0xffu;
-            const unsigned lo = std::min(r, std::min(g, b));
-            const unsigned hi = std::max(r, std::max(g, b));
-            if (lo < 0xC0u || hi - lo > 0x20u)
+            if ((r > firstR ? r - firstR : firstR - r) > 0x10u ||
+                (g > firstG ? g - firstG : firstG - g) > 0x10u ||
+                (b > firstB ? b - firstB : firstB - b) > 0x10u)
                 return false;
         }
     }
     return true;
 }
 
-/* The black counterpart of the white-fade clamp. During a title/file-select
- * transition the native raster can already be fully black while the fixed
- * background still composes the outgoing white artwork into the margins.
- * Treating only white as a full-canvas fade leaves a white border around the
- * black frame for one or more frames. */
-static bool Port_PPU_RectIsUniformBlack(const uint32_t* frame, int pitch, PortViewportRect rect) {
-    if (!frame || rect.width <= 0 || rect.height <= 0 || rect.x < 0 || rect.y < 0 ||
-        rect.x + rect.width > pitch)
-        return false;
-    for (int y = rect.y; y < rect.y + rect.height; ++y) {
-        const uint32_t* row = frame + (size_t)y * (size_t)pitch;
-        for (int x = rect.x; x < rect.x + rect.width; ++x) {
-            const uint32_t p = row[x];
-            if (((p >> 16) & 0xffu) > 0x20u || ((p >> 8) & 0xffu) > 0x20u || (p & 0xffu) > 0x20u)
-                return false;
+/* Apply the same 5-bit palette transform the engine used for native palette
+ * RAM (factor/bias then the ROM brightness table) to an unfaded artwork
+ * pixel. The host compositor's linear RGB fade brightens static borders at a
+ * visibly different rate during title flashes; this keeps both sides equal
+ * while preserving the artwork's detail. */
+static void Port_PPU_ApplyNativeFade(uint8_t rgb[3], PortPaletteFade fade, uint8_t brightness) {
+    uint32_t factor = 0x400u - (uint32_t)fade.intensity * 4u;
+    uint32_t bias = (uint32_t)fade.intensity * (uint32_t)fade.color;
+    uint16_t tables[3][32];
+    bool have_tables = brightness < 3 && brightness != 1 && gRomData != nullptr;
+    if (have_tables) {
+        for (int ch = 0; ch < 3; ++ch) {
+            for (int k = 0; k < 32; ++k) {
+                const size_t offset = 0x0fcc + (size_t)brightness * 0xc0 + (size_t)ch * 0x40 + (size_t)k * 2;
+                tables[ch][k] = gRomData[offset] | (uint16_t)gRomData[offset + 1] << 8;
+            }
         }
     }
-    return true;
+    for (int ch = 0; ch < 3; ++ch) {
+        uint32_t shifted = (uint32_t)(rgb[ch] >> 3) << 1;
+        uint32_t value = ((factor * shifted + bias) >> 10) & 0x3Eu;
+        uint32_t out5 = value >> 1;
+        if (have_tables)
+            out5 = (tables[ch][out5] >> (ch * 5)) & 31u;
+        rgb[ch] = (uint8_t)(out5 << 3);
+    }
+}
+
+/* Fixed-screen title artwork is a static extension of the native background
+ * layer. The sword's affine scale and the light-ray overlay are live BG
+ * layers, so they must continue into the added canvas: render those layers
+ * across the full canvas and composite them over the artwork rows. Native
+ * pixels are never touched, and windows/HDMA effects keep the existing
+ * fail-closed native crop. */
+static void Port_PPU_ExtendTitleEffectMargins(const PortViewportGeometry* geometry,
+                                              const PortBackgroundRuntimeSnapshot* bg) {
+    if (!geometry || !bg || bg->context != PORT_BACKGROUND_TITLE || !bg->effect_policy_valid ||
+        bg->source != PORT_BACKGROUND_SOURCE_IMAGE || !bg->rgba)
+        return;
+    /* Windows and HDMA can change layer visibility/reference points outside
+     * the native aperture; only classify the plain title compositor. */
+    if ((gIoMem[1] & 0xe0) != 0 || port_hdma_has_active_channels() != 0)
+        return;
+    if (virtuappu_mode1_frame_width() != 240 || virtuappu_mode1_frame_height() != 160)
+        return;
+    const int canvas_width = geometry->canvas.width;
+    const int canvas_height = geometry->canvas.height;
+    if (canvas_width <= 240 || canvas_width > MODE1_GBA_WIDTH ||
+        canvas_height < 160 || canvas_height > MODE1_MAX_RENDER_HEIGHT)
+        return;
+
+    const unsigned art_mask = bg->effect_policy.layers & 0x0f;
+    int artwork_bg = -1;
+    unsigned overlay_mask = 0;
+    for (int layer = 0; layer < MODE1_GBA_BG_COUNT; ++layer) {
+        if ((art_mask & (1u << layer)) != 0) {
+            if (artwork_bg < 0) artwork_bg = layer;
+        } else {
+            overlay_mask |= 1u << layer;
+        }
+    }
+    if (artwork_bg < 0 || !overlay_mask)
+        return;
+
+    /* Use the artwork palette bank's committed fade/brightness. Title banks
+     * are uniform; the first valid art bank is representative. */
+    int fade_bank = -1;
+    for (int bank = 0; bank < 16; ++bank) {
+        if ((bg->effect_policy.banks & (1u << bank)) != 0 &&
+            (bg->valid_palette_fades & (1u << bank)) != 0) {
+            fade_bank = bank;
+            break;
+        }
+    }
+    const PortPaletteFade art_fade = fade_bank >= 0 ? bg->palette_fades[fade_bank] : (PortPaletteFade){0, 0};
+    const uint8_t art_brightness = fade_bank >= 0 ? bg->brightness[fade_bank] : 1;
+
+    static uint32_t background_row[MODE1_GBA_WIDTH];
+    static uint32_t output_row[MODE1_GBA_WIDTH];
+    const int pitch = virtuappu_mode1_frame_pitch();
+    const PortViewportRect native = geometry->nativeContent;
+    for (int y = 0; y < canvas_height; ++y) {
+        const uint8_t* io = virtuappu_mode1_frame_io_for_line(y - native.y);
+        if (io && (io[0] & 0x80))
+            continue;
+        uint32_t* row = virtuappu_frame_buffer + (size_t)y * (size_t)pitch;
+        /* Rebuild the static artwork in the margins with the native fade
+         * transform, preserving its detail instead of smearing edge pixels. */
+        for (int x = 0; x < canvas_width; ++x) {
+            if (x >= native.x && x < native.x + native.width &&
+                y >= native.y && y < native.y + native.height)
+                continue;
+            const uint8_t* px = bg->rgba + ((size_t)y * (size_t)canvas_width + (size_t)x) * 4;
+            uint8_t rgb[3] = {
+                (uint8_t)(((unsigned)px[0] * px[3] + 127u) / 255u),
+                (uint8_t)(((unsigned)px[1] * px[3] + 127u) / 255u),
+                (uint8_t)(((unsigned)px[2] * px[3] + 127u) / 255u)
+            };
+            Port_PPU_ApplyNativeFade(rgb, art_fade, art_brightness);
+            row[x] = 0xff000000u | (uint32_t)rgb[2] << 16 | (uint32_t)rgb[1] << 8 | rgb[0];
+        }
+        std::memcpy(background_row, row, (size_t)canvas_width * sizeof(uint32_t));
+        /* Canvas column 0 samples GBA x = -native.x: the live layers stay
+         * aligned with the native crop instead of restarting at the border,
+         * so existing rays/sword pixels continue outward. */
+        if (!virtuappu_mode1_composite_overlay_line(y - native.y, -native.x, canvas_width,
+                                                    background_row, output_row, overlay_mask, artwork_bg))
+            continue;
+        if (y < native.y || y >= native.y + native.height) {
+            std::memcpy(row, output_row, (size_t)canvas_width * sizeof(uint32_t));
+        } else {
+            for (int x = 0; x < native.x; ++x)
+                row[x] = output_row[x];
+            for (int x = native.x + native.width; x < canvas_width; ++x)
+                row[x] = output_row[x];
+        }
+    }
 }
 
 /* The PPU buffer already has the bounded canvas capacity. Move native rows
@@ -506,6 +615,7 @@ static bool Port_PPU_ComposeBackground(void) {
                                                useIris ? outsideRows : nullptr, useIris ? geometry->canvas.height : 0,
                                                useIris ? outside : nullptr);
         if (!composed) haveArt = false;
+        if (haveArt) Port_PPU_ExtendTitleEffectMargins(geometry, bg);
     }
     if (haveHeading && haveArt)
         Port_TitleCap_DrawResolved(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height, pitch,
@@ -1943,9 +2053,9 @@ extern "C" void Port_PPU_PresentFrame(void) {
         const int frame_height = virtuappu_mode1_frame_height();
         const bool has_margins = world.x != 0 || world.y != 0 ||
                                  world.width != frame_width || world.height != frame_height;
-        if (has_margins && Port_PPU_RectIsUniformWhite(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+        if (has_margins && Port_PPU_RectIsUniformColor(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
                                                        world)) {
-            /* A full-canvas white fade owns the whole screen. Continue its
+            /* A full-canvas fade owns the whole screen. Continue its
              * colour through the added rows/columns instead of cutting to a
              * black letterbox band for the transition frames. */
             Port_EdgeFade_ApplySolid(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
@@ -2044,18 +2154,16 @@ extern "C" void Port_PPU_PresentFrame(void) {
     if (Port_PPU_ComposeBackground()) {
         sSuperValid = false;
         /* Fixed screens and native fallbacks are one native composition with
-         * margins. When a full-canvas white fade owns the screen, continue
-         * the native edge colour into the margins instead of leaving a black
-         * border. Normal fixed screens (including missing artwork) keep their
-         * existing fail-closed composition. */
+         * margins. When a full-canvas fade (any uniform colour) owns the
+         * screen, continue the native edge colour into the margins instead of
+         * leaving a stale-artwork border. Normal fixed screens (including
+         * missing artwork) keep their existing fail-closed composition. */
         const PortViewportGeometry* geometry = Port_Viewport_Get();
         const bool fixedOrFallback =
             (geometry->scene.capabilities & (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) != 0;
         if (fixedOrFallback &&
-            (Port_PPU_RectIsUniformWhite(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
-                                         geometry->nativeContent) ||
-             Port_PPU_RectIsUniformBlack(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
-                                         geometry->nativeContent))) {
+            Port_PPU_RectIsUniformColor(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                        geometry->nativeContent)) {
             Port_EdgeFade_ApplySolid(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
                                      geometry->canvas.width, geometry->canvas.height,
                                      geometry->nativeContent, nullptr, 0);

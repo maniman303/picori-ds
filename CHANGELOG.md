@@ -4,8 +4,15 @@
 
 - Fixed the one-frame white border around the title → file-select black
   transition on tall canvases. Forced blank now covers the whole composed
-  canvas, and a uniformly black native frame clamps its margins to the same
-  colour instead of leaving outgoing white artwork behind.
+  canvas, and a uniformly coloured native fade frame clamps its margins to the
+  same colour instead of leaving outgoing artwork behind. The clamp applies to
+  black, white and intermediate fade greys, for fixed screens and live-world
+  margins alike.
+- Title-screen light rays and the affine sword scale animation now continue
+  into the added 4:3/`:9` margins instead of stopping at the native 240×160
+  aperture. Only source columns already hidden by the native crop are reused,
+  so the margin extends the existing rays without drawing extra copies. Native
+  pixels, foreground sprites and the static artwork remain unchanged.
 - :9 aspect ratios now use proper 162-row canvases: 16:9 is 288×162, 21:9 is
   378×162 and 32:9 is 576×162. The release width capacity is 576 pixels, and
   the tall live-world, HUD/dialogue, map-staging and presentation gates are

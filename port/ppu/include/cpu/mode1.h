@@ -234,6 +234,21 @@ const uint8_t* virtuappu_mode1_frame_io_for_line(int line);
 uint32_t virtuappu_mode1_io_read32(uint16_t offset);
 uint32_t virtuappu_mode1_rgb555_to_abgr8888(uint16_t color);
 void virtuappu_mode1_render_text_bg_line(int bg_index, int line, uint32_t* line_buffer, uint8_t* priority_buffer);
+/* Fixed-screen artwork extension. Composite the live BG layers selected by
+ * bg_mask over a caller-provided background row, using `artwork_bg` for the
+ * static artwork layer's priority and BLDCNT participation. Unlike the normal
+ * BG renderer, layers are sampled across the full canvas width (the 32-tile
+ * screenblock extends beyond the native viewport) so title-screen rays and
+ * affine sword frames continue into aspect-ratio margins without duplicating
+ * content beyond the layer's source map. `source_x_offset` is the GBA x
+ * sampled for output column 0 (negative for a left margin). Text BG rows above
+ * the native top extrapolate each shaft's diagonal from source line 0.
+ * `background`/`output` are ABGR8888 rows of `width` pixels; the native array
+ * is left untouched by the caller. `line` may lie outside 0..159 for taller
+ * canvases. Returns true when at least one pixel differs from `background`. */
+bool virtuappu_mode1_composite_overlay_line(int line, int source_x_offset, int width,
+                                            const uint32_t* background, uint32_t* output,
+                                            unsigned bg_mask, int artwork_bg);
 /* Sample the nearest visible BG below a given BG at a native pixel. Uses
  * the rendered frame's scanline IO; OBJ is intentionally excluded. Returns
  * backdrop layer 5 if no lower BG is opaque. Mode 0 only. */

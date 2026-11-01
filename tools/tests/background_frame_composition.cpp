@@ -32,6 +32,17 @@ static int port_hdma_can_continue_brightness(const void*, size_t) { return fixed
 static void* sub_080AD8F0(uint32_t, uint32_t) { return nullptr; }
 static uint32_t Port_FrameObjListsSizeForRegion() { return sizeof(gFrameObjLists); }
 const uint8_t* virtuappu_mode1_frame_io_for_line(int) { return useLineIo ? lineIo : gIoMem; }
+static int overlayCalls;
+bool virtuappu_mode1_composite_overlay_line(int, int, int width, const uint32_t* background,
+                                            uint32_t* output, unsigned, int) {
+    ++overlayCalls;
+    for (int x = 0; x < width; ++x) output[x] = background[x];
+    /* Conspicuous marker in the first/last column proves the compositor only
+     * writes it outside the native rectangle. */
+    output[0] = 0xffabcdefu;
+    output[width - 1] = 0xffabcdefu;
+    return true;
+}
 bool virtuappu_mode1_sample_below_bg(int, int, int, unsigned, unsigned* layer, uint32_t* color) {
     *layer = 5; *color = 0xff000000; return true;
 }
@@ -57,13 +68,21 @@ int main() {
      * flattened. */
     static uint32_t white_frame[240 * 160];
     for (uint32_t& p : white_frame) p = 0xfff3f3f3u;
-    assert(Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    assert(Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
     white_frame[123] = 0xff000000u;
-    assert(!Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    assert(!Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
     white_frame[123] = 0xff80f080u;
-    assert(!Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    assert(!Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
     white_frame[123] = 0xfff3f3f3u;
-    assert(Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    assert(Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
+    /* Any uniform fade colour qualifies, not just white: the black frame in
+     * the title/file-select handoff must clamp its margins too. */
+    for (uint32_t& p : white_frame) p = 0xff202020u;
+    assert(Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
+    white_frame[123] = 0xff202828u; /* within colour-correction tolerance */
+    assert(Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
+    white_frame[123] = 0xff204020u; /* textured/dithered content */
+    assert(!Port_PPU_RectIsUniformColor(white_frame, 240, {0, 0, 240, 160}));
 
     geometry.scene.capabilities = PORT_SCENE_FIXED_SCREEN;
     geometry.canvas = {0,0,256,192}; geometry.nativeContent = {8,16,240,160};
@@ -141,4 +160,20 @@ int main() {
     assert(Port_PPU_ComposeBackground());
     assert(virtuappu_frame_buffer[0] == 0xffffffff && virtuappu_frame_buffer[16*569+8] == 0xffffffff);
     useLineIo = false; activeHdma = 0; snapshot.effect_policy_valid = false;
+
+    /* Title live-layer extension writes only added canvas pixels. The native
+     * crop stays byte-identical even when the overlay covers every canvas
+     * row (rays/sword extend above and below the aperture as well). */
+    snapshot.context = PORT_BACKGROUND_TITLE;
+    snapshot.effect_policy_valid = true;
+    reset_frame(); overlayCalls = 0;
+    assert(Port_PPU_ComposeBackground());
+    assert(overlayCalls == 192);
+    assert(virtuappu_frame_buffer[0] == 0xffabcdefu);
+    assert(virtuappu_frame_buffer[255] == 0xffabcdefu);
+    assert(virtuappu_frame_buffer[50 * 569] == 0xffabcdefu);
+    assert(virtuappu_frame_buffer[50 * 569 + 8] == 0xff123456);
+    assert(virtuappu_frame_buffer[50 * 569 + 247] == 0xff123456);
+    snapshot.context = PORT_BACKGROUND_UNCLASSIFIED;
+    snapshot.effect_policy_valid = false;
 }

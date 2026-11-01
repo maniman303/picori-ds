@@ -26,9 +26,9 @@ bool Port_EdgeFade_Apply(uint32_t* frame, int pitch, int width, int height,
                          int ui_mask_pitch);
 
 /* Repeat the nearest visible edge colour across the whole margin instead of
- * darkening to black. Used while a full-canvas white fade owns the screen so
- * the fade continues seamlessly into the added 4:3 rows/columns. The world
- * rectangle and masked UI pixels are left untouched. */
+ * darkening to black. Used while a full-canvas fade (any uniform colour) owns
+ * the screen so the fade continues seamlessly into the added 4:3/:9 rows and
+ * columns. The world rectangle and masked UI pixels are left untouched. */
 bool Port_EdgeFade_ApplySolid(uint32_t* frame, int pitch, int width, int height,
                               PortViewportRect world, const uint8_t* ui_mask,
                               int ui_mask_pitch);

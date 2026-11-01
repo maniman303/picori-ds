@@ -12,7 +12,9 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-frame-') as tmp:
     tmp = Path(tmp)
     source = (root / 'port/port_ppu.cpp').read_text()
     (tmp / 'background_frame_function.inc').write_text(
-        function(source, 'static bool Port_PPU_RectIsUniformWhite') + '\n' +
+        function(source, 'static bool Port_PPU_RectIsUniformColor') + '\n' +
+        function(source, 'static void Port_PPU_ApplyNativeFade') + '\n' +
+        function(source, 'static void Port_PPU_ExtendTitleEffectMargins') + '\n' +
         function(source, 'static bool Port_PPU_ComposeBackground(void)'))
     flags = ['-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
              '-DMODE1_GBA_WIDTH=576', '-Iport', '-Iport/ppu/include', '-I' + str(tmp)]
