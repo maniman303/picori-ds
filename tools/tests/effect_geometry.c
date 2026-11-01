@@ -36,17 +36,17 @@ int main(void) {
             for (unsigned y = 0; y < sizeof(centers_y) / sizeof(*centers_y); ++y) {
                 compare_native(240, 160, 0, 0, centers_x[x], centers_y[y], r);
                 compare_native(256, 192, 8, 16, centers_x[x], centers_y[y], r);
-                compare_native(285, 160, 22, 0, centers_x[x], centers_y[y], r);
-                compare_native(374, 160, 67, 0, centers_x[x], centers_y[y], r);
-                compare_native(569, 160, 164, 0, centers_x[x], centers_y[y], r);
+                compare_native(288, 162, 24, 1, centers_x[x], centers_y[y], r);
+                compare_native(378, 162, 69, 1, centers_x[x], centers_y[y], r);
+                compare_native(576, 162, 168, 1, centers_x[x], centers_y[y], r);
             }
     PortEffectSpan rows[192];
     assert(Port_Effect_BuildIrisRows(256, 192, 8, 16, 120, 80, 20, rows, 192));
     assert(rows[75].left == 0 && rows[75].right == 0);
     assert(rows[96].left == 108 && rows[96].right == 148);
     assert(rows[115].left < rows[115].right && rows[116].left == rows[116].right);
-    assert(Port_Effect_BuildIrisRows(569, 160, 164, 0, 10, 80, 200, rows, 192));
-    assert(rows[80].left == 0 && rows[80].right == 374);
+    assert(Port_Effect_BuildIrisRows(576, 162, 168, 1, 10, 80, 200, rows, 192));
+    assert(rows[80].left == 0 && rows[80].right == 378);
     memset(rows, 0xa5, sizeof(rows));
     assert(!Port_Effect_BuildIrisRows(256, 192, 8, 16, 120, 80, 1025, rows, 192));
     assert(rows[0].left == 0xa5a5 && rows[191].right == 0xa5a5);
@@ -57,8 +57,8 @@ int main(void) {
     assert(rows[0].left == 0xa5a5 && rows[191].right == 0xa5a5);
     /* Scene-wide margin policy: zero is closed, 150 reaches every edge;
      * clipping to margins leaves native rendering to the original window. */
-    const int profiles[][4] = {{240,160,0,0}, {256,192,8,16}, {285,160,22,0},
-                               {374,160,67,0}, {569,160,164,0}};
+    const int profiles[][4] = {{240,160,0,0}, {256,192,8,16}, {288,162,24,1},
+                               {378,162,69,1}, {576,162,168,1}};
     for (unsigned p = 0; p < sizeof(profiles) / sizeof(profiles[0]); ++p) {
         for (unsigned x = 0; x < sizeof(centers_x) / sizeof(*centers_x); ++x)
             for (unsigned y = 0; y < sizeof(centers_y) / sizeof(*centers_y); ++y) {

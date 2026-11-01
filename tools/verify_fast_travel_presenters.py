@@ -12,8 +12,8 @@ from pathlib import Path
 
 PROFILES = {
     'native': {'width': 240, 'aspect': 'native', 'override': 32},
-    '16:9': {'width': 285, 'aspect': '16:9', 'override': 169},
-    '21:9': {'width': 374, 'aspect': '21:9', 'override': 219},
+    '16:9': {'width': 288, 'aspect': '16:9', 'override': 169},
+    '21:9': {'width': 378, 'aspect': '21:9', 'override': 219},
 }
 
 RUNS = {

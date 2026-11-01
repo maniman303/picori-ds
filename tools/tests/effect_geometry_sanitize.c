@@ -2,7 +2,7 @@
 #include "port_effect_geometry.h"
 int main(void) {
     PortEffectSpan rows[192];
-    const int p[][4] = {{240,160,0,0},{256,192,8,16},{285,160,22,0},{374,160,67,0},{569,160,164,0}};
+    const int p[][4] = {{240,160,0,0},{256,192,8,16},{288,162,24,1},{378,162,69,1},{576,162,168,1}};
     for (int i=0;i<5;i++) for (int x=0;x<240;x+=239) for (int y=0;y<160;y+=159)
         for (int r=0;r<=150;r++) {
             Port_Effect_PublishFadeIris(x,y,r,0x3f3f,0);

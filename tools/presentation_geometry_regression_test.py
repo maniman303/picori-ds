@@ -43,7 +43,7 @@ def main():
             subprocess.run(cc + ['-std=c11'] + flags + ['-c', str(ROOT / 'port' / (name + '.c')),
                                                        '-o', str(output)], check=True)
             objects.append(str(output))
-        for width in (240, 384, 569):
+        for width in (240, 384, 576):
             binary = tmp / f'presentation-{width}'
             subprocess.run(cxx + ['-std=c++17'] + flags + [f'-DMODE1_GBA_WIDTH={width}', '-I' + directory,
                            str(ROOT / 'tools/tests/presentation_geometry.cpp')] + objects +

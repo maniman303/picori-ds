@@ -106,10 +106,10 @@ static int errors;
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #cond); ++errors; } } while (0)
 int main(void) {
     gMain.task = TASK_GAME;
-    Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 384);
+    Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 192, 384);
     gRoomControls.width = 1024;
     gRoomControls.height = 1024;
-    PortViewportScene live = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD, 1024, 1024 };
+    PortViewportScene live = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE, 1024, 1024 };
     Port_Viewport_PublishScene(live);
     gHUD.unk_10 = 2; gHUD.unk_a = 2;
     CHECK(Port_Widescreen_HudRightAnchor() == (MODE1_WS_HUD_KEYS | MODE1_WS_HUD_RUPEES));
@@ -122,10 +122,10 @@ int main(void) {
     gHUD.hideFlags = 0; gHUD.unk_10 = 0;
     CHECK(Port_Widescreen_HudRightAnchor() == MODE1_WS_HUD_RUPEES);
     gHUD.buttonX[0] = 208;
-    CHECK(HudButtonTargetX(0) == 342);
+    CHECK(HudButtonTargetX(0) == 346);
     /* Hiding a widget animates it vertically; it must not also drift left. */
     gHUD.hideFlags = 255;
-    CHECK(HudButtonTargetX(0) == 342);
+    CHECK(HudButtonTargetX(0) == 346);
     gHUD.buttonX[0] = -16;
     CHECK(HudButtonTargetX(0) == -16);
     live.capabilities = PORT_SCENE_FIXED_SCREEN;
@@ -154,8 +154,8 @@ int main(void) {
     for (int action=0; action<=5; ++action) {
         gRoomControls.scrollAction = action;
         Port_Widescreen_PublishScene();
-        CHECK(Port_Widescreen_EffectiveViewWidth() == ((action==2 || action==4 || action==5) ? 240 : 374));
-        CHECK(Port_Widescreen_CameraRestX(1000) == ((action==2 || action==4 || action==5) ? 784 : 650));
+        CHECK(Port_Widescreen_EffectiveViewWidth() == ((action==2 || action==4 || action==5) ? 240 : 378));
+        CHECK(Port_Widescreen_CameraRestX(1000) == ((action==2 || action==4 || action==5) ? 784 : 646));
     }
     /* At the top edge the native fill duplicates map row zero into its
      * leading padding row. Upward shake exposes that row at the seam. */
@@ -178,9 +178,9 @@ int main(void) {
     gRoomControls.scrollAction = 1;
     Port_Widescreen_PublishScene();
     CHECK(Port_Widescreen_EffectiveViewWidth() == 256);
-    Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 384, 160, 384);
+    Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 384, 192, 384);
     CHECK(Port_Widescreen_EffectiveViewWidth() == 240);
-    Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 384);
+    Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 192, 384);
     gRoomControls.width = 240;
     Port_Widescreen_PublishScene();
     CHECK(Port_Widescreen_EffectiveViewWidth() == 240);
@@ -212,13 +212,13 @@ int main(void) {
         gScreen.bg3.control = overlays[i].control;
         gScreen.lcd.displayControl = overlays[i].enabled ? DISPCNT_BG3_ON : 0;
         Port_Viewport_Publish(overlays[i].wide ? PORT_ASPECT_ULTRAWIDE_21_9 : PORT_ASPECT_NATIVE_3_2,
-                              false, 384, 160, 384);
+                              false, 384, 192, 384);
         Port_Widescreen_UpdateShadows();
         CHECK((virtuappu_mode1_ws_shadow[3] != NULL) == overlays[i].expected);
         if (overlays[i].expected && virtuappu_mode1_ws_shadow[3])
             CHECK(memcmp(virtuappu_mode1_ws_shadow[3], screen, sizeof(screen)) == 0);
     }
-    Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 384);
+    Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 192, 384);
     int x,y,w,h;
     gCurrentWindow.active=0;
     CHECK(!Message_GetWindowRect(&x,&y,&w,&h));
@@ -272,22 +272,22 @@ int main(void) {
     gMapDataBottomSpecial[31] = 1;
     Port_Widescreen_RoomLoaded();
     const PortViewportGeometry* geometry = Port_Viewport_Get();
-    CHECK(geometry->world.width == 256 && geometry->world.x == 59);
-    CHECK(geometry->canvas.width == 374 && geometry->uiSafe.width == 374);
-    CHECK(geometry->nativeContent.x == 67 && geometry->world.height == 160);
-    CHECK(Port_PPU_VisibleFrameWidth() == 374);
+    CHECK(geometry->world.width == 256 && geometry->world.x == 61);
+    CHECK(geometry->canvas.width == 378 && geometry->uiSafe.width == 378);
+    CHECK(geometry->nativeContent.x == 69 && geometry->world.height == 160);
+    CHECK(Port_PPU_VisibleFrameWidth() == 378);
     uint32_t generation = geometry->generation;
     Port_Widescreen_PublishScene();
     CHECK(geometry->generation == generation);
     gRoomControls.width = 1024;
     gMain.task = 0;
-    CHECK(Port_PPU_VisibleFrameWidth() == 374);
+    CHECK(Port_PPU_VisibleFrameWidth() == 378);
     CHECK(Port_Widescreen_EffectiveViewWidth() == 256);
     CHECK(geometry->generation == generation);
     Port_Widescreen_PublishScene();
     CHECK(Port_PPU_VisibleFrameWidth() == 240 && geometry->world.width == 240);
     CHECK(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN);
-    CHECK(geometry->canvas.width == 374 && geometry->generation != generation);
+    CHECK(geometry->canvas.width == 378 && geometry->generation != generation);
 
     /* Painted-width classification is held for the room. Loading it again
      * (including the same room ID) explicitly resamples after graphics load. */
@@ -300,7 +300,7 @@ int main(void) {
     Port_Widescreen_UpdateShadows();
     CHECK(geometry->world.width == 240 && geometry->generation == generation);
     Port_Widescreen_RoomLoaded();
-    CHECK(geometry->world.width == 374 && Port_PPU_VisibleFrameWidth() == 374);
+    CHECK(geometry->world.width == 378 && Port_PPU_VisibleFrameWidth() == 378);
     CHECK(!(geometry->scene.capabilities & PORT_SCENE_NATIVE_CONTENT));
     /* Banner rows wrap with the 256-pixel BG0 map, then clip to the native
      * raster. Offscreen bands must not reach the GPU as negative bounds. */
@@ -317,7 +317,7 @@ int main(void) {
         gScreen.bg0.yOffset = bannerCases[i].scroll;
         Port_Widescreen_UpdateShadows();
         if (bannerCases[i].y0 < bannerCases[i].y1) {
-            CHECK(virtuappu_mode1_ws_msg_shift == 67);
+            CHECK(virtuappu_mode1_ws_msg_shift == 69);
             CHECK(virtuappu_mode1_ws_msg_y0 == bannerCases[i].y0);
             CHECK(virtuappu_mode1_ws_msg_y1 == bannerCases[i].y1);
         } else {
@@ -329,7 +329,7 @@ int main(void) {
     /* Task=GAME alone does not prove that map pixels are installed. */
     gMapBottom.bgSettings = NULL;
     Port_Widescreen_UpdateShadows();
-    CHECK(geometry->world.width == 374 && Port_PPU_VisibleFrameWidth() == 240);
+    CHECK(geometry->world.width == 378 && Port_PPU_VisibleFrameWidth() == 240);
     CHECK(!(geometry->scene.capabilities & PORT_SCENE_MAP_LIVE));
     gMapBottom.bgSettings = &gScreen.bg1;
     /* An installed fixed-screen subtask must not inherit a map-backed wide
@@ -343,8 +343,8 @@ int main(void) {
         for (int phase = 0; phase <= 4; ++phase) {
             gUI.nextToLoad = phase;
             Port_Widescreen_PublishScene();
-            CHECK(geometry->world.width == ((phase == 2 || phase == 3) ? 240 : 374));
-            CHECK(Port_PPU_VisibleFrameWidth() == ((phase == 2 || phase == 3) ? 240 : 374));
+            CHECK(geometry->world.width == ((phase == 2 || phase == 3) ? 240 : 378));
+            CHECK(Port_PPU_VisibleFrameWidth() == ((phase == 2 || phase == 3) ? 240 : 378));
             CHECK(!!(geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) == (phase == 2 || phase == 3));
         }
     }
@@ -391,8 +391,8 @@ int main(void) {
         CHECK(geometry->world.width == 240 && Port_PPU_VisibleFrameWidth() == 240);
         gRoomControls.scrollAction = 0;
         Port_Widescreen_PublishScene();
-        CHECK(geometry->world.width == 374);
-        CHECK(Port_Widescreen_CameraRestX(1000) == 650);
+        CHECK(geometry->world.width == 378);
+        CHECK(Port_Widescreen_CameraRestX(1000) == 646);
     }
     /* Origins that collided under the previous XOR room key are distinct. */
     gRoomControls.origin_x = 0; gRoomControls.origin_y = 2;
@@ -402,7 +402,7 @@ int main(void) {
 
     /* Tall live canvas: layout follows the canvas even when the room aperture
      * stays 240x160, and standard dialogue is published with a bottom anchor. */
-    CHECK(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 569, 192, 569));
+    CHECK(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 576, 192, 576));
     CHECK(geometry->canvas.width == 256 && geometry->canvas.height == 192);
     gMain.task = TASK_GAME;
     gMain.substate = GAMEMAIN_UPDATE;

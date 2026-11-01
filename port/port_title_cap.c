@@ -4,7 +4,7 @@
 bool Port_TitleCap_ExpandFrame(uint32_t* canvas, int width, int height, int pitch,
                                int nx, int ny, const uint32_t* margins,
                                int margins_pitch, uint32_t fill) {
-    if (!canvas || width < 240 || width > 569 || height < 160 || height > 192 ||
+    if (!canvas || width < 240 || width > 576 || height < 160 || height > 192 ||
         pitch < width || nx < 0 || ny < 0 || nx > width - 240 || ny > height - 160 ||
         (margins && margins_pitch < width))
         return false;
@@ -44,7 +44,7 @@ bool Port_TitleCap_CanDraw(int width, int height, int pitch, int nx, int ny, int
     static const uint8_t expected[] = {2, 0xc0, 0xf0, 0x71, 0x40, 0x50,
                                       0x00, 0xf0, 0x71, 0x60, 0x50};
     if (!frame || !io || frame_size < sizeof(expected) ||
-        width < 240 || width > 569 || height < 160 || height > 192 || pitch < width ||
+        width < 240 || width > 576 || height < 160 || height > 192 || pitch < width ||
         nx < 0 || ny < 0 || nx > width - 240 || ny > height - 160 ||
         hx != 64 || hy < -64 || hy > 80 || vram_size < 0x18000)
         return false;

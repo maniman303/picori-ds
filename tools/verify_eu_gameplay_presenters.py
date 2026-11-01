@@ -70,8 +70,8 @@ def write_solid_png(path, width, height, color):
 
 PROFILES = {
     'native': {'aspect': 'native', 'mode': 0, 'window': (960, 640), 'width': 240, 'height': 160},
-    '169': {'aspect': '16:9', 'mode': 1, 'window': (1140, 640), 'width': 285, 'height': 160},
-    '219': {'aspect': '21:9', 'mode': 2, 'window': (1496, 640), 'width': 374, 'height': 160},
+    '169': {'aspect': '16:9', 'mode': 1, 'window': (1280, 720), 'width': 288, 'height': 162},
+    '219': {'aspect': '21:9', 'mode': 2, 'window': (1512, 648), 'width': 378, 'height': 162},
     '43': {'aspect': '4:3', 'mode': 4, 'window': (1024, 768), 'width': 256, 'height': 192},
 }
 SCENES = {

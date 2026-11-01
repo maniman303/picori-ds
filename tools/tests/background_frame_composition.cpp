@@ -19,6 +19,8 @@ static uint16_t gBgPltt[256], gObjPltt[256];
 static uint32_t gFrameObjLists[1];
 static int sComposedWidth, sComposedHeight;
 static int activeHdma, fixedBrightnessHdma;
+static uint8_t lineIo[0x400];
+static bool useLineIo;
 const PortViewportGeometry* Port_Viewport_Get() { return &geometry; }
 const PortOamMenuHeading* Port_Oam_MenuHeading() { return &heading; }
 const PortBackgroundRuntimeSnapshot* Port_BackgroundRuntime_Get() { return &snapshot; }
@@ -29,7 +31,7 @@ static int port_hdma_has_active_channels() { return activeHdma; }
 static int port_hdma_can_continue_brightness(const void*, size_t) { return fixedBrightnessHdma; }
 static void* sub_080AD8F0(uint32_t, uint32_t) { return nullptr; }
 static uint32_t Port_FrameObjListsSizeForRegion() { return sizeof(gFrameObjLists); }
-const uint8_t* virtuappu_mode1_frame_io_for_line(int) { return gIoMem; }
+const uint8_t* virtuappu_mode1_frame_io_for_line(int) { return useLineIo ? lineIo : gIoMem; }
 bool virtuappu_mode1_sample_below_bg(int, int, int, unsigned, unsigned* layer, uint32_t* color) {
     *layer = 5; *color = 0xff000000; return true;
 }
@@ -129,5 +131,14 @@ int main() {
     assert(sComposedWidth == 256 && sComposedHeight == 192);
     reset_frame(); gIoMem[0] = 0x80;
     assert(Port_PPU_ComposeBackground());
-    assert(virtuappu_frame_buffer[0] == 0xffffffff && virtuappu_frame_buffer[16*569+8] == 0xff123456);
+    assert(virtuappu_frame_buffer[0] == 0xffffffff && virtuappu_frame_buffer[16*569+8] == 0xffffffff);
+    /* HDMA can latch forced blank after the native raster was produced. The
+     * per-line snapshot must still blank the native rectangle, not only the
+     * margins, or the transition shows a black center in a white border. */
+    std::memset(lineIo, 0, sizeof(lineIo)); lineIo[0] = 0x80;
+    useLineIo = true; activeHdma = 1; snapshot.effect_policy_valid = true;
+    reset_frame(); gIoMem[0] = 0;
+    assert(Port_PPU_ComposeBackground());
+    assert(virtuappu_frame_buffer[0] == 0xffffffff && virtuappu_frame_buffer[16*569+8] == 0xffffffff);
+    useLineIo = false; activeHdma = 0; snapshot.effect_policy_valid = false;
 }

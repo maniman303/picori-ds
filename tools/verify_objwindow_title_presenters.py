@@ -10,13 +10,13 @@ p.add_argument('directory', type=Path)
 a = p.parse_args()
 root = a.directory
 
-def rgb(name, width):
+def rgb(name, width, height):
     path = root / name / 'presentation.png'
     size = subprocess.check_output(['identify', '-format', '%wx%h', str(path)], text=True)
     assert size == f'{width * 4}x640', (name, size)
     full = subprocess.check_output(['convert', str(path), '-depth', '8', 'rgb:-'])
-    raw = subprocess.check_output(['convert', str(path), '-sample', f'{width}x160!', '-depth', '8', 'rgb:-'])
-    assert len(full) == width * 4 * 640 * 3 and len(raw) == width * 160 * 3
+    raw = subprocess.check_output(['convert', str(path), '-sample', f'{width}x{height}!', '-depth', '8', 'rgb:-'])
+    assert len(full) == width * 4 * 640 * 3 and len(raw) == width * height * 3
     return full, raw
 
 def pixel(data, width, x, y):
@@ -35,12 +35,12 @@ def trace(name):
     else:
         assert 'PPU initialized with SDL renderer backend' in log
 
-native_full, native = rgb('native', 240)
+native_full, native = rgb('native', 240, 160)
 trace('native')
-for width, names in ((285, ('software-art-final', 'software-missing-final', 'gpu-art-final', 'gpu-missing-final')),
-                     (374, ('sw21-art', 'sw21-missing', 'gpu21-art', 'gpu21-missing'))):
+for width, height, names in ((288, 162, ('software-art-final', 'software-missing-final', 'gpu-art-final', 'gpu-missing-final')),
+                             (378, 162, ('sw21-art', 'sw21-missing', 'gpu21-art', 'gpu21-missing'))):
     nx = (width - 240) // 2
-    images = [rgb(name, width) for name in names]
+    images = [rgb(name, width, height) for name in names]
     full = [image[0] for image in images]
     data = [image[1] for image in images]
     for name in names: trace(name)

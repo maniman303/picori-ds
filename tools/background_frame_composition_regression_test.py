@@ -15,7 +15,7 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-frame-') as tmp:
         function(source, 'static bool Port_PPU_RectIsUniformWhite') + '\n' +
         function(source, 'static bool Port_PPU_ComposeBackground(void)'))
     flags = ['-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
-             '-DMODE1_GBA_WIDTH=569', '-Iport', '-Iport/ppu/include', '-I' + str(tmp)]
+             '-DMODE1_GBA_WIDTH=576', '-Iport', '-Iport/ppu/include', '-I' + str(tmp)]
     cc, cxx = shlex.split(os.environ.get('CC', 'cc')), shlex.split(os.environ.get('CXX', 'c++'))
     objects = []
     for name in ('port_background_policy', 'port_background_effect', 'port_background_compose', 'port_title_cap'):

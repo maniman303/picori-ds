@@ -252,9 +252,9 @@ of window dimensions and internal scale:
 | --- | --- | --- |
 | 3:2 | `32` | 240 × 160 |
 | 4:3 | `43` | 256 × 192 |
-| 16:9 | `169` | 285 × 160 |
-| 21:9 | `219` | 374 × 160 |
-| 32:9 | `329` | 569 × 160 |
+| 16:9 | `169` | 288 × 162 |
+| 21:9 | `219` | 378 × 162 |
+| 32:9 | `329` | 576 × 162 |
 
 For every ratio other than 4:3, width is `ceil(160 * ratioWidth / ratioHeight)`.
 Round fractional widths upward to an integer pixel; do not force an even width
@@ -872,9 +872,9 @@ Verification completed:
   and skipping unavailable modes.
 - Existing engine, scroll and CPU PPU regression tools; all four scene-tool
   regressions using Pillow in a temporary Python environment.
-- EU field captures under QEMU/software presentation: 16:9 produces 285 × 160
+- EU field captures under QEMU/software presentation: 16:9 produces 288 × 162
   in both 640 × 640 and 960 × 540 windows with byte-identical base pixels;
-  21:9 produces 374 × 160 in a 480 × 640 window. Deliberately setting the
+  21:9 produces 378 × 162 in a 480 × 640 window. Deliberately setting the
   retired width override to 240 does not change either selected profile.
 - An EU native field capture reaches the requested room and produces pixels,
   but the scene baseline command reports a missing reference: the committed

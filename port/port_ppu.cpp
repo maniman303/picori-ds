@@ -93,11 +93,13 @@ static int sScaledTextureH = 0;
 static int sScaledTextureScale = 0;
 static constexpr int kMaxInternalScale = 10;
 /* Bound optional workspaces by pixel count, not the Cartesian product of
- * maximum canvas width and height. At capacity 569 this fits every v1 profile
- * at 10x (569x160 is larger than 256x192), without a 569x192x100 pool.
- * Capacity-limited builds fall back to the raw frame if a workspace won't fit. */
+ * maximum canvas width and height. The tallest profile is 4:3, but the :9
+ * family is 162 rows and can use the full width capacity, so budget the
+ * capacity width at 162 rows (576x162 at release capacity) rather than 160.
+ * A synthetic 569x192 case still exceeds the budget and falls back. */
+static constexpr int kMaxProfileHeight = 162;
 static constexpr size_t kMaxScaledPixels =
-    (size_t)MODE1_GBA_WIDTH * (size_t)MODE1_GBA_HEIGHT * (size_t)kMaxInternalScale * (size_t)kMaxInternalScale;
+    (size_t)MODE1_GBA_WIDTH * (size_t)kMaxProfileHeight * (size_t)kMaxInternalScale * (size_t)kMaxInternalScale;
 alignas(64) static uint32_t sScaledBufStorage[kMaxScaledPixels];
 static int sScaledBufW = 0;
 static int sScaledBufH = 0;
@@ -129,11 +131,11 @@ static PortFilterType sFilter = PORT_FILTER_NONE;
 /* xBRZ scratch is also a fixed pool. These buffers are hot during
  * filter/upscale frames, so 64-byte alignment keeps row starts friendly
  * to cache-line prefetch and SIMD memcpy implementations. The capacity-area
- * budget (width × native height) covers every v1 profile at 4×: 4:3 is
- * 49,152 px and the 288x162 extent is 46,656 px, both below the 91,040 px
- * width-569 budget. The 569x192 synthetic Cartesian case intentionally
- * exceeds it and falls back rather than reserving an extra 8.3 MiB. */
-static constexpr size_t kMaxXbrzSourcePixels = (size_t)MODE1_GBA_WIDTH * (size_t)MODE1_GBA_HEIGHT;
+ * budget (width × 162, the tallest :9 profile) covers every v1 profile at 4×:
+ * 4:3 is 49,152 px and the 32:9 extent is 93,312 px. The synthetic 569x192
+ * Cartesian case intentionally exceeds it and falls back rather than reserving
+ * an extra 8.3 MiB. */
+static constexpr size_t kMaxXbrzSourcePixels = (size_t)MODE1_GBA_WIDTH * (size_t)kMaxProfileHeight;
 static constexpr size_t kMaxXbrz2xPixels = kMaxXbrzSourcePixels * 4u;
 static constexpr size_t kMaxXbrz4xPixels = kMaxXbrzSourcePixels * 16u;
 alignas(64) static uint32_t sUpscale2xBuf[kMaxXbrz2xPixels]; /* 2x intermediate */
@@ -280,6 +282,26 @@ static bool Port_PPU_RectIsUniformWhite(const uint32_t* frame, int pitch, PortVi
     return true;
 }
 
+/* The black counterpart of the white-fade clamp. During a title/file-select
+ * transition the native raster can already be fully black while the fixed
+ * background still composes the outgoing white artwork into the margins.
+ * Treating only white as a full-canvas fade leaves a white border around the
+ * black frame for one or more frames. */
+static bool Port_PPU_RectIsUniformBlack(const uint32_t* frame, int pitch, PortViewportRect rect) {
+    if (!frame || rect.width <= 0 || rect.height <= 0 || rect.x < 0 || rect.y < 0 ||
+        rect.x + rect.width > pitch)
+        return false;
+    for (int y = rect.y; y < rect.y + rect.height; ++y) {
+        const uint32_t* row = frame + (size_t)y * (size_t)pitch;
+        for (int x = rect.x; x < rect.x + rect.width; ++x) {
+            const uint32_t p = row[x];
+            if (((p >> 16) & 0xffu) > 0x20u || ((p >> 8) & 0xffu) > 0x20u || (p & 0xffu) > 0x20u)
+                return false;
+        }
+    }
+    return true;
+}
+
 /* The PPU buffer already has the bounded canvas capacity. Move native rows
  * backwards in place so no second full-frame allocation is needed. */
 static bool Port_PPU_ComposeBackground(void) {
@@ -294,9 +316,15 @@ static bool Port_PPU_ComposeBackground(void) {
         return false;
     const int pitch = virtuappu_mode1_frame_pitch();
     const PortViewportRect native = geometry->nativeContent;
-    if ((gIoMem[0] & 0x80) && !port_hdma_has_active_channels()) {
-        if (!Port_TitleCap_ExpandFrame(virtuappu_frame_buffer, geometry->canvas.width, geometry->canvas.height,
-                                       pitch, native.x, native.y, nullptr, 0, 0xffffffffu)) return false;
+    if (gIoMem[0] & 0x80) {
+        /* Forced blank owns the whole display, not just the added margins.
+         * The native raster may have been produced before DISPCNT bit 7 was
+         * latched (or may still hold the previous frame), so expanding only
+         * the margins would leave a black native rectangle inside a white
+         * border for one transition frame. */
+        for (int y = 0; y < geometry->canvas.height; ++y)
+            std::fill_n(virtuappu_frame_buffer + (size_t)y * (size_t)pitch,
+                        (size_t)geometry->canvas.width, 0xffffffffu);
         sComposedWidth = geometry->canvas.width;
         sComposedHeight = geometry->canvas.height;
         return true;
@@ -491,6 +519,18 @@ static bool Port_PPU_ComposeBackground(void) {
                            native.x, native.y, heading->x, heading->y, frame, available,
                            gVram, sizeof(gVram), gObjPltt, gIoMem, 5,
                            virtuappu_mode1_frame_io_for_line);
+    /* Forced blank is a whole-scanline white output. Per-line HDMA can latch
+     * it after the native raster was produced, so the native rectangle may
+     * still hold the previous/black pixels while the margins already follow
+     * the blank snapshot. Force every such scanline across the whole canvas;
+     * otherwise a transition frame shows a black native rectangle inside a
+     * white border. */
+    for (int y = 0; y < geometry->canvas.height; ++y) {
+        const uint8_t* io = virtuappu_mode1_frame_io_for_line(y - native.y);
+        if (io && (io[0] & 0x80))
+            std::fill_n(virtuappu_frame_buffer + (size_t)y * (size_t)pitch,
+                        (size_t)geometry->canvas.width, 0xffffffffu);
+    }
     sComposedWidth = geometry->canvas.width;
     sComposedHeight = geometry->canvas.height;
     return true;
@@ -2012,8 +2052,10 @@ extern "C" void Port_PPU_PresentFrame(void) {
         const bool fixedOrFallback =
             (geometry->scene.capabilities & (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) != 0;
         if (fixedOrFallback &&
-            Port_PPU_RectIsUniformWhite(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
-                                        geometry->nativeContent)) {
+            (Port_PPU_RectIsUniformWhite(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                         geometry->nativeContent) ||
+             Port_PPU_RectIsUniformBlack(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                         geometry->nativeContent))) {
             Port_EdgeFade_ApplySolid(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
                                      geometry->canvas.width, geometry->canvas.height,
                                      geometry->nativeContent, nullptr, 0);

@@ -4,7 +4,7 @@
 #include <string.h>
 
 int main(int argc, char** argv) {
-    static uint8_t pixels[569 * 192 * 4];
+    static uint8_t pixels[576 * 192 * 4];
     if (argc != 11) return 2;
     PortAspectMode aspect = (PortAspectMode)atoi(argv[2]);
     int family = atoi(argv[3]), health = atoi(argv[4]);

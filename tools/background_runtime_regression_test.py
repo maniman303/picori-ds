@@ -14,12 +14,12 @@ with tempfile.TemporaryDirectory(prefix='tmc-background-runtime-') as tmp:
     fixture = Path(tmp)
     folder = fixture / 'override' / '169'
     folder.mkdir(parents=True)
-    (folder / 'fast_travel_background.png').write_bytes(png(285, 160, sample=bytes([55, 89, 167, 129])))
-    (folder / 'travel-replacement.png').write_bytes(png(285, 160, sample=bytes([91, 32, 20, 255])))
-    (folder / 'menu_background_normal.png').write_bytes(png(285, 160, sample=bytes([11, 22, 33, 255])))
+    (folder / 'fast_travel_background.png').write_bytes(png(288, 162, sample=bytes([55, 89, 167, 129])))
+    (folder / 'travel-replacement.png').write_bytes(png(288, 162, sample=bytes([91, 32, 20, 255])))
+    (folder / 'menu_background_normal.png').write_bytes(png(288, 162, sample=bytes([11, 22, 33, 255])))
     wide = fixture / 'override' / '219'
     wide.mkdir()
-    (wide / 'menu_background_normal.png').write_bytes(png(374, 160, sample=bytes([77, 22, 33, 255])))
+    (wide / 'menu_background_normal.png').write_bytes(png(378, 162, sample=bytes([77, 22, 33, 255])))
     binary = fixture / 'test'
     try:
         flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'libpng'], text=True, stderr=subprocess.DEVNULL))

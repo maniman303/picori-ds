@@ -14,8 +14,8 @@ for art_dir, fallback_dir, frames in checks:
         name = f'{frame:06}.png'
         with Image.open(args.directory / art_dir / name) as a, Image.open(args.directory / fallback_dir / name) as b:
             a, b = a.convert('RGB'), b.convert('RGB')
-            assert a.size == b.size == (285, 160), (art_dir, frame, a.size, b.size)
-            assert ImageChops.difference(a.crop((22, 0, 262, 160)), b.crop((22, 0, 262, 160))).getbbox() is None, (art_dir, frame, 'native crop')
+            assert a.size == b.size == (288, 162), (art_dir, frame, a.size, b.size)
+            assert ImageChops.difference(a.crop((24, 1, 264, 161)), b.crop((24, 1, 264, 161))).getbbox() is None, (art_dir, frame, 'native crop')
             assert a.getpixel((14, 10)) == b.getpixel((14, 10)), (art_dir, frame, 'cap')
             assert a.getpixel((0, 100)) != b.getpixel((0, 100)), (art_dir, frame, 'artwork')
 print('EU menu/fusion cap, native crop and fade checkpoints: PASS')

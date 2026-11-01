@@ -55,9 +55,9 @@ optional style advice.
 - **Live gameplay** uses the full 256 × 192 world aperture in normal field,
   town, dungeon, boss, Minish-path, weather and interior rooms. Towns and
   dungeons are not allowed to remain permanently on a native fallback.
-- The same live-world implementation is profile-general. A future proper
-  16:9 canvas (for example 288 × 162) should be addable as a profile/config
-  and acceptance task without hardcoded 4:3/192 assumptions.
+- The same live-world implementation is profile-general. The :9 profiles now
+  use the 162-row canvas (288 × 162, 378 × 162 and 576 × 162) through the same
+  profile/config path without hardcoded 4:3/192 assumptions.
 - **Fixed UI screens** — title, file select, inventory, quest, pieces,
   techniques, all map views, fast travel, hints, sleep/save, Game Over, credits,
   ending, fusion, figurines — keep their original 240 × 160 composition at
@@ -80,7 +80,7 @@ first tall profile, not as a special renderer mode.
 
 - A profile publishes a **canvas** `(W,H)`. Fixed screens use the native
   240 × 160 composition centered at `(floor((W-240)/2), floor((H-160)/2))`.
-  For 256 × 192 that is `(8,16)`; for a future proper 16:9 288 × 162 it is
+  For 256 × 192 that is `(8,16)`; for 16:9 288 × 162 it is
   `(24,1)`.
 - A live room publishes a **world aperture** `(x,y,w,h)` bounded by the room
   and the canvas, centered when smaller than the canvas. Missing rows/columns
@@ -91,12 +91,12 @@ first tall profile, not as a special renderer mode.
   HD-text decisions consume the published rectangles. No new code should test
   for `256`, `192`, or 4:3 specifically.
 - `MODE1_GBA_HEIGHT` remains 160 for GBA state. Compile-time render capacity is
-  a bound, not a profile: a 288 × 162 frame already fits the current 569-width /
-  192-height capacity. Only a future profile taller than 192 would require a
-  capacity bump.
-- Parameterize tests across `240 × 160`, `285 × 160`, `256 × 192`, `288 × 162`
-  and `374 × 160` so adding proper 16:9 later is a profile/config and acceptance
-  task, not a second renderer implementation.
+  a bound, not a profile: the :9 profiles use 162 rows and 32:9 needs a
+  576-pixel width, so release builds publish a 576 × 192 bound. Only a future
+  profile taller than 192 would require a further height bump.
+- Parameterize tests across `240 × 160`, `256 × 192`, `288 × 162`, `378 × 162`
+  and `576 × 162`; the :9 family is now the same profile/config path, not a
+  second renderer implementation.
 - Room heights of exactly 160 remain valid: the world aperture is 160 rows,
   centered in a 162-row canvas, with one fill row above and below.
 
@@ -117,9 +117,9 @@ Already implemented and tested:
   world aperture with a five-pixel edge-color fade into black. Original world
   pixels and canvas-anchored HUD/dialogue are preserved; a black source border
   simply fades black to black.
-- Presentation coverage for tall canvases: the existing width-569 xBRZ pools
-  cover 4:3 and 288 × 162, the CPU reference handles 162/192 rows, and the GPU
-  presenter accepts the composed tall frame. The over-budget 569 × 192
+- Presentation coverage for tall canvases: the width-576 xBRZ pools cover 4:3
+  and the 162-row :9 profiles, the CPU reference handles 162/192 rows, and the
+  GPU presenter accepts the composed tall frame. The over-budget 569 × 192
   synthetic Cartesian case still falls back as audited.
 - Full Minish Village multi-group residency: every group's charset/palette is
   available in host memory, other-group cells are selected per tilemap cell,
@@ -615,7 +615,7 @@ EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
   full-canvas field with no fade.
 - **WP7 implemented.** The audited width-569 xBRZ pools already cover the
   full v1 profile set at 4× (4:3 is 49,152 px, the 288 × 162 extent is
-  46,656 px, budget is 91,040 px); the 569 × 192 synthetic Cartesian case is
+  46,656 px, budget is 93,312 px); the 569 × 192 synthetic Cartesian case is
   intentionally over budget and still falls back. `Port_PPU_GpuRasterHeightSupported()`
   documents and locks the native-only GPU raster decision: tall frames use the
   CPU reference and the normal GPU/Renderer presenter. Presentation geometry,
@@ -807,8 +807,8 @@ EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
 - Normal towns, dungeons, field, bosses, Minish paths and weather render true
   192-row world content; native fallback is limited to explicitly classified
   transitions/effects.
-- The live-world path is profile-general: a future 288 × 162 proper-16:9
-  profile can be added without a second renderer/composition implementation.
+- The live-world path is profile-general: the :9 family is published as
+  162-row canvases without a second renderer/composition implementation.
 - HUD/dialogue are canvas-anchored and visible.
 - Fixed screens remain native 240 × 160 at `(8,16)` with correct artwork/black
   margins and effects.
@@ -833,6 +833,6 @@ The schedule was dominated by WP3 (manager/tileset residency) and WP4
 (entity/OAM validation), not by the rasterizer or UI layout; both are now
 implemented, including the Minish Village host charset atlas, and the WP8
 device/room-family evidence is recorded. Remaining work is optional custom
-artwork and broader regional audits. Adding a future 288 × 162 profile after
-this plan should be a profile/config and acceptance task, not a second
-live-world implementation.
+artwork and broader regional audits. Adding a new taller profile after this
+plan remains a profile/config and acceptance task, not a second live-world
+implementation.

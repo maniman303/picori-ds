@@ -34,7 +34,7 @@ static void check_nearest(int width, int height, int scale) {
             source[y * pitch + x] = color(x, y);
     int outW = -1, outH = -1;
     const size_t needed = (size_t)width * height * scale * scale;
-    const bool fits = needed <= (size_t)MODE1_GBA_WIDTH * 160 * 100;
+    const bool fits = needed <= kMaxScaledPixels;
     sScaledBufStorage[kMaxScaledPixels - 1] = canary;
     if (fits && needed < kMaxScaledPixels)
         sScaledBufStorage[needed] = canary;
@@ -87,7 +87,7 @@ static void check_xbrz_filters(int width, int height) {
 // Exercise an actual fixed-screen cap and distinct margin/native colors
 // through the same pitched scaling and LCD-grid paths used by the presenter.
 static void check_composed_cap_filters(int width, int height, int nx, int ny) {
-    if ((size_t)width * height > (size_t)MODE1_GBA_WIDTH * 160) return;
+    if ((size_t)width * height > kMaxXbrzSourcePixels) return;
     const int pitch = width + 7;
     std::vector<uint32_t> source((size_t)pitch * height, canary);
     for (int y = 0; y < 160; ++y)
@@ -154,20 +154,20 @@ static void check_optional_paths(void) {
     /* Margin canvases need signed host OAM so canvas-tagged HUD sprites do not
      * inherit the world aperture offset (the 16:9 heart-gap regression). */
     assert(!Port_PPU_UseSignedPositions(false, false, 240, 160, 240, 160));
-    assert(Port_PPU_UseSignedPositions(false, true, 285, 160, 240, 160));
-    assert(Port_PPU_UseSignedPositions(false, true, 374, 160, 240, 160));
+    assert(Port_PPU_UseSignedPositions(false, true, 288, 162, 240, 160));
+    assert(Port_PPU_UseSignedPositions(false, true, 378, 162, 240, 160));
     assert(Port_PPU_UseSignedPositions(false, true, 256, 192, 240, 192));
-    assert(Port_PPU_UseSignedPositions(false, true, 569, 160, 480, 160));
+    assert(Port_PPU_UseSignedPositions(false, true, 576, 162, 480, 160));
     assert(!Port_PPU_UseSignedPositions(false, true, 240, 160, 240, 160));
-    assert(!Port_PPU_UseSignedPositions(true, true, 285, 160, 240, 160));
-    for (int width : {240, 256, 285, 288, 374, 512, 569}) {
+    assert(!Port_PPU_UseSignedPositions(true, true, 288, 162, 240, 160));
+    for (int width : {240, 256, 288, 378, 512, 576}) {
         for (int height : {160, 162, 192}) {
             geometry.canvas.width = width;
             geometry.canvas.height = height;
             rasterHeight = height;
             signedPositions = false;
             const bool legacy = width <= 512 && height == 160;
-            const bool hdText = width >= 240 && width <= 569 && height >= 160 && height <= 192;
+            const bool hdText = width >= 240 && width <= 576 && height >= 160 && height <= 192;
             assert(ScreenGeometrySupported() == legacy);
             assert(Port_GPU_PresetGeometrySupported() == legacy);
             assert(PortHDText::SupportedFrame(width, height) == hdText);
@@ -194,9 +194,9 @@ static void check_presentation_layout(void) {
         {PORT_ASPECT_NATIVE_3_2, 1000,1000,240,160, 0,0,1000,1000, 0,167,1000,666},
         {PORT_ASPECT_DS_4_3, 1024,768,256,192, 0,0,1024,768, 0,0,1024,768},
         {PORT_ASPECT_DS_4_3, 1024,768,240,160, 0,0,1024,768, 0,43,1024,682},
-        {PORT_ASPECT_WIDESCREEN_16_9, 960,540,285,160, 0,0,960,540, 0,1,960,538},
-        {PORT_ASPECT_ULTRAWIDE_21_9, 840,360,374,160, 0,0,840,360, 0,0,840,359},
-        {PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 1024,288,569,160, 0,0,1024,288, 0,0,1024,287},
+        {PORT_ASPECT_WIDESCREEN_16_9, 960,540,288,162, 0,0,960,540, 0,0,960,540},
+        {PORT_ASPECT_ULTRAWIDE_21_9, 840,360,378,162, 0,0,840,360, 0,0,840,360},
+        {PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 1024,288,576,162, 0,0,1024,288, 0,0,1024,288},
     };
     // A pending selection cannot override the published effective mode.
     geometry.selectedAspect = PORT_ASPECT_ULTRAWIDE_21_9;
@@ -233,11 +233,9 @@ static void check_presentation_layout(void) {
     struct NativeCanvasCase { PortAspectMode mode; int width, height, x, y; };
     const NativeCanvasCase nativeCases[] = {
         {PORT_ASPECT_DS_4_3, 256, 192, 8, 16},
-        /* Synthetic proper-16:9 extent: native 240x160 centered at (24,1). */
-        {PORT_ASPECT_DS_4_3, 288, 162, 24, 1},
-        {PORT_ASPECT_WIDESCREEN_16_9, 285, 160, 22, 0},
-        {PORT_ASPECT_ULTRAWIDE_21_9, 374, 160, 67, 0},
-        {PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 160, 164, 0},
+        {PORT_ASPECT_WIDESCREEN_16_9, 288, 162, 24, 1},
+        {PORT_ASPECT_ULTRAWIDE_21_9, 378, 162, 69, 1},
+        {PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 576, 162, 168, 1},
     };
     for (const auto& item : nativeCases) {
         geometry.effectiveAspect = item.mode;
@@ -284,27 +282,27 @@ static void check_menu_family_storage_and_budgets(void) {
     const size_t maxCapBytes43 = maxCapPixels43 * 4;
     assert(maxCapBytes43 <= 16384);
 
-    // A second full-canvas framebuffer at 569x192 would be 436,992 bytes (or 43.7 MiB at scale 10).
-    const size_t fullCanvasBytes = (size_t)569 * 192 * 4;
+    // A second full-canvas framebuffer at 576x192 would be 442,368 bytes (or 44.2 MiB at scale 10).
+    const size_t fullCanvasBytes = (size_t)576 * 192 * 4;
     assert(maxCapBytes43 < fullCanvasBytes / 20);
 
     // 3. Image cache budgets and resident memory bounds:
     // Catalog has 33 artwork names, including the fixed fast-travel image.
     // Ensure all 33 names do not become 33 resident images in memory.
-    const size_t maxProfileWidth = 569;
-    const size_t maxProfileHeight = 160;
+    const size_t maxProfileWidth = 576;
+    const size_t maxProfileHeight = 162;
     const size_t maxSingleImageBytes = maxProfileWidth * maxProfileHeight * 4;
-    assert(maxSingleImageBytes == 364160);
+    assert(maxSingleImageBytes == 373248);
 
-    // Naive 33 resident images require 12,017,280 bytes, violating the 8 MiB steady budget.
+    // Naive 33 resident images require 12,317,184 bytes, violating the 8 MiB steady budget.
     const size_t naive33ResidentBytes = 33 * maxSingleImageBytes;
-    assert(naive33ResidentBytes == 12017280);
+    assert(naive33ResidentBytes == 12317184);
     assert(naive33ResidentBytes > 8 * 1024 * 1024);
 
     // Budget contract: 2 resident image slots maximum (current + incoming during transition).
     const size_t maxResidentSlots = 2;
     const size_t maxResidentBytes = maxResidentSlots * maxSingleImageBytes;
-    assert(maxResidentBytes == 728320);
+    assert(maxResidentBytes == 746496);
     assert(maxResidentBytes < 1024 * 1024);
 
     struct CacheSlot {
@@ -361,15 +359,15 @@ static void check_menu_family_storage_and_budgets(void) {
 
 int main(void) {
     for (const auto& profile : {PortViewportRect{0,0,240,160}, {0,0,256,192},
-                               {0,0,285,160}, {0,0,374,160}, {0,0,569,160},
-                               {0,0,288,162}, {0,0,569,192}}) {
+                               {0,0,288,162}, {0,0,378,162}, {0,0,576,162},
+                               {0,0,569,192}}) {
         for (int scale : {2, 4, 10}) check_nearest(profile.width, profile.height, scale);
         check_xbrz_filters(profile.width, profile.height);
     }
     check_composed_cap_filters(256, 192, 8, 16);
-    check_composed_cap_filters(285, 160, 22, 0);
-    check_composed_cap_filters(374, 160, 67, 0);
-    check_composed_cap_filters(569, 160, 164, 0);
+    check_composed_cap_filters(288, 162, 24, 1);
+    check_composed_cap_filters(378, 162, 69, 1);
+    check_composed_cap_filters(576, 162, 168, 1);
     check_rejection();
     check_optional_paths();
     check_presentation_layout();

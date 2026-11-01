@@ -7,17 +7,17 @@ int main(int argc, char** argv) {
     assert(argc == 2);
     assert(Port_BackgroundRuntime_Init(argv[1]));
     PortViewportGeometry g = {0};
-    g.canvas = (PortViewportRect){0,0,285,160};
-    g.nativeContent = (PortViewportRect){22,0,240,160};
+    g.canvas = (PortViewportRect){0,0,288,162};
+    g.nativeContent = (PortViewportRect){24,1,240,160};
     g.effectiveAspect = PORT_ASPECT_WIDESCREEN_16_9;
     Port_Background_InvalidatePaletteFades();
     Port_Background_RecordPaletteFade(5, (PortPaletteFade){64, 248}, 1);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
     const PortBackgroundRuntimeSnapshot* snap = Port_BackgroundRuntime_Get();
-    assert(snap->source == PORT_BACKGROUND_SOURCE_IMAGE && snap->width == 285 && snap->height == 160);
+    assert(snap->source == PORT_BACKGROUND_SOURCE_IMAGE && snap->width == 288 && snap->height == 162);
     assert(snap->effect_policy_valid && snap->effect_policy.layers == 8 && snap->effect_policy.banks == 0x20);
     assert(snap->artwork_edges && snap->artwork_edges->left[0] == 0x35 && snap->artwork_edges->right[159] == 0x35);
-    assert(snap->rgba && snap->rgba[0] == 55 && snap->native.x == 22);
+    assert(snap->rgba && snap->rgba[0] == 55 && snap->native.x == 24);
     assert(snap->valid_palette_fades == (1u << 5) && snap->palette_fades[5].intensity == 64);
     PortBackgroundComposeRow resolved;
     const uint8_t backdrop[3] = {1, 2, 3};
@@ -53,12 +53,12 @@ int main(int argc, char** argv) {
     assert(snap->rgba && snap->rgba[0] == 91);
     assert(remove(path) == 0);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_MENU_NORMAL, &g, 1, true);
-    assert(snap->rgba && snap->rgba[0] == 11 && snap->width == 285);
-    g.canvas.width = 374; g.nativeContent.x = 67;
+    assert(snap->rgba && snap->rgba[0] == 11 && snap->width == 288);
+    g.canvas.width = 378; g.nativeContent.x = 69;
     g.effectiveAspect = PORT_ASPECT_ULTRAWIDE_21_9;
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_MENU_NORMAL, &g, 1, true);
-    assert(snap->rgba && snap->rgba[0] == 77 && snap->width == 374 && snap->native.x == 67);
-    g.canvas.width = 285; g.nativeContent.x = 22;
+    assert(snap->rgba && snap->rgba[0] == 77 && snap->width == 378 && snap->native.x == 69);
+    g.canvas.width = 288; g.nativeContent.x = 24;
     g.effectiveAspect = PORT_ASPECT_WIDESCREEN_16_9;
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 1, true);
     /* The two-slot cache may have evicted this image after profile switches. */
@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_NONE && !snap->rgba);
     g.flags = 0; g.effectiveAspect = PORT_ASPECT_NATIVE_3_2;
-    g.canvas.width = 240; g.nativeContent.x = 0;
+    g.canvas = (PortViewportRect){0,0,240,160}; g.nativeContent = (PortViewportRect){0,0,240,160};
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_FAST_TRAVEL, &g, 2, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_NONE && !snap->rgba);
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_GAME_OVER, &g, 2, false);
@@ -92,7 +92,8 @@ int main(int argc, char** argv) {
     Port_BackgroundRuntime_Reset();
     assert(!snap->rgba && snap->source == PORT_BACKGROUND_SOURCE_NONE);
     assert(!Port_BackgroundRuntime_Init(NULL));
-    g.canvas.width = 285; g.effectiveAspect = PORT_ASPECT_WIDESCREEN_16_9;
+    g.canvas = (PortViewportRect){0,0,288,162}; g.nativeContent = (PortViewportRect){24,1,240,160};
+    g.effectiveAspect = PORT_ASPECT_WIDESCREEN_16_9;
     Port_BackgroundRuntime_Publish(PORT_BACKGROUND_GAME_OVER, &g, 2, true);
     assert(snap->source == PORT_BACKGROUND_SOURCE_BLACK && !snap->rgba);
     puts("Background boundary cache publication: PASS");

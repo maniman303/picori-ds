@@ -33,7 +33,7 @@ def main():
         command += ['-I' + str(json_include)]
     with tempfile.TemporaryDirectory(prefix='tmc-config-test-') as directory:
         tmp = Path(directory)
-        for capacity in (384, 569):
+        for capacity in (384, 576):
             binary = tmp / f'config-test-{capacity}'
             subprocess.run(command + [f'-DMODE1_GBA_WIDTH={capacity}', 'port/port_runtime_config.cpp',
                                      'port/port_viewport.c', 'tools/tests/runtime_config.cpp',

@@ -13,7 +13,7 @@ extern "C" void Port_HDText_Draw(const uint32_t* frame, int frameWidth, int fram
         (geometry->scene.capabilities &
          (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) &&
         frameWidth == geometry->canvas.width && frameHeight == geometry->canvas.height &&
-        frameWidth >= 240 && frameWidth <= 569 && frameHeight >= 160 && frameHeight <= 192;
+        frameWidth >= 240 && frameWidth <= 576 && frameHeight >= 160 && frameHeight <= 192;
     if (!ImGui::GetCurrentContext() || viewportWidth <= 0 || viewportHeight <= 0 ||
         (!fixedCanvas && !PortHDText::SupportedFrame(frameWidth, frameHeight)))
         return;

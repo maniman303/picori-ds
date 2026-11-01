@@ -39,8 +39,8 @@
 #define MODE1_GBA_WIDTH 240
 #endif
 
-/* Legacy capacity macros. Taller rendering remains disabled until raster
- * state, streaming and sprite metadata support it; hardware timing stays 160. */
+/* Legacy capacity macros. Hardware timing stays 160; taller runtime canvases
+ * (4:3 and the :9 family) are published through port_viewport. */
 #define PORT_VIEW_WIDTH (MODE1_GBA_WIDTH)
 #define PORT_VIEW_HEIGHT 160
 

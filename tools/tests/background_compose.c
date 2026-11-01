@@ -5,18 +5,18 @@
 #include "port_background_compose.h"
 
 static uint32_t canvas[192 * 576];
-static uint8_t rgba[192 * 569 * 4];
+static uint8_t rgba[192 * 576 * 4];
 static PortBackgroundComposeRow rows[192], outside[192], right_rows[192];
 static PortBackgroundComposeRow top_rows[240], bottom_rows[240];
 static PortEffectSpan spans[192];
 static uint8_t curve[3][256];
 
 int main(void) {
-    const int sizes[][2] = {{240,160},{256,192},{285,160},{374,160},{569,160}};
+    const int sizes[][2] = {{240,160},{256,192},{288,162},{378,162},{576,162}};
     for (unsigned i = 0; i < sizeof(sizes)/sizeof(sizes[0]); ++i) {
         int w = sizes[i][0], h = sizes[i][1], nx = (w-240)/2, ny = (h-160)/2;
         for (int j = 0; j < 192*576; ++j) canvas[j] = 0x12345678;
-        for (int j = 0; j < 192*569; ++j) {
+        for (int j = 0; j < 192*576; ++j) {
             rgba[j*4] = 201; rgba[j*4+1] = 101; rgba[j*4+2] = 51; rgba[j*4+3] = 128;
         }
         memset(rows, 0, sizeof(rows));

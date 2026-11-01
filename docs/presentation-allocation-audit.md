@@ -12,21 +12,22 @@ sanitizer coverage; device memory/performance is recorded in
 
 Keep `MODE1_GBA_HEIGHT` at 160. `MODE1_MAX_RENDER_HEIGHT` bounds PC raster
 scratch at 192, while N64 retains 160. Width capacity does not select a
-profile. The largest profile by pixel count is 569 × 160 (91,040 pixels),
-larger than 4:3 at 256 × 192 (49,152 pixels). No profile requests 569 × 192.
+profile. The largest profile by pixel count is 32:9 at 576 × 162 (93,312
+pixels), larger than 4:3 at 256 × 192 (49,152 pixels). No profile requests
+576 × 192.
 
-The existing optional pools in [port_ppu.cpp](../port/port_ppu.cpp) can therefore
-retain their `capacityWidth * 160` pixel budget. At width capacity 569 all five
-profiles fit at scales 1–10, including xBRZ's two workspaces. Do not replace
-160 with 192 in these pool definitions when increasing raster capacity.
+The optional pools in [port_ppu.cpp](../port/port_ppu.cpp) therefore retain a
+`capacityWidth * 162` pixel budget. At width capacity 576 all five profiles fit
+at scales 1–10, including xBRZ's two workspaces. Do not replace 162 with 192 in
+these pool definitions when increasing raster capacity.
 
-| Fixed CPU storage, bytes | Capacity 384 | Prospective capacity 569 |
+| Fixed CPU storage, bytes | Capacity 384 | Release capacity 576 |
 | --- | ---: | ---: |
-| Internal-scale/GPU-supersample shared workspace, 10× maximum | 24,576,000 | 36,416,000 |
-| xBRZ 2× intermediate | 983,040 | 1,456,640 |
-| xBRZ 4× output | 3,932,160 | 5,826,560 |
-| All three optional pools | 29,491,200 (28.125 MiB) | 43,699,200 (41.675 MiB) |
-| Three CPU room-map shadows | 6,144 | 8,640 |
+| Internal-scale/GPU-supersample shared workspace, 10× maximum | 24,576,000 | 37,324,800 |
+| xBRZ 2× intermediate | 983,040 | 1,492,992 |
+| xBRZ 4× output | 3,932,160 | 5,971,968 |
+| All three optional pools | 29,491,200 (28.125 MiB) | 44,789,760 (42.72 MiB) |
+| Three CPU room-map shadows | 6,144 | 8,832 |
 | GPU raster shadow staging, GPU builds only | 8,192 | 11,520 |
 | Voxel screen-space layer stack, GPU builds only | 737,280 | 1,092,480 |
 
@@ -109,7 +110,7 @@ The catalog defines 33 artwork names: 5 menu families (plain, titled,
 pieces, techniques, fusion) each with 3 health variants, plus prologue, credits,
 title, file select and the fixed fast-travel image:
 
-| Storage mode | Active resident images | Unscaled RGBA bytes (569 × 160) | Status |
+| Storage mode | Active resident images | Unscaled RGBA bytes (576 × 162) | Status |
 | --- | ---: | ---: | --- |
 | Naive resident cache (all 33 names) | 33 | 12,017,280 (~11.46 MiB) | **Rejected** (exceeds 8 MiB steady budget) |
 | Steady-state cache | 1 | 364,160 (~355.6 KiB) | Contractual target |
@@ -117,7 +118,7 @@ title, file select and the fixed fast-travel image:
 
 1. **Resident buffer limit**:
    The cache is strictly bounded to **2 resident image slots** (current active
-   image + incoming transition image). At the widest profile (32:9, 569 × 160),
+   image + incoming transition image). At the widest profile (32:9, 576 × 162),
    steady-state unscaled storage is 364,160 bytes (~0.35 MiB) and peak transition
    storage is 728,320 bytes (~0.69 MiB).
 2. **Budget compliance**:

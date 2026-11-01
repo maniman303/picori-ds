@@ -7,9 +7,12 @@
 static const PortViewportProfile sProfiles[] = {
     { "3:2", "32", 240, 160 },
     { "4:3", "43", 256, 192 },
-    { "16:9", "169", 285, 160 },
-    { "21:9", "219", 374, 160 },
-    { "32:9", "329", 569, 160 },
+    /* The :9 family is tall as well: 162 rows give every member an exact
+     * integer width (288, 378, 576) while keeping the extra vertical reveal
+     * smaller than 4:3's 32 rows. */
+    { "16:9", "169", 288, 162 },
+    { "21:9", "219", 378, 162 },
+    { "32:9", "329", 576, 162 },
 };
 
 static PortViewportGeometry sGeometry = {

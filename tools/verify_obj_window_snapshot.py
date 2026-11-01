@@ -14,7 +14,7 @@ root = Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory(prefix='tmc-obj-window-') as tmp:
     binary = Path(tmp) / 'verify'
     subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
-        '-std=c11', '-O2', '-Wno-unknown-pragmas', '-DMODE1_GBA_WIDTH=569', '-Iport/ppu/include',
+        '-std=c11', '-O2', '-Wno-unknown-pragmas', '-DMODE1_GBA_WIDTH=576', '-Iport/ppu/include',
         'tools/verify_obj_window_snapshot.c', 'port/ppu/src/mode1.c', 'port/ppu/src/virtuappu.c',
         '-lm', '-o', str(binary)], cwd=root, check=True)
     subprocess.run([str(binary), str(a.snapshot.resolve())], cwd=root, check=True)

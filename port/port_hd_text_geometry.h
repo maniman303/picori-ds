@@ -3,10 +3,10 @@
 
 namespace PortHDText {
 // Expanded canvases use the same BG0 message/HUD layout as the PPU. This is
-// the geometry gate, not storage: tall canvases are accepted here even while
-// the production 4:3 profile remains disabled behind its own acceptance gate.
+// the geometry gate, not storage: tall canvases (4:3 and the :9 family) are
+// accepted here behind their own release and scene gates.
 inline bool SupportedFrame(int width, int height) {
-    return width >= 240 && width <= 569 && height >= 160 && height <= 192;
+    return width >= 240 && width <= 576 && height >= 160 && height <= 192;
 }
 
 // Locate the text using the same installed BG0 message band as the PPU.
@@ -17,7 +17,7 @@ inline bool SupportedFrame(int width, int height) {
 inline bool ResolveCanvasOrigin(int frameWidth, int frameHeight, bool fixedCanvas,
                                 int shift, int shiftY, int x0, int x1, int y0, int y1,
                                 int width, int height, int& x, int& y) {
-    if (frameWidth < 240 || frameWidth > 569 || frameHeight < 160 || frameHeight > 192 ||
+    if (frameWidth < 240 || frameWidth > 576 || frameHeight < 160 || frameHeight > 192 ||
         width <= 0 || width > 208 || height <= 0 || height > 32 ||
         x < 0 || x > 240 - width || y < 0 || y > 160 - height)
         return false;

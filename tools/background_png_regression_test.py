@@ -12,7 +12,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILES = [(0, '32', 240, 160), (4, '43', 256, 192),
-            (1, '169', 285, 160), (2, '219', 374, 160), (3, '329', 569, 160)]
+            (1, '169', 288, 162), (2, '219', 378, 162), (3, '329', 576, 162)]
 FAMILIES = ['menu_background', 'menu_titled_background', 'kinstone_pieces_background',
             'sword_techniques_background', 'kinstone_background']
 HEALTH = ['normal', 'damaged', 'critical']
@@ -76,37 +76,37 @@ def main():
         # The old plain image exists but must never be used as a titled alias.
         path.unlink()
         run(1, 1, 0, 0)
-        path.write_bytes(png(285, 160))
+        path.write_bytes(png(288, 162))
         (folder / 'menu_titled_background_damaged.png').unlink()
         run(1, 1, 1, 0)
-        for width, height in [(284, 160), (285, 159), (285, 192), (374, 160), (9999, 9999)]:
+        for width, height in [(287, 162), (288, 161), (288, 192), (378, 162), (9999, 9999)]:
             path.write_bytes(png(width, height) if width < 1000 else
                              b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0)))
             run(1, 1, 0, 0)
-        path.write_bytes(png(285, 160)[:-12])
+        path.write_bytes(png(288, 162)[:-12])
         run(1, 1, 0, 0)
-        corrupt = bytearray(png(285, 160))
+        corrupt = bytearray(png(288, 162))
         corrupt[-5] ^= 1
         path.write_bytes(corrupt)
         run(1, 1, 0, 0)
         path.write_bytes(b'not a png')
         run(1, 1, 0, 0)
         fixtures = [
-            (png(285, 160, 2, sample=b'\x13\x59\xa7'), (19, 89, 167, 255)),
-            (png(285, 160, 0, sample=b'\x59'), (89, 89, 89, 255)),
-            (png(285, 160, 4, sample=b'\x59\x81'), (89, 89, 89, 129)),
-            (png(285, 160, 3, sample=b'\0', extras=chunk(b'PLTE', b'\x13\x59\xa7') + chunk(b'tRNS', b'\x81')), (19, 89, 167, 129)),
-            (png(285, 160, 6, 16, b'\x13\x00\x59\x00\xa7\x00\x81\x00'), (19, 89, 167, 129)),
-            (png(285, 160, 0, 1, b'\xff', packed=True), (255, 255, 255, 255)),
-            (png(285, 160, 3, 1, b'\0', extras=chunk(b'PLTE', b'\x13\x59\xa7') + chunk(b'tRNS', b'\x81'), packed=True), (19, 89, 167, 129)),
-            (png(285, 160, interlace=True), (19, 89, 167, 129)),
+            (png(288, 162, 2, sample=b'\x13\x59\xa7'), (19, 89, 167, 255)),
+            (png(288, 162, 0, sample=b'\x59'), (89, 89, 89, 255)),
+            (png(288, 162, 4, sample=b'\x59\x81'), (89, 89, 89, 129)),
+            (png(288, 162, 3, sample=b'\0', extras=chunk(b'PLTE', b'\x13\x59\xa7') + chunk(b'tRNS', b'\x81')), (19, 89, 167, 129)),
+            (png(288, 162, 6, 16, b'\x13\x00\x59\x00\xa7\x00\x81\x00'), (19, 89, 167, 129)),
+            (png(288, 162, 0, 1, b'\xff', packed=True), (255, 255, 255, 255)),
+            (png(288, 162, 3, 1, b'\0', extras=chunk(b'PLTE', b'\x13\x59\xa7') + chunk(b'tRNS', b'\x81'), packed=True), (19, 89, 167, 129)),
+            (png(288, 162, interlace=True), (19, 89, 167, 129)),
         ]
         for data, color in fixtures:
             path.write_bytes(data)
             run(1, 1, 0, color=color)
-        for aspect, directory, width in [(2, '219', 373), (3, '329', 568)]:
+        for aspect, directory, width in [(2, '219', 377), (3, '329', 575)]:
             path = root / 'override' / directory / 'menu_titled_background_normal.png'
-            path.write_bytes(png(width, 160))
+            path.write_bytes(png(width, 162))
             run(aspect, 1, 0, 0)
         # Every selected profile must reject all four other valid sizes, as
         # well as a height error. Test the selected directory itself so a

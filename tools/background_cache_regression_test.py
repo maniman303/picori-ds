@@ -23,9 +23,9 @@ def main():
         for family, name in enumerate(FAMILIES):
             for health, suffix in enumerate(HEALTH):
                 red = 19 + family * 14 + health * 3
-                (folder / f'{name}_{suffix}.png').write_bytes(png(285, 160, sample=bytes([red, 89, 167, 129])))
-                (mod_folder / f'{name}_{suffix}.png').write_bytes(png(285, 160, sample=bytes([200, 1, 2, 255])))
-        (folder / 'fast_travel_background.png').write_bytes(png(285, 160, sample=bytes([55, 89, 167, 129])))
+                (folder / f'{name}_{suffix}.png').write_bytes(png(288, 162, sample=bytes([red, 89, 167, 129])))
+                (mod_folder / f'{name}_{suffix}.png').write_bytes(png(288, 162, sample=bytes([200, 1, 2, 255])))
+        (folder / 'fast_travel_background.png').write_bytes(png(288, 162, sample=bytes([55, 89, 167, 129])))
         folder43 = root / 'override' / '43'
         folder43.mkdir(parents=True)
         for family, name in enumerate(FAMILIES):
@@ -35,9 +35,9 @@ def main():
         (folder43 / 'fast_travel_background.png').write_bytes(png(256, 192, sample=bytes([66, 89, 167, 129])))
         wide = root / 'override' / '219'
         wide.mkdir()
-        (wide / 'menu_background_normal.png').write_bytes(png(374, 160, sample=bytes([76, 89, 167, 129])))
-        (root / 'fixture.png').write_bytes(png(285, 160, sample=bytes([44, 89, 167, 129])))
-        (root / 'edited.png').write_bytes(png(285, 160, sample=bytes([88, 17, 23, 128])))
+        (wide / 'menu_background_normal.png').write_bytes(png(378, 162, sample=bytes([76, 89, 167, 129])))
+        (root / 'fixture.png').write_bytes(png(288, 162, sample=bytes([44, 89, 167, 129])))
+        (root / 'edited.png').write_bytes(png(288, 162, sample=bytes([88, 17, 23, 128])))
         (root / 'corrupt.png').write_bytes(b'broken png')
         try:
             flags = shlex.split(subprocess.check_output(

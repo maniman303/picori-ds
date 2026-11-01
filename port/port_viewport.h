@@ -10,16 +10,18 @@ extern "C" {
 
 /* Version 1 is the public PNG size/directory contract. These are logical
  * square-pixel dimensions, independent of window size and internal scale.
- * Except for DS at 256x192, height is 160 and width is ceil(160 * aspect).
- * Fractional widths round up to a pixel, without even-width/tile alignment.
- * Hardware timing and original source coordinates remain 240x160. */
+ * Width is ceil(height * aspect) for each profile's published height: 160 for
+ * 3:2, 192 for 4:3, and 162 for the :9 family. Fractional widths round up to a
+ * pixel, without even-width/tile alignment. Hardware timing and original source
+ * coordinates remain 240x160. */
 #define PORT_VIEWPORT_PROFILE_VERSION 1
 #define PORT_VIEWPORT_NATIVE_WIDTH 240
 #define PORT_VIEWPORT_NATIVE_HEIGHT 160
 /* Compile-time raster/OBJ capacity, not a profile. Profiles publish their own
- * canvas; only a future profile taller than this bound would need a capacity
- * change (and the matching PPU/GPU work). */
-#define PORT_VIEWPORT_MAX_WIDTH 569
+ * canvas; the width bound covers 32:9 at the 162-row :9 height and the height
+ * bound covers 4:3. A profile beyond either bound needs a capacity change (and
+ * the matching PPU/GPU work). */
+#define PORT_VIEWPORT_MAX_WIDTH 576
 #define PORT_VIEWPORT_MAX_HEIGHT 192
 
 /* Persisted IDs: append new modes, never reorder existing ones. */

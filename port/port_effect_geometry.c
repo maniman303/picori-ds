@@ -1,7 +1,9 @@
 #include "port_effect_geometry.h"
 
-#define MAX_CANVAS_WIDTH 569
-#define MAX_CANVAS_HEIGHT 192
+#include "port_viewport.h"
+
+#define MAX_CANVAS_WIDTH PORT_VIEWPORT_MAX_WIDTH
+#define MAX_CANVAS_HEIGHT PORT_VIEWPORT_MAX_HEIGHT
 #define MAX_IRIS_RADIUS 1024
 
 bool Port_Effect_BuildIrisRows(int canvas_width, int canvas_height, int native_x, int native_y,

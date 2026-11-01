@@ -95,16 +95,17 @@ Proposed fixed profiles, before optional internal supersampling:
 | --- | --- | --- | --- |
 | 3:2 / GBA | `32` | 240 × 160 | Explicit native geometry. |
 | 4:3 / DS | `43` | **256 × 192** | Exact DS pixel dimensions, not a resized GBA frame. |
-| 16:9 | `169` | 285 × 160 | Ceiling of 160 × 16/9. |
-| 21:9 | `219` | 374 × 160 | Ceiling of 160 × 21/9. |
-| 32:9 | `329` | 569 × 160 | Ceiling of 160 × 32/9; exceeds the currently shipped 384 capacity and native OBJ X range assumptions. |
+| 16:9 | `169` | 288 × 162 | Exact 16:9 at the 162-row :9 height. |
+| 21:9 | `219` | 378 × 162 | Exact 21:9 at the 162-row :9 height. |
+| 32:9 | `329` | 576 × 162 | Exact 32:9 at the 162-row :9 height; requires the 576-pixel release capacity. |
 
-Except for the explicit 4:3 / DS profile at 256 × 192, every profile keeps a
-height of 160 pixels. Calculate width as `ceil(160 * ratioWidth / ratioHeight)`:
+Each profile publishes a family height: 160 for 3:2, 192 for 4:3, and 162 for
+the :9 family. Calculate width as `ceil(height * ratioWidth / ratioHeight)`:
 when the exact ratio requires a fractional width, always round upward to the
 next integer pixel, not down or to the nearest even/tile-aligned width. Thus
-16:9 requires 285 × 160, not 284 × 160 or 286 × 160. This ceiling rule applies
-to canvas dimensions; the native-content centering offsets still use floor.
+16:9 is 288 × 162, 21:9 is 378 × 162 and 32:9 is 576 × 162. This ceiling rule
+applies to canvas dimensions; the native-content centering offsets still use
+floor.
 Preserve square source pixels and aspect-fit the integer canvas inside the
 requested stage; accept the subpixel-rounding remainder as bars/fill. Document
 these sizes in the settings and override guide. Every backend and PNG validator
@@ -132,7 +133,7 @@ must now select native geometry explicitly. Overrides and enhanced layout are
 disabled in parity mode.
 
 Capacity must support the published profiles. Prefer a bounded maximum width
-of at least 569 and height of 192, with runtime **visible** dimensions; capacity
+of at least 576 and height of 192, with runtime **visible** dimensions; capacity
 must not enlarge every loop. Retain native-only N64 constraints. Keep the old
 build option as a deprecated capacity alias initially; update `build.py`, the
 RG script, tools, and documentation together. A capacity-limited build must
@@ -456,8 +457,8 @@ Artist-facing examples:
 ```text
 assets/override/32/menu_background_normal.png      # 240 x 160 native reference
 assets/override/43/menu_background_normal.png      # 256 x 192
-assets/override/169/menu_background_normal.png     # 285 x 160
-assets/override/219/menu_background_normal.png     # 374 x 160
+assets/override/169/menu_background_normal.png     # 288 x 162
+assets/override/219/menu_background_normal.png     # 378 x 162
 assets/override/329/menu_background_normal.png     # 569 x 160
 assets/override/43/menu_background_damaged.png
 assets/override/43/menu_background_critical.png
@@ -490,8 +491,8 @@ indexed input is optional convenience, not a required palette format. Handle
 standard PNG bit depths and interlacing with libpng's normal normalization.
 The art is not quantized to GBA colors. The only content contract is the exact
 logical canvas size for the selected aspect ratio, before supersampling:
-240 × 160 for 3:2, 256 × 192 for 4:3, 285 × 160 for 16:9, 374 × 160 for
-21:9, and 569 × 160 for 32:9. Validate both PNG dimensions against that
+240 × 160 for 3:2, 256 × 192 for 4:3, 288 × 162 for 16:9, 378 × 162 for
+21:9, and 576 × 162 for 32:9. Validate both PNG dimensions against that
 profile, not against a universal 256 × 192 size or the current window size.
 
 Resolve the hardcoded context before lookup:

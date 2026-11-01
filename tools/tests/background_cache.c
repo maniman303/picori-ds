@@ -5,13 +5,13 @@
 #include <string.h>
 
 static PortBackgroundCache cache;
-static uint32_t canvas[374 * 160];
+static uint32_t canvas[378 * 162];
 _Static_assert(sizeof(cache) < 8u * 1024 * 1024, "cache exceeds steady budget");
 
 static const uint8_t* current(int red) {
     int width = -1, height = -1;
     const uint8_t* pixels = Port_BackgroundCache_Current(&cache, &width, &height);
-    assert(pixels && width == 285 && height == 160 && pixels[0] == red);
+    assert(pixels && width == 288 && height == 162 && pixels[0] == red);
     return pixels;
 }
 
@@ -95,9 +95,9 @@ int main(int argc, char** argv) {
                                               PORT_ASPECT_WIDESCREEN_16_9, 1, false) == PORT_BACKGROUND_CACHE_FAILED);
         Port_BackgroundCache_Commit(&cache);
         assert(!Port_BackgroundCache_Current(&cache, NULL, NULL));
-        for (int i = 0; i < 374 * 160; ++i) canvas[i] = 0xffabcdef;
-        assert(Port_TitleCap_ExpandFrame(canvas, 285, 160, 374, 22, 0, NULL, 0, 0xff000000));
-        assert(canvas[0] == 0xff000000 && canvas[21] == 0xff000000 && canvas[22] == 0xffabcdef);
+        for (int i = 0; i < 378 * 162; ++i) canvas[i] = 0xffabcdef;
+        assert(Port_TitleCap_ExpandFrame(canvas, 288, 162, 378, 24, 1, NULL, 0, 0xff000000));
+        assert(canvas[0] == 0xff000000 && canvas[378 + 23] == 0xff000000 && canvas[378 + 24] == 0xffabcdef);
         assert(rename(temp, path) == 0);
     }
     Port_BackgroundCache_Invalidate(&cache);
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
     Port_BackgroundCache_Commit(&cache);
     int wide_width, wide_height;
     const uint8_t* wide = Port_BackgroundCache_Current(&cache, &wide_width, &wide_height);
-    assert(wide && wide_width == 374 && wide_height == 160 && wide[0] == 76);
+    assert(wide && wide_width == 378 && wide_height == 162 && wide[0] == 76);
     assert(Port_BackgroundCache_StageMenu(&cache, PORT_BACKGROUND_MENU_PLAIN, PORT_BACKGROUND_HEALTH_NORMAL,
                                           PORT_ASPECT_WIDESCREEN_16_9, 1, false) == PORT_BACKGROUND_CACHE_READY);
     Port_BackgroundCache_Commit(&cache);

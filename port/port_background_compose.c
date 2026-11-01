@@ -18,7 +18,7 @@ static bool compose(uint32_t* output, int pitch, const PortBackgroundComposition
                     const uint8_t outside_rgb[3], const PortBackgroundComposeRow* right_rows, int right_count,
                     const PortBackgroundComposeRow* top, const PortBackgroundComposeRow* bottom, int edge_count) {
     if (!output || !c || !c->rows || c->canvas.x != 0 || c->canvas.y != 0 ||
-        c->canvas.width < 240 || c->canvas.width > 569 || c->canvas.height < 160 ||
+        c->canvas.width < 240 || c->canvas.width > PORT_VIEWPORT_MAX_WIDTH || c->canvas.height < 160 ||
         c->canvas.height > 192 || pitch < c->canvas.width || c->row_count < c->canvas.height ||
         c->native.width != 240 || c->native.height != 160 || c->native.x < 0 || c->native.y < 0 ||
         c->native.x > c->canvas.width - 240 || c->native.y > c->canvas.height - 160 ||

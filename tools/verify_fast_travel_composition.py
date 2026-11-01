@@ -23,8 +23,8 @@ for folder in (art, missing):
 for frame in (632, 659, 660, 675, 682):
     with Image.open(art / f'{frame:06}.png') as ai, Image.open(missing / f'{frame:06}.png') as bi:
         a, b = ai.convert('RGB'), bi.convert('RGB')
-        assert a.size == b.size == (285, 160)
-        assert ImageChops.difference(a.crop((22, 0, 262, 160)), b.crop((22, 0, 262, 160))).getbbox() is None
+        assert a.size == b.size == (288, 162)
+        assert ImageChops.difference(a.crop((24, 1, 264, 161)), b.crop((24, 1, 264, 161))).getbbox() is None
         assert a.getpixel((0, 100)) != b.getpixel((0, 100))
 for frame in (699, 704):
     with Image.open(art / f'{frame:06}.png') as ai, Image.open(missing / f'{frame:06}.png') as bi:

@@ -913,11 +913,11 @@ extern "C" const char* Port_Config_AspectModeName(PortAspectMode mode) {
         case PORT_ASPECT_DS_4_3:
             return "DS 4:3 (256x192)";
         case PORT_ASPECT_WIDESCREEN_16_9:
-            return "Widescreen 16:9 (285x160)";
+            return "Widescreen 16:9 (288x162)";
         case PORT_ASPECT_ULTRAWIDE_21_9:
-            return "Ultrawide 21:9 (374x160)";
+            return "Ultrawide 21:9 (378x162)";
         case PORT_ASPECT_SUPER_ULTRAWIDE_32_9:
-            return "Super Ultrawide 32:9 (569x160)";
+            return "Super Ultrawide 32:9 (576x162)";
         case PORT_ASPECT_NATIVE_3_2:
         default:
             return "Native 3:2 (GBA)";

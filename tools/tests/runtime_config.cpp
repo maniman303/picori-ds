@@ -19,15 +19,15 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
     assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
     Port_Config_PublishViewport();
-    assert(Port_Viewport_Get()->canvas.width == 285);
+    assert(Port_Viewport_Get()->canvas.width == 288);
     const uint32_t generation = Port_Viewport_Get()->generation;
     Port_Config_SetAspectMode(PORT_ASPECT_ULTRAWIDE_21_9);
     // Settings can change during presentation. Geometry stays fixed until the
     // explicit boundary used by the input/VBlank path publishes the next tick.
     assert(Port_Viewport_Get()->generation == generation);
-    assert(Port_Viewport_Get()->canvas.width == 285);
+    assert(Port_Viewport_Get()->canvas.width == 288);
     Port_Config_PublishViewport();
-    assert(Port_Viewport_Get()->canvas.width == 374);
+    assert(Port_Viewport_Get()->canvas.width == 378);
     Port_Config_SetConsoleParity(true);
     Port_Config_PublishViewport();
     assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
@@ -35,7 +35,7 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Viewport_Get()->canvas.width == 240);
     Port_Config_SetConsoleParity(false);
     Port_Config_PublishViewport();
-    assert(Port_Viewport_Get()->canvas.width == 374);
+    assert(Port_Viewport_Get()->canvas.width == 378);
     nlohmann::json saved;
     std::ifstream(path) >> saved;
     assert(!saved.contains("widescreen_enabled"));
@@ -51,15 +51,23 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Viewport_Get()->capacityWidth == MODE1_GBA_WIDTH);
     assert(Port_Viewport_Get()->pitchPixels == MODE1_GBA_WIDTH);
     assert(Port_Viewport_Get()->capacityHeight == 192);
-    /* 4:3 is release-enabled and fits both test capacities; 32:9 remains
-     * unavailable because its width exceeds the OBJ-safe bound. */
+    /* 4:3 is release-enabled and fits both test capacities. 32:9 is exposed
+     * only when the capacity reaches its 576-pixel canvas. */
     assert(Port_Config_AspectModeAvailable(PORT_ASPECT_DS_4_3));
+#if MODE1_GBA_WIDTH >= 576
+    assert(Port_Config_AspectModeAvailable(PORT_ASPECT_SUPER_ULTRAWIDE_32_9));
+#else
     assert(!Port_Config_AspectModeAvailable(PORT_ASPECT_SUPER_ULTRAWIDE_32_9));
+#endif
     Port_Config_CycleAspectMode(1);
     assert(Port_Config_AspectMode() == PORT_ASPECT_WIDESCREEN_16_9);
     Port_Config_CycleAspectMode(1);
     assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
     Port_Config_CycleAspectMode(1);
+#if MODE1_GBA_WIDTH >= 576
+    assert(Port_Config_AspectMode() == PORT_ASPECT_SUPER_ULTRAWIDE_32_9);
+    Port_Config_CycleAspectMode(1);
+#endif
     assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
     Port_Config_CycleAspectMode(1);
     assert(Port_Config_AspectMode() == PORT_ASPECT_NATIVE_3_2);
@@ -72,7 +80,11 @@ static void CheckAspectConfig(const char* path) {
     assert(Port_Config_AspectMode() == PORT_ASPECT_ULTRAWIDE_21_9);
     load(path, R"({"aspect_mode":"super_ultrawide"})");
     assert(Port_Config_AspectMode() == PORT_ASPECT_SUPER_ULTRAWIDE_32_9);
+#if MODE1_GBA_WIDTH >= 576
+    assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_SUPER_ULTRAWIDE_32_9);
+#else
     assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_NATIVE_3_2);
+#endif
     load(path, R"({"aspect_mode":"4:3"})");
     assert(Port_Config_AspectMode() == PORT_ASPECT_DS_4_3);
     assert(Port_Config_EffectiveAspectMode() == PORT_ASPECT_DS_4_3);

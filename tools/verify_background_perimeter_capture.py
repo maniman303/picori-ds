@@ -20,9 +20,9 @@ for native in sorted(args.native.glob('*.png')):
     if frame < args.min_frame or frame in args.skip_frame or not wide.is_file():
         continue
     size = subprocess.check_output(['identify', '-format', '%wx%h', str(wide)], text=True)
-    if size != '285x160':
-        raise SystemExit(f'{wide}: expected 285x160, got {size}')
-    result = subprocess.run(['compare', '-metric', 'AE', '(', str(wide), '-crop', '240x160+22+0',
+    if size != '288x162':
+        raise SystemExit(f'{wide}: expected 288x162, got {size}')
+    result = subprocess.run(['compare', '-metric', 'AE', '(', str(wide), '-crop', '240x160+24+1',
                              '+repage', ')', str(native), 'null:'], stdout=subprocess.DEVNULL,
                             stderr=subprocess.PIPE, text=True)
     if result.returncode:

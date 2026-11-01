@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Fixed the one-frame white border around the title → file-select black
+  transition on tall canvases. Forced blank now covers the whole composed
+  canvas, and a uniformly black native frame clamps its margins to the same
+  colour instead of leaving outgoing white artwork behind.
+- :9 aspect ratios now use proper 162-row canvases: 16:9 is 288×162, 21:9 is
+  378×162 and 32:9 is 576×162. The release width capacity is 576 pixels, and
+  the tall live-world, HUD/dialogue, map-staging and presentation gates are
+  shared with 4:3 instead of treating the :9 family as native-height only.
 - Standard top dialogue now keeps the same 16-pixel canvas-top padding as the
   bottom dialogue box has from the bottom edge, on every aspect ratio.
 - 4:3 white fades and the initial blank screen now fill the whole canvas

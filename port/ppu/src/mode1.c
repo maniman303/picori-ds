@@ -788,7 +788,7 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
 
     /* Tall-canvas variant: the tilemap row is a per-pixel input because the
      * message window and lower-right HUD can be sampled from a different
-     * native scanline. Only the 192-line canvases take this path. */
+     * native scanline. Only taller-than-native canvases take this path. */
 #define MODE1_BG_PIXEL_SY(_sx, _sy)                                                                                    \
     do {                                                                                                               \
         int eff_x_sy = (mosaic_h == 1) ? (_sx) : ((_sx) / mosaic_h) * mosaic_h;                                       \
@@ -869,7 +869,7 @@ static void mode1_render_text_bg_line_internal(int bg_index, int line, int rende
     } while (0)
 
     if (ws_vertical_line) {
-        /* 192-line canvases: the message and lower-right HUD keep their native
+        /* Tall canvases: the message and lower-right HUD keep their native
          * tilemap content but move to the canvas corners. Sample the source
          * scanline only inside the published x band; unrelated BG0 pixels on
          * the same line stay native. Banners publish shift_y == 0. */

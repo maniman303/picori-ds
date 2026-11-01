@@ -31,7 +31,7 @@ bool Port_Background_LoadPng(const char* root, PortBackgroundContext context,
     int ok = 0;
 
     if (!root || !rgba || !profile || background->source != PORT_BACKGROUND_SOURCE_IMAGE ||
-        !background->filename || profile->width <= 0 || profile->width > 569 ||
+        !background->filename || profile->width <= 0 || profile->width > PORT_VIEWPORT_MAX_WIDTH ||
         profile->height <= 0 || profile->height > 192)
         return false;
     bytes = (size_t)profile->width * (size_t)profile->height * 4;

@@ -9,7 +9,7 @@ extern "C" {
 
 /* Two bounded slots, owned by the caller. Keep this off the stack. The
  * conservative bound covers every profile, including the taller raster. */
-#define PORT_BACKGROUND_CACHE_SLOT_BYTES (569u * 192u * 4u)
+#define PORT_BACKGROUND_CACHE_SLOT_BYTES (PORT_VIEWPORT_MAX_WIDTH * PORT_VIEWPORT_MAX_HEIGHT * 4u)
 #define PORT_BACKGROUND_CACHE_ROOT_BYTES 4096
 
 typedef enum {

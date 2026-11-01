@@ -654,10 +654,10 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
     # only under #ifdef MULTI_REGION — that the fat multi-region build hides.
     configure_cmd.append("--multi_region=y" if multi_region else "--multi_region=n")
 
-    # Storage for every v1 profile: width 569, bounded raster height 192.
+    # Storage for every v1 profile: width 576, bounded raster height 192.
     # Direct xmake builds keep their native-width default. Runtime scene/layout
     # gates still decide which profiles are available; capacity enables none.
-    configure_cmd.append("--widescreen_width=569")
+    configure_cmd.append("--widescreen_width=576")
 
     # Keep the TMC_REPRO_* / TMC_PERFCAP harnesses in the artifact: CI's PPU
     # parity gate (tools/ppu_parity_check.sh) drives this binary via

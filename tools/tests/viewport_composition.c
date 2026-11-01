@@ -19,13 +19,14 @@ static void expect_rect(PortViewportRect r, int x, int y, int w, int h) {
 int main(void) {
 #if PORT_VIEWPORT_RELEASE_TALL
     /* The release path is profile/capacity based: tall profiles need the
-     * 569x192 capacity, and the OBJ-safe width bound still rejects 32:9. */
-    assert(Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 569, 192));
+     * 576x192 capacity, which covers every v1 profile including 32:9. */
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 576, 192));
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 240, 192));
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 576, 192));
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 192));
 #endif
     /* Published 4:3 canvas: a native world aperture is centered. */
-    assert(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 569, 192, 569));
+    assert(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 576, 192, 576));
     const PortViewportGeometry* g = Port_Viewport_Get();
     expect_rect(g->canvas, 0, 0, 256, 192);
     expect_rect(g->nativeContent, 8, 16, 240, 160);
@@ -73,19 +74,19 @@ int main(void) {
     /* Native/wide canvases keep the existing direct path. */
     scene.capabilities = PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE;
     Port_Viewport_PublishScene(scene);
-    assert(Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 569, 192, 569));
+    assert(Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 576, 192, 576));
     expect_rect(g->canvas, 0, 0, 240, 160);
     scene.roomWidth = 240;
     scene.roomHeight = 160;
     Port_Viewport_PublishScene(scene);
     expect_rect(g->world, 0, 0, 240, 160);
     assert(Port_Viewport_RasterHeight(g) == 160);
-    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 569, 192, 569));
-    expect_rect(g->canvas, 0, 0, 285, 160);
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 576, 192, 576));
+    expect_rect(g->canvas, 0, 0, 288, 162);
     scene.roomWidth = 1024;
     Port_Viewport_PublishScene(scene);
-    expect_rect(g->world, 0, 0, 285, 160);
-    assert(Port_Viewport_RasterHeight(g) == 160);
+    expect_rect(g->world, 0, 1, 288, 160);
+    assert(Port_Viewport_RasterHeight(g) == 162);
 
     /* Synthetic proper-16:9 extent (288x162): profile-general, no 192/4:3
      * branch. A 160-row room gets one fill row above and below. */

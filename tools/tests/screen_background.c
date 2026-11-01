@@ -20,9 +20,9 @@ static void CheckProfiles(void) {
     } cases[] = {
         { "32", "3:2", 240, 160, 0, 0 },
         { "43", "4:3", 256, 192, 8, 16 },
-        { "169", "16:9", 285, 160, 22, 0 },
-        { "219", "21:9", 374, 160, 67, 0 },
-        { "329", "32:9", 569, 160, 164, 0 },
+        { "169", "16:9", 288, 162, 24, 1 },
+        { "219", "21:9", 378, 162, 69, 1 },
+        { "329", "32:9", 576, 162, 168, 1 },
     };
     assert(PORT_VIEWPORT_PROFILE_VERSION == 1);
     for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
@@ -34,8 +34,9 @@ static void CheckProfiles(void) {
             unsigned numerator = 0, denominator = 0;
             assert(sscanf(profile->aspect, "%u:%u", &numerator, &denominator) == 2);
             assert(denominator != 0);
-            assert(profile->height == 160);
-            assert((unsigned)profile->width == (160 * numerator + denominator - 1) / denominator);
+            const unsigned expectedHeight = strcmp(profile->aspect, "3:2") == 0 ? 160 : 162;
+            assert((unsigned)profile->height == expectedHeight);
+            assert((unsigned)profile->width == (expectedHeight * numerator + denominator - 1) / denominator);
         }
         PortViewportRect rect = Port_Viewport_NativeContentRect(profile);
         assert(rect.x == cases[i].x && rect.y == cases[i].y);
@@ -64,7 +65,7 @@ static void CheckProfiles(void) {
     assert(Port_Viewport_FindProfile("") == NULL);
     assert(Port_Viewport_FindProfile("4:3") == NULL);
     assert(Port_Viewport_FindProfile("../43") == NULL);
-    assert(!Port_Viewport_ProfileFits(NULL, 569, 192));
+    assert(!Port_Viewport_ProfileFits(NULL, 576, 192));
     PortViewportRect native = Port_Viewport_NativeContentRect(NULL);
     assert(native.x == 0 && native.y == 0 && native.width == 240 && native.height == 160);
     PortUITranslation tallTopRight = Port_Viewport_UITranslation(PORT_UI_TOP_RIGHT, 256, 192);
@@ -92,10 +93,10 @@ static void CheckStandardMessageGeometry(void) {
     assert(24 + t.y == 32 && 16 + t.y == 24);
     assert(Port_Viewport_StandardMessageTranslation(bottom, 256, 192, &t));
     assert(t.x == 8 && t.y == 32); /* bottom follows the canvas bottom */
-    assert(Port_Viewport_StandardMessageTranslation(top, 285, 160, &t));
-    assert(t.x == 22 && t.y == 8);
-    assert(Port_Viewport_StandardMessageTranslation(bottom, 374, 160, &t));
-    assert(t.x == 67 && t.y == 0);
+    assert(Port_Viewport_StandardMessageTranslation(top, 288, 162, &t));
+    assert(t.x == 24 && t.y == 8);
+    assert(Port_Viewport_StandardMessageTranslation(bottom, 378, 162, &t));
+    assert(t.x == 69 && t.y == 2);
     /* Generic height rule: top always +8, bottom always height - 160. */
     assert(Port_Viewport_StandardMessageTranslation(top, 288, 162, &t));
     assert(t.x == 24 && t.y == 8);
@@ -119,43 +120,45 @@ static void CheckPublication(void) {
     assert(Port_Viewport_ProfileForAspect((PortAspectMode)-1) == NULL);
     assert(Port_Viewport_ProfileForAspect(PORT_ASPECT_DS_4_3) == Port_Viewport_FindProfile("43"));
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_WIDESCREEN_16_9, 240, 160));
-    assert(Port_Viewport_AspectSupported(PORT_ASPECT_ULTRAWIDE_21_9, 384, 160));
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_ULTRAWIDE_21_9, 384, 192));
 #if PORT_VIEWPORT_RELEASE_TALL
     /* Tall canvases are a release capability; capacity alone still gates. */
-    assert(Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 569, 192));
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 576, 192));
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 384, 160));
 #else
-    assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 569, 192));
+    assert(!Port_Viewport_AspectSupported(PORT_ASPECT_DS_4_3, 576, 192));
 #endif
+    assert(Port_Viewport_AspectSupported(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 576, 192));
     assert(!Port_Viewport_AspectSupported(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, 569, 192));
 
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     assert(geometry->canvas.width == 240 && geometry->generation == 0);
-    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 576, 192, 576));
     assert(geometry == Port_Viewport_Get());
     assert(geometry->selectedAspect == PORT_ASPECT_WIDESCREEN_16_9);
     assert(geometry->effectiveAspect == PORT_ASPECT_WIDESCREEN_16_9);
-    assert(geometry->canvas.width == 285 && geometry->canvas.height == 160);
-    assert(geometry->nativeContent.x == 22 && geometry->nativeContent.width == 240);
-    assert(geometry->uiSafe.width == 285);
-    assert(geometry->pitchPixels == 384 && geometry->capacityWidth == 384);
+    assert(geometry->canvas.width == 288 && geometry->canvas.height == 162);
+    assert(geometry->nativeContent.x == 24 && geometry->nativeContent.width == 240);
+    assert(geometry->nativeContent.y == 1);
+    assert(geometry->uiSafe.width == 288);
+    assert(geometry->pitchPixels == 576 && geometry->capacityWidth == 576);
     uint32_t generation = geometry->generation;
-    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 576, 192, 576));
     assert(geometry->generation == generation);
-    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 384, 160, 240));
-    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 239, 160, 384));
-    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 384, 159, 384));
-    assert(geometry->generation == generation && geometry->canvas.width == 285);
+    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 576, 192, 240));
+    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 239, 160, 576));
+    assert(!Port_Viewport_Publish(PORT_ASPECT_NATIVE_3_2, false, 576, 159, 576));
+    assert(geometry->generation == generation && geometry->canvas.width == 288);
 
-    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, true, 384, 160, 384));
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, true, 576, 192, 576));
     assert(geometry->generation != generation);
     assert(geometry->flags == PORT_VIEWPORT_PARITY);
     assert(geometry->canvas.width == 240 && geometry->effectiveAspect == PORT_ASPECT_NATIVE_3_2);
     assert(geometry->selectedAspect == PORT_ASPECT_WIDESCREEN_16_9);
-    assert(Port_Viewport_Publish(geometry->selectedAspect, false, 384, 160, 384));
-    assert(geometry->canvas.width == 285 && geometry->flags == 0);
-    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 400));
-    assert(geometry->canvas.width == 374 && geometry->nativeContent.x == 67);
+    assert(Port_Viewport_Publish(geometry->selectedAspect, false, 576, 192, 576));
+    assert(geometry->canvas.width == 288 && geometry->flags == 0);
+    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 192, 400));
+    assert(geometry->canvas.width == 378 && geometry->nativeContent.x == 69);
     assert(geometry->pitchPixels == 400);
     assert(Port_Viewport_Publish(PORT_ASPECT_DS_4_3, false, 384, 160, 384));
     assert(geometry->selectedAspect == PORT_ASPECT_DS_4_3);
@@ -163,8 +166,9 @@ static void CheckPublication(void) {
     assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 240, 160, 240));
     assert(geometry->selectedAspect == PORT_ASPECT_ULTRAWIDE_21_9);
     assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
-    assert(Port_Viewport_Publish(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, false, 569, 192, 569));
-    assert(geometry->canvas.width == 240 && geometry->flags == PORT_VIEWPORT_UNSUPPORTED);
+    assert(Port_Viewport_Publish(PORT_ASPECT_SUPER_ULTRAWIDE_32_9, false, 576, 192, 576));
+    assert(geometry->canvas.width == 576 && geometry->canvas.height == 162);
+    assert(geometry->flags == 0);
 }
 
 static void CheckFutureRoomAperture(void) {
@@ -229,11 +233,11 @@ static void CheckFutureRoomAperture(void) {
 
 static void CheckScenePublication(void) {
     PortViewportScene scene = { PORT_SCENE_WORLD | PORT_SCENE_WIDE_WORLD | PORT_SCENE_MAP_LIVE, 1024, 1024 };
-    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 384, 160, 384));
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, false, 576, 192, 576));
     Port_Viewport_PublishScene(scene);
     const PortViewportGeometry* geometry = Port_Viewport_Get();
-    assert(geometry->world.width == 285 && geometry->world.height == 160);
-    assert(geometry->world.x == 0 && geometry->canvas.width == 285);
+    assert(geometry->world.width == 288 && geometry->world.height == 160);
+    assert(geometry->world.x == 0 && geometry->canvas.width == 288);
     uint32_t generation = geometry->generation;
     Port_Viewport_PublishScene(scene);
     assert(geometry->generation == generation);
@@ -242,29 +246,29 @@ static void CheckScenePublication(void) {
     scene.capabilities |= PORT_SCENE_TALL_SHAKE_UNSAFE;
     Port_Viewport_PublishScene(scene);
     assert(geometry->scene.capabilities & PORT_SCENE_TALL_SHAKE_UNSAFE);
-    assert(geometry->world.width == 285 && geometry->world.height == 160);
+    assert(geometry->world.width == 288 && geometry->world.height == 160);
     generation = geometry->generation;
     Port_Viewport_PublishScene(scene);
     assert(geometry->generation == generation);
     scene.capabilities &= ~PORT_SCENE_TALL_SHAKE_UNSAFE;
     scene.roomWidth = 256;
     Port_Viewport_PublishScene(scene);
-    assert(geometry->world.width == 256 && geometry->world.x == 14);
-    assert(geometry->canvas.width == 285 && geometry->uiSafe.width == 285);
-    assert(geometry->nativeContent.x == 22 && geometry->generation != generation);
+    assert(geometry->world.width == 256 && geometry->world.x == 16);
+    assert(geometry->canvas.width == 288 && geometry->uiSafe.width == 288);
+    assert(geometry->nativeContent.x == 24 && geometry->generation != generation);
     scene.capabilities |= PORT_SCENE_NATIVE_TRANSITION;
     Port_Viewport_PublishScene(scene);
-    assert(geometry->world.width == 240 && geometry->world.x == 22);
+    assert(geometry->world.width == 240 && geometry->world.x == 24);
     scene.capabilities &= ~PORT_SCENE_NATIVE_TRANSITION;
     Port_Viewport_PublishScene(scene);
     assert(geometry->world.width == 256);
-    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, true, 384, 160, 384));
+    assert(Port_Viewport_Publish(PORT_ASPECT_WIDESCREEN_16_9, true, 576, 192, 576));
     assert(geometry->world.width == 240 && geometry->world.x == 0);
-    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 160, 400));
-    assert(geometry->world.width == 256 && geometry->world.x == 59);
+    assert(Port_Viewport_Publish(PORT_ASPECT_ULTRAWIDE_21_9, false, 384, 192, 400));
+    assert(geometry->world.width == 256 && geometry->world.x == 61);
     scene.roomWidth = -1;
     Port_Viewport_PublishScene(scene);
-    assert(geometry->world.width == 240 && geometry->world.x == 67);
+    assert(geometry->world.width == 240 && geometry->world.x == 69);
     scene.roomWidth = 1024;
     scene.roomHeight = 0;
     Port_Viewport_PublishScene(scene);
