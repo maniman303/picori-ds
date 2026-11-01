@@ -255,6 +255,31 @@ extern "C" const uint32_t* Port_PPU_GetComposedFrame(int* width, int* height, in
     return frame;
 }
 
+/* True when every pixel in `rect` is near-white and neutral. A full-canvas
+ * white palette fade (or the initial blank screen) produces exactly this; a
+ * normal scene that merely contains white does not. Sampling the composed
+ * pixels keeps brightness/colour correction and region-specific white levels
+ * exact. */
+static bool Port_PPU_RectIsUniformWhite(const uint32_t* frame, int pitch, PortViewportRect rect) {
+    if (!frame || rect.width <= 0 || rect.height <= 0 || rect.x < 0 || rect.y < 0 ||
+        rect.x + rect.width > pitch)
+        return false;
+    for (int y = rect.y; y < rect.y + rect.height; ++y) {
+        const uint32_t* row = frame + (size_t)y * (size_t)pitch;
+        for (int x = rect.x; x < rect.x + rect.width; ++x) {
+            const uint32_t p = row[x];
+            const unsigned r = (p >> 16) & 0xffu;
+            const unsigned g = (p >> 8) & 0xffu;
+            const unsigned b = p & 0xffu;
+            const unsigned lo = std::min(r, std::min(g, b));
+            const unsigned hi = std::max(r, std::max(g, b));
+            if (lo < 0xC0u || hi - lo > 0x20u)
+                return false;
+        }
+    }
+    return true;
+}
+
 /* The PPU buffer already has the bounded canvas capacity. Move native rows
  * backwards in place so no second full-frame allocation is needed. */
 static bool Port_PPU_ComposeBackground(void) {
@@ -1873,9 +1898,22 @@ extern "C" void Port_PPU_PresentFrame(void) {
     if (sWorldRectActive && !(gIoMem[0] & 0x80)) {
         int mask_width = 0;
         const uint8_t* mask = virtuappu_mode1_frame_ui_mask(&mask_width);
-        Port_EdgeFade_Apply(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
-                            virtuappu_mode1_frame_width(), virtuappu_mode1_frame_height(),
-                            Port_Viewport_Get()->world, mask, mask_width);
+        const PortViewportRect world = Port_Viewport_Get()->world;
+        const int frame_width = virtuappu_mode1_frame_width();
+        const int frame_height = virtuappu_mode1_frame_height();
+        const bool has_margins = world.x != 0 || world.y != 0 ||
+                                 world.width != frame_width || world.height != frame_height;
+        if (has_margins && Port_PPU_RectIsUniformWhite(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                                       world)) {
+            /* A full-canvas white fade owns the whole screen. Continue its
+             * colour through the added rows/columns instead of cutting to a
+             * black letterbox band for the transition frames. */
+            Port_EdgeFade_ApplySolid(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                     frame_width, frame_height, world, mask, mask_width);
+        } else {
+            Port_EdgeFade_Apply(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                frame_width, frame_height, world, mask, mask_width);
+        }
     }
 
     /* If TMC_PUBLISH_FRAMEBUFFER is on, re-render each main world BG
@@ -1963,7 +2001,24 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * raw game data. No-ops when disabled. Operates on the normalized render
      * height and pitch; present-side upscale/xBRZ run
      * afterwards on the transformed pixels. */
-    if (Port_PPU_ComposeBackground()) sSuperValid = false;
+    if (Port_PPU_ComposeBackground()) {
+        sSuperValid = false;
+        /* Fixed screens and native fallbacks are one native composition with
+         * margins. When a full-canvas white fade owns the screen, continue
+         * the native edge colour into the margins instead of leaving a black
+         * border. Normal fixed screens (including missing artwork) keep their
+         * existing fail-closed composition. */
+        const PortViewportGeometry* geometry = Port_Viewport_Get();
+        const bool fixedOrFallback =
+            (geometry->scene.capabilities & (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) != 0;
+        if (fixedOrFallback &&
+            Port_PPU_RectIsUniformWhite(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                        geometry->nativeContent)) {
+            Port_EdgeFade_ApplySolid(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                     geometry->canvas.width, geometry->canvas.height,
+                                     geometry->nativeContent, nullptr, 0);
+        }
+    }
     Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() *
                                      (sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height()));
 

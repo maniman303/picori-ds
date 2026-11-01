@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Standard top dialogue now keeps the same 16-pixel canvas-top padding as the
+  bottom dialogue box has from the bottom edge, on every aspect ratio.
+- 4:3 white fades and the initial blank screen now fill the whole canvas
+  instead of showing black letterbox margins for the transition frames. When
+  the native/world rectangle is uniformly white, the margin continues that
+  colour to the canvas edge; normal scenes keep the existing edge fade.
 - Removed the unused `libs/tmc-Android-Experimental` git submodule. Android is
   not a supported target in this fork, and the private repo was never built by
   `xmake.lua`; `.gitmodules`, `THIRD-PARTY-LICENSES.md` and `build.py` no longer

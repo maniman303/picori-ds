@@ -11,7 +11,9 @@ root = Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory(prefix='tmc-background-frame-') as tmp:
     tmp = Path(tmp)
     source = (root / 'port/port_ppu.cpp').read_text()
-    (tmp / 'background_frame_function.inc').write_text(function(source, 'static bool Port_PPU_ComposeBackground(void)'))
+    (tmp / 'background_frame_function.inc').write_text(
+        function(source, 'static bool Port_PPU_RectIsUniformWhite') + '\n' +
+        function(source, 'static bool Port_PPU_ComposeBackground(void)'))
     flags = ['-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
              '-DMODE1_GBA_WIDTH=569', '-Iport', '-Iport/ppu/include', '-I' + str(tmp)]
     cc, cxx = shlex.split(os.environ.get('CC', 'cc')), shlex.split(os.environ.get('CXX', 'c++'))

@@ -228,10 +228,11 @@ def check_hud_and_dialogue(images, profile_name, backend):
                 grey += 1
     if red < 20 or grey < 100:
         raise SystemExit(f'{profile_name}: HUD corners missing (red={red}, grey={grey})')
-    # Standard top messages stay at the native top; standard bottom messages
-    # follow the canvas bottom inset (Port_Viewport_StandardMessageTranslation).
-    # The same rule applies to 160 and taller canvases.
-    top_band = (8, 56)
+    # Standard top messages anchor to the canvas top with the same 16-pixel
+    # padding as the bottom box; standard bottom messages follow the canvas
+    # bottom inset (Port_Viewport_StandardMessageTranslation). The same rules
+    # apply to 160 and taller canvases.
+    top_band = (16, 64)
     bottom_band = (96, 144) if profile['height'] == 160 else (profile['height'] - 64, profile['height'] - 16)
     bottom_changed = band_difference(bottom, hud, profile, *bottom_band)
     top_changed = band_difference(top, hud, profile, *top_band)

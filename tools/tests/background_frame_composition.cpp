@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -48,6 +49,20 @@ static void reset_frame() {
     sComposedWidth = sComposedHeight = 0;
 }
 int main() {
+    /* A uniformly white native/world frame may continue a solid edge colour
+     * into the margins (white fades and the initial blank screen). A normal
+     * scene containing white must not qualify, or its margin would be
+     * flattened. */
+    static uint32_t white_frame[240 * 160];
+    for (uint32_t& p : white_frame) p = 0xfff3f3f3u;
+    assert(Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    white_frame[123] = 0xff000000u;
+    assert(!Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    white_frame[123] = 0xff80f080u;
+    assert(!Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+    white_frame[123] = 0xfff3f3f3u;
+    assert(Port_PPU_RectIsUniformWhite(white_frame, 240, {0, 0, 240, 160}));
+
     geometry.scene.capabilities = PORT_SCENE_FIXED_SCREEN;
     geometry.canvas = {0,0,256,192}; geometry.nativeContent = {8,16,240,160};
     snapshot.canvas = geometry.canvas; snapshot.native = geometry.nativeContent;

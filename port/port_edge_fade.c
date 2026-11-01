@@ -86,9 +86,9 @@ static void build_sources(const uint32_t* frame, int pitch, PortViewportRect wor
     }
 }
 
-bool Port_EdgeFade_Apply(uint32_t* frame, int pitch, int width, int height,
-                         PortViewportRect world, const uint8_t* ui_mask,
-                         int ui_mask_pitch) {
+static bool apply_margins(uint32_t* frame, int pitch, int width, int height,
+                          PortViewportRect world, const uint8_t* ui_mask,
+                          int ui_mask_pitch, bool solid) {
     if (!frame || width <= 0 || height <= 0 || pitch < width ||
         width > PORT_VIEWPORT_MAX_WIDTH || height > PORT_VIEWPORT_MAX_HEIGHT ||
         !valid_world(world, width, height) ||
@@ -118,7 +118,11 @@ bool Port_EdgeFade_Apply(uint32_t* frame, int pitch, int width, int height,
             const int dx = x < world.x ? world.x - x : (x >= right ? x - (right - 1) : 0);
             const int d = rounded_band_distance(dx, dy);
             uint32_t src = 0xff000000u;
-            if (d > 0 && d < band) {
+            /* A solid fill repeats the nearest visible edge colour all the
+             * way to the canvas border. It is used while a full-canvas fade
+             * owns the screen, so the fade colour continues into the margins
+             * instead of terminating in a black letterbox band. */
+            if (solid || (d > 0 && d < band)) {
                 if (ui_mask == NULL) {
                     const int sx = x < world.x ? world.x : (x >= right ? right - 1 : x);
                     const int sy = y < world.y ? world.y : (y >= bottom ? bottom - 1 : y);
@@ -131,14 +135,28 @@ bool Port_EdgeFade_Apply(uint32_t* frame, int pitch, int width, int height,
                 } else {
                     src = y < world.y ? sources.top[x - world.x] : sources.bottom[x - world.x];
                 }
-                const unsigned factor = (unsigned)(band - d);
-                src = (src & 0xff000000u) |
-                    ((((src >> 16) & 0xffu) * factor / (unsigned)band) << 16) |
-                    ((((src >> 8) & 0xffu) * factor / (unsigned)band) << 8) |
-                    (((src & 0xffu) * factor / (unsigned)band));
+                if (!solid) {
+                    const unsigned factor = (unsigned)(band - d);
+                    src = (src & 0xff000000u) |
+                        ((((src >> 16) & 0xffu) * factor / (unsigned)band) << 16) |
+                        ((((src >> 8) & 0xffu) * factor / (unsigned)band) << 8) |
+                        (((src & 0xffu) * factor / (unsigned)band));
+                }
             }
             row[x] = src;
         }
     }
     return true;
+}
+
+bool Port_EdgeFade_Apply(uint32_t* frame, int pitch, int width, int height,
+                         PortViewportRect world, const uint8_t* ui_mask,
+                         int ui_mask_pitch) {
+    return apply_margins(frame, pitch, width, height, world, ui_mask, ui_mask_pitch, false);
+}
+
+bool Port_EdgeFade_ApplySolid(uint32_t* frame, int pitch, int width, int height,
+                              PortViewportRect world, const uint8_t* ui_mask,
+                              int ui_mask_pitch) {
+    return apply_margins(frame, pitch, width, height, world, ui_mask, ui_mask_pitch, true);
 }

@@ -450,12 +450,12 @@ int main(void) {
     CHECK(virtuappu_mode1_ws_msg_y0 == 96 && virtuappu_mode1_ws_msg_y1 == 144);
     CHECK(virtuappu_mode1_ws_msg_shift == 8 && virtuappu_mode1_ws_msg_shift_y == 32);
     CHECK(virtuappu_mode1_ws_hud_shift_y == 32);
-    /* Top-requested dialogue stays at the native top on every canvas. */
+    /* Top-requested dialogue keeps a 16-pixel canvas-top padding. */
     gTextRender.message.textWindowPosY = 1;
     gCurrentWindow.yPos = 1;
     Port_Widescreen_UpdateShadows();
     CHECK(virtuappu_mode1_ws_msg_y0 == 8 && virtuappu_mode1_ws_msg_y1 == 56);
-    CHECK(virtuappu_mode1_ws_msg_shift_y == 0);
+    CHECK(virtuappu_mode1_ws_msg_shift_y == 8);
     /* Custom window geometry keeps only the tested horizontal policy. */
     gTextRender.message.textWindowPosY = 2;
     gCurrentWindow.yPos = 2;

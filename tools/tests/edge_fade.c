@@ -122,6 +122,32 @@ int main(void) {
     assert(frame[(size_t)42 * pitch + 7] == 0xff000000u);
     assert(frame[(size_t)42 * pitch + 248] == 0xff000000u);
 
+    /* Full-canvas fade: the solid margin repeats the native edge colour to
+     * the canvas border instead of darkening to black, while the world and
+     * masked UI pixels stay untouched. */
+    world = (PortViewportRect){ 8, 16, 240, 160 };
+    fill(256, 192, world);
+    for (int y = world.y; y < world.y + world.height; ++y)
+        for (int x = world.x; x < world.x + world.width; ++x)
+            frame[(size_t)y * pitch + x] = 0xfff3f3f3u;
+    frame[(size_t)42 * pitch + 1] = hud_color;
+    ui_mask[(size_t)42 * pitch + 1] = 1;
+    memcpy(original, frame, sizeof(frame));
+    assert(Port_EdgeFade_ApplySolid(frame, pitch, 256, 192, world, ui_mask, pitch));
+    expect_world(world);
+    assert(frame[(size_t)0 * pitch + 0] == 0xfff3f3f3u);
+    assert(frame[(size_t)15 * pitch + 120] == 0xfff3f3f3u);
+    assert(frame[(size_t)176 * pitch + 120] == 0xfff3f3f3u);
+    assert(frame[(size_t)42 * pitch + 7] == 0xfff3f3f3u);
+    assert(frame[(size_t)42 * pitch + 248] == 0xfff3f3f3u);
+    assert(frame[(size_t)42 * pitch + 1] == hud_color);
+
+    /* Full-canvas world: solid fill has nothing to paint either. */
+    world = (PortViewportRect){ 0, 0, 256, 192 };
+    fill(256, 192, world);
+    assert(!Port_EdgeFade_ApplySolid(frame, pitch, 256, 192, world, NULL, 0));
+    assert(memcmp(frame, original, sizeof(frame)) == 0);
+
     /* Full-canvas world: nothing to paint, no writes. */
     world = (PortViewportRect){ 0, 0, 256, 192 };
     fill(256, 192, world);

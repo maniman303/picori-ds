@@ -184,9 +184,10 @@ Still intentionally limited (not release blockers):
   live/native view at the same world cell has content. The retaken sub-tile
   capture uses a nearby camera Y that avoids the affected cell; a shadow
   map/layer fallback for that edge is a remaining polish item.
-- Tall message/HUD ownership is final. Standard top messages stay at the
-  native top and standard bottom messages move to the canvas bottom inset,
-  both horizontally centered. The rule uses the published height
+- Tall message/HUD ownership is final. Standard top messages anchor to the
+  canvas top with the same 16-pixel padding as the native bottom box (top
+  shift `+8`), and standard bottom messages move to the canvas bottom inset,
+  both horizontally centered. The rules use the published height
   (`bottom shift = height - 160`), not a profile id. The lower-right HUD moves
   with the canvas and the rupee counter stays visible below a 4:3 bottom box.
   The key row shares BG0 cells with a bottom box and is overwritten by it
@@ -670,17 +671,18 @@ EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
   shadow gap; JP field dialogue renders Japanese text. Evidence screenshots are
   under `screenshots/2026-10-30-{us,jp}-*`. Broader JP menu/text layout coverage
   remains a separate audit.
-- **Message vertical policy generalized.** Standard top messages stay at the
-  native top on every canvas; standard bottom messages move to the canvas
-  bottom inset (`height - 160`), both horizontally centered. The right HUD
-  anchor is also retained during messages even when `unk_10`/`unk_a` redraw
-  flags are clear, so the rupee counter is anchored at the canvas bottom-right
-  instead of being left at the native position under a 4:3 bottom box. 4:3 top
-  dialogue appears at the top with the full counter; bottom dialogue keeps the
-  counter visible below the box. The rule has no profile-specific case and is
-  covered by `screen_background` (160/192/162) and the 4:3 presenter matrix.
-  Native 240 output is unchanged; wide/tall message frames deliberately use the
-  same canvas-edge anchor instead of leaving the right HUD at its native x.
+- **Message vertical policy generalized.** Standard top messages anchor to the
+  canvas top with the same 16-pixel padding as the native bottom box (top
+  shift `+8`); standard bottom messages move to the canvas bottom inset
+  (`height - 160`), both horizontally centered. The right HUD anchor is also
+  retained during messages even when `unk_10`/`unk_a` redraw flags are clear,
+  so the rupee counter is anchored at the canvas bottom-right instead of being
+  left at the native position under a 4:3 bottom box. 4:3 top dialogue appears
+  at the top with the full counter; bottom dialogue keeps the counter visible
+  below the box. The rules have no profile-specific case and are covered by
+  `screen_background` (160/192/162) and the 4:3 presenter matrix. Wide/tall
+  message frames use the same canvas-edge anchor instead of leaving the right
+  HUD at its native x.
 - **Camera-tile staging.** Tall steady-state now refreshes a moved camera tile
   with a synchronous full fill + VRAM copy before the present instead of
   dropping to the native composition for a frame; partial scroll updates no

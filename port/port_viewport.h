@@ -59,11 +59,12 @@ PortUITranslation Port_Viewport_UITranslation(PortUIAnchor anchor, int width, in
 /* Resolve a stable translation for an ordinary gameplay message. `finalRect`
  * describes the fully open native frame, including its border. Only the
  * standard top/bottom positions are classified; custom windows fail closed.
- * Standard top messages stay at the native top on every canvas; standard
- * bottom messages move to the canvas bottom inset (height - 160). The rule is
- * derived from the published height, not a profile id, so every future canvas
- * behaves like the 160-row one. The same translation must be applied to every
- * animated rectangle and OBJ. */
+ * Standard top messages are anchored to the canvas top with the same 16-pixel
+ * padding the native bottom box has from the native bottom edge (top shift
+ * +8); standard bottom messages move to the canvas bottom inset
+ * (height - 160). The rules are derived from the published height, not a
+ * profile id, so every future canvas behaves like the 160-row one. The same
+ * translation must be applied to every animated rectangle and OBJ. */
 bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int width, int height,
                                               PortUITranslation* translation);
 

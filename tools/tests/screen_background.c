@@ -86,19 +86,19 @@ static void CheckStandardMessageGeometry(void) {
     const PortViewportRect bottom = { 8, 96, 224, 48 };
     PortUITranslation t = { -1, -1 };
     assert(Port_Viewport_StandardMessageTranslation(top, 256, 192, &t));
-    assert(t.x == 8 && t.y == 0); /* top stays at the native top */
+    assert(t.x == 8 && t.y == 8); /* top anchors with the bottom-box padding */
     /* Every animation frame uses this same offset, including a smaller
      * rectangle centered inside the fully open native window. */
-    assert(24 + t.y == 24 && 16 + t.y == 16);
+    assert(24 + t.y == 32 && 16 + t.y == 24);
     assert(Port_Viewport_StandardMessageTranslation(bottom, 256, 192, &t));
     assert(t.x == 8 && t.y == 32); /* bottom follows the canvas bottom */
     assert(Port_Viewport_StandardMessageTranslation(top, 285, 160, &t));
-    assert(t.x == 22 && t.y == 0);
+    assert(t.x == 22 && t.y == 8);
     assert(Port_Viewport_StandardMessageTranslation(bottom, 374, 160, &t));
     assert(t.x == 67 && t.y == 0);
-    /* Generic height rule: top always 0, bottom always height - 160. */
+    /* Generic height rule: top always +8, bottom always height - 160. */
     assert(Port_Viewport_StandardMessageTranslation(top, 288, 162, &t));
-    assert(t.x == 24 && t.y == 0);
+    assert(t.x == 24 && t.y == 8);
     assert(Port_Viewport_StandardMessageTranslation(bottom, 288, 162, &t));
     assert(t.x == 24 && t.y == 2);
     PortViewportRect custom = top;

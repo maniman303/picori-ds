@@ -41,11 +41,14 @@ bool Port_Viewport_StandardMessageTranslation(PortViewportRect finalRect, int wi
         finalRect.width != 224 || finalRect.height != 48)
         return false;
     translation->x = (width - 240) / 2;
-    /* Standard top messages stay at the native top on every canvas; standard
-     * bottom messages move with the canvas bottom inset. This is derived from
-     * the published height, not from a profile id: 160 -> 0/0, 192 -> 0/32,
-     * any future canvas follows the same rule. */
-    translation->y = finalRect.y == 8 ? 0 : height - 160;
+    /* Standard top messages are anchored to the canvas top with the same
+     * 16-pixel padding the native bottom box has from the native bottom edge.
+     * The native top box starts at y=8, so the translation is +8 on every
+     * canvas. Standard bottom messages move with the canvas bottom inset,
+     * which keeps the same 16-pixel bottom padding on every height. Both rules
+     * are derived from the published height/canvas, not from a profile id:
+     * 160 -> top +8 / bottom +0; 192 -> top +8 / bottom +32. */
+    translation->y = finalRect.y == 8 ? 8 : height - 160;
     return true;
 }
 

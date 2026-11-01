@@ -140,12 +140,12 @@ int main(void) {
            abgr(bgpal[0]));
     expect("tall BG0 outside message band stays native", virtuappu_frame_buffer[100 * MODE1_GBA_WIDTH + 4],
            abgr(bgpal[8 * 16 + 1]));
-    /* A top-requested window uses the same final bottom anchor. */
+    /* A top-requested window uses the same vertical remap. */
     virtuappu_mode1_ws_msg_shift_y = 120;
     virtuappu_mode1_ws_msg_y0 = 8;
     virtuappu_mode1_ws_msg_y1 = 56;
     virtuappu_mode1_render_frame(&p);
-    expect("tall top message shares bottom anchor", virtuappu_frame_buffer[132 * MODE1_GBA_WIDTH + 108],
+    expect("tall top message vertical remap", virtuappu_frame_buffer[132 * MODE1_GBA_WIDTH + 108],
            abgr(bgpal[2 * 16 + 1]));
     expect("tall top source band suppressed", virtuappu_frame_buffer[12 * MODE1_GBA_WIDTH + 100],
            abgr(bgpal[0]));

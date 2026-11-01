@@ -266,8 +266,9 @@ Keep the existing native dialogue composition and text wrapping. Extend the
 live-window remap to both X and Y in the BG0 sampling path. For 4:3, standard
 dialogue is centered horizontally and anchored to the bottom with its original
 bottom inset. For a fully open native bottom window this gives (+8,+32).
-For top-requested standard dialogue, derive its destination from the final
-bottom anchor rather than adding 32 to its original top position.
+For top-requested standard dialogue, anchor its destination to the canvas top
+with the same 16-pixel padding the native bottom box has from the bottom edge
+(top shift +8), rather than adding the bottom inset to its original position.
 
 Use one stable destination anchor for opening/closing animations: move the
 window's animated source rectangle relative to its intended final rectangle
