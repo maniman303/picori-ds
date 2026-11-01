@@ -157,8 +157,9 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             char path[512];
             if ((size_t)snprintf(path, sizeof path, "%s/frame_%05u.png", dir, frame) < sizeof path) {
                 if (Port_CaptureBaseFramebufferPNG(path) > 0)
-                    fprintf(stderr, "[roomcap] series %d/%d -> %s (game f=%d)\n", seriesIndex + 1,
-                            seriesCount, path, (int)gRoomTransition.frameCount);
+                    fprintf(stderr, "[roomcap] series %d/%d -> %s (game f=%d reg16=%u)\n", seriesIndex + 1,
+                            seriesCount, path, (int)gRoomTransition.frameCount,
+                            (unsigned)(gIoMem[0x16] | (gIoMem[0x17] << 8)));
             }
             ++seriesIndex;
         }

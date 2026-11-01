@@ -14,6 +14,7 @@
 #include "port_offset_remap.h"
 #ifdef PC_PORT
 #include "port_gba_mem.h"
+void Port_Widescreen_NoteBgAnimationGfx(u32 vramOffset, u32 tiles, const u8* data);
 #endif
 
 void LoadBgAnimationGfx(const BgAnimationGfx*);
@@ -2436,6 +2437,7 @@ void LoadBgAnimationGfx(const BgAnimationGfx* param_1) {
         } else {
 #ifdef PC_PORT
             MemCopy(src, &gVram[vramOffset], size << 5);
+            Port_Widescreen_NoteBgAnimationGfx(vramOffset, size, src);
 #else
             MemCopy(src, (void*)(vramOffset + 0x6000000), size << 5);
 #endif
@@ -2444,6 +2446,32 @@ void LoadBgAnimationGfx(const BgAnimationGfx* param_1) {
             return;
         }
         param_1++;
+    }
+}
+
+/* A tilemap gfx group load can overwrite an active BG-animation slot (Hyrule
+ * Town swaps banks over 0x2000). Re-apply the frame that is already current so
+ * the animation graphics are back before the next present instead of waiting
+ * for the next timer tick. */
+void ReapplyBgAnimationsInRange(u32 vramOffset, u32 size) {
+    for (int i = 0; i < MAX_BG_ANIMATIONS; ++i) {
+        BgAnimation* animation = &gBgAnimations[i];
+        if (animation->currentFrame == NULL)
+            continue;
+        const BgAnimationGfx* gfx = animation->currentFrame->gfx;
+        if (gfx == NULL)
+            continue;
+        while (TRUE) {
+            if ((gfx->flags & BG_ANIM_PALETTE) == 0) {
+                const u32 off = gfx->vramOffset;
+                const u32 len = gfx->gfxSize << 5;
+                if (off < vramOffset + size && off + len > vramOffset)
+                    LoadBgAnimationGfx(gfx);
+            }
+            if ((gfx->flags & BG_ANIM_MULTIPLE) == 0)
+                break;
+            ++gfx;
+        }
     }
 }
 

@@ -790,7 +790,12 @@ extern "C" bool Port_GPU_PresentFrame(const uint32_t* fb, int fb_w, int fb_h, in
         }
     }
     SDL_GPUTexture* captureTexture = nullptr;
-    if (Port_PPU_PresentationCapturePath()) {
+    const char* capturePath = Port_PPU_PresentationCapturePath();
+#ifdef TMC_REPRO_HARNESS
+    if (!capturePath)
+        capturePath = Port_PPU_PresentationSeriesPath();
+#endif
+    if (capturePath) {
         /* Swapchain textures are write-only; capture through a temporary render target. */
         SDL_GPUTextureCreateInfo info = {};
         info.type = SDL_GPU_TEXTURETYPE_2D;

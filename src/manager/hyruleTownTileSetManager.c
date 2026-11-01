@@ -13,6 +13,10 @@
 #include "tiles.h"
 #include "game.h"
 #include "assets/gfx_offsets.h"
+#ifdef PC_PORT
+void ReapplyBgAnimationsInRange(u32 vramOffset, u32 size);
+void Port_Widescreen_NoteTownGfxGroup(u32 group, u32 destOffset, u32 size);
+#endif
 #include "port_offset_remap.h"
 #include "player.h"
 
@@ -230,6 +234,17 @@ void HyruleTownTileSetManager_LoadGfxGroup(u32 gfxIndex, u32 gfxGroup) {
     adj = Port_RemapCompiledGfxOffset(base) - base;
     LoadResourceAsync(&gGlobalGfxAndPalettes[gfxInfo->gfx1 + adj], gfxInfo->dest1, BG_SCREEN_SIZE * 2);
     LoadResourceAsync(&gGlobalGfxAndPalettes[gfxInfo->gfx2 + adj], gfxInfo->dest2, BG_SCREEN_SIZE * 2);
+#ifdef PC_PORT
+    /* The group copy can land on active BG-animation slots (0x2800). Restore
+     * the current frame immediately instead of waiting for the timer tick; the
+     * tall aperture shows those rows and would flicker otherwise. */
+    ReapplyBgAnimationsInRange((u32)((uintptr_t)gfxInfo->dest1 - 0x06000000u), BG_SCREEN_SIZE * 2u);
+    ReapplyBgAnimationsInRange((u32)((uintptr_t)gfxInfo->dest2 - 0x06000000u), BG_SCREEN_SIZE * 2u);
+    Port_Widescreen_NoteTownGfxGroup(gfxGroup, (u32)((uintptr_t)gfxInfo->dest1 - 0x06000000u),
+                                     BG_SCREEN_SIZE * 2u);
+    Port_Widescreen_NoteTownGfxGroup(gfxGroup, (u32)((uintptr_t)gfxInfo->dest2 - 0x06000000u),
+                                     BG_SCREEN_SIZE * 2u);
+#endif
 }
 
 void TryLoadPrologueHyruleTown(void) {

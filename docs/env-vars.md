@@ -87,6 +87,8 @@ Warp arguments use the `area,room,x,y,layer` form (C integer literals, so
 | `TMC_CAPTURE_OUT` | port/port_bios.c | Output PNG path for `TMC_CAPTURE_FRAME`. |
 | `TMC_CAPTURE_PRESENTATION` | port/port_bios.c | Capture the actual presenter output at `TMC_CAPTURE_FRAME` instead of the base framebuffer. The request completes after the next presentation. |
 | `TMC_CAPTURE_FAST_FORWARD` | port/port_ppu.cpp | **(harness)** With `TMC_CAPTURE_PRESENTATION` and `TMC_CAPTURE_FRAME`, rasterize normally but skip swapchain presents until the requested capture. |
+| `TMC_PRESENT_SERIES` | port/port_ppu.cpp | **(harness)** `<start>,<count>`: capture the composed presenter output of every presentation in that index window, using `TMC_PRESENT_SERIES_DIR`. Works on both the SDL_Renderer and SDL_GPU present paths and catches artifacts that tick-granular base-framebuffer series miss. |
+| `TMC_PRESENT_SERIES_DIR` | port/port_ppu.cpp | **(harness)** Output directory for `TMC_PRESENT_SERIES` (`present_%06ld.png`). |
 | `TMC_TEST_INPUT` | port/port_bios.c | Scripted input: `tick:button[,tick:button...]`, e.g. `600:start,720:r`. |
 | `TMC_REPRO_QUICKSAVE_ROUNDTRIP` | port/port_quicksave.c, port/port_repro_npc_talk.c | Quicksave/load round-trip check; boots into a room via the NPC-talk harness **(harness)**. |
 | `TMC_REPRO_QUICKSAVE_FRAMES` | port/port_quicksave.c | Frames to replay for the quicksave round-trip. |

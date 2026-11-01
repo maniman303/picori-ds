@@ -651,7 +651,62 @@ extern "C" const char* Port_PPU_PresentationCapturePath(void) {
     return sPresentationCaptureStatus == 0 ? sPresentationCapturePath : nullptr;
 }
 
+#ifdef TMC_REPRO_HARNESS
+/* Presentation-cadence series capture (harness only): TMC_PRESENT_SERIES_DIR
+ * plus TMC_PRESENT_SERIES=<start>,<count> writes the actual swapchain output of
+ * the selected presents, so a one-present artifact that base-framebuffer
+ * captures cannot see still gets recorded. */
+static char sSeriesDir[3072];
+static char sSeriesPath[4096];
+static long sSeriesStart = -1;
+static long sSeriesCount = 0;
+static long sSeriesPresent = 0;
+static bool sSeriesActive = false;
+static bool sSeriesPathPending = false;
+
+extern "C" const char* Port_PPU_PresentationSeriesPath(void) {
+    if (!sSeriesActive) {
+        const char* d = std::getenv("TMC_PRESENT_SERIES_DIR");
+        const char* s = std::getenv("TMC_PRESENT_SERIES");
+        if (!d || !*d || !s || !*s)
+            return nullptr;
+        if (std::strlen(d) >= sizeof(sSeriesDir))
+            return nullptr;
+        if (std::sscanf(s, "%ld,%ld", &sSeriesStart, &sSeriesCount) != 2 ||
+            sSeriesStart < 0 || sSeriesCount <= 0)
+            return nullptr;
+        std::strcpy(sSeriesDir, d);
+        sSeriesActive = true;
+        fprintf(stderr, "[present-series] start=%ld count=%ld dir=%s\n",
+                sSeriesStart, sSeriesCount, sSeriesDir);
+    }
+    if (sSeriesPathPending) {
+        /* A present path that never reaches CompletePresentationCapture (voxel
+         * view, custom preset) must not stall the whole series. */
+        fprintf(stderr, "[present-series] skipped %s\n", sSeriesPath);
+        sSeriesPathPending = false;
+    }
+    const long present = sSeriesPresent++;
+    if (present < sSeriesStart || present >= sSeriesStart + sSeriesCount)
+        return nullptr;
+    if ((size_t)std::snprintf(sSeriesPath, sizeof sSeriesPath, "%s/present_%06ld.png",
+                              sSeriesDir, present) >= sizeof sSeriesPath)
+        return nullptr;
+    sSeriesPathPending = true;
+    return sSeriesPath;
+}
+#endif
+
 extern "C" void Port_PPU_CompletePresentationCapture(SDL_Surface* surface) {
+#ifdef TMC_REPRO_HARNESS
+    if (sSeriesPathPending) {
+        const bool ok = surface && Port_WriteSurfacePNG(surface, sSeriesPath);
+        if (!ok)
+            fprintf(stderr, "[present-series] write failed: %s\n", sSeriesPath);
+        sSeriesPathPending = false;
+        return;
+    }
+#endif
     if (sPresentationCaptureStatus == 0) {
         sPresentationCaptureStatus = surface && Port_WriteSurfacePNG(surface, sPresentationCapturePath) ? 1 : -1;
         if (sPresentationCaptureStatus < 0)
@@ -2107,7 +2162,11 @@ extern "C" void Port_PPU_PresentFrame(void) {
             Port_SoftSlots_RenderOverlay(sRenderer, outW, outH);
             Port_TouchControls_Render(sRenderer, outW, outH);
         }
-        if (Port_PPU_PresentationCapturePath()) {
+        if (Port_PPU_PresentationCapturePath()
+#ifdef TMC_REPRO_HARNESS
+            || Port_PPU_PresentationSeriesPath()
+#endif
+        ) {
             SDL_Surface* shot = SDL_RenderReadPixels(sRenderer, nullptr);
             Port_PPU_CompletePresentationCapture(shot);
             SDL_DestroySurface(shot);

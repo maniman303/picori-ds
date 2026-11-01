@@ -748,6 +748,44 @@ EU headless 4:3 captures (256 × 192) are in `.tmp/wp3-wp4/` (historical) and
   now equals the 1–2 px/frame scripted scroll, with no 16-px pairs. Evidence:
   `screenshots/2026-10-31-eu-festival-pan-{f180,f183-tile-crossing,f186}-4x3.png`
   and the crossing strip `2026-10-31-eu-festival-pan-tile-crossing-strip-4x3.png`.
+- **Tall aperture across room load / area change.** `GAMEMAIN_CHANGEAREA`
+  (and `GAMEMAIN_INITROOM`) forced the native 160-row composition even when
+  the tall map window for the current room was already resident, so the
+  Festival Town intro entered with 16-px letterbox bars and popped to 192
+  rows one tile later. Residency (`sWsValidatedKey` plus a matching or
+  pending map snapshot) now keeps the tall aperture through the load/show
+  transition. Non-resident rooms still start native until their upload lands,
+  and the black-fade arrival rule for `GAMEMAIN_CHANGEROOM` is unchanged.
+  Device trace before: 160 rows from room frame 19 through 37; after: 192
+  from frame 18 (only the single different-area flash frame stays native).
+  Evidence:
+  `screenshots/2026-10-31-eu-festival-load-160-vs-tall-4x3.png`.
+- **Tall map fills always use the full mode-1 pass.** Native partial-scroll
+  writers (`gUpdateVisibleTiles` 2–4) shift fixed 23-row windows and do not
+  know about a taller aperture's extra rows. While the published view is
+  taller than 160, `UpdateScrollVram()` promotes those updates to the full
+  fill for the current camera tile, which is authoritative and only copies
+  ~2 KB per layer.
+- **Bottom void band keeps a pinned art set.** The extra bottom rows are below
+  the GBA viewport and the room's bottom 32 px are the void border, whose map
+  cells alias tiles that Hyrule Town uses for regional groups and BG
+  animations. The first frames of the band therefore rendered the live
+  group/frame instead of the border art, and only settled after the region
+  swap. The port now captures the base group's static bank (group 4 at
+  `0x2000`/`0xA000`, from the manager's own group load) and the creamiest
+  BG-animation frame for `0x2800`, then pins those chars on the band's
+  margin-only cells before each render. Visible cells always keep the live
+  art, so streaming and animation of the gameplay area are untouched. The
+  town manager also re-applies the current BG animation frame after each
+  group load (`ReapplyBgAnimationsInRange`) and the room-load path re-applies
+  every active frame, so the band looks correct from its first frame.
+  Evidence: `screenshots/2026-11-01-rgdsplus-festival-pan-swap-border-4x3.png`
+  and `screenshots/2026-11-01-rgdsplus-festival-pan-end-border-4x3.png`.
+- **Scene starts tall from the first uploaded frame.** `GAMEMAIN_CHANGEROOM`
+  is included in the residency-based tall admission, so the room's first
+  visible frames after the map upload are 192 rows; only the frames before the
+  upload (and a single different-area flash frame) stay native. Evidence:
+  `screenshots/2026-11-01-rgdsplus-festival-load-tall-4x3.png`.
 
 ## Sequencing
 

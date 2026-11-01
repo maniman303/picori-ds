@@ -950,6 +950,18 @@ void UpdateScrollVram(void) {
     if (mode == 0 || mode > 4)
         return;
 
+    /* The native partial-scroll writers (modes 2-4) were written for the
+     * 23-row screenblock: they shift/copy rows by fixed native offsets and do
+     * not know about a taller aperture's extra rows. In a tall world those
+     * writers can leave the newly exposed rows holding the previous camera
+     * tile's content. A full fill for the current camera tile is authoritative
+     * and only copies ~2 KB per layer, so use it whenever the aperture is
+     * tall. */
+    if (mode != 1 && Port_Widescreen_EffectiveViewHeight() > PORT_VIEWPORT_NATIVE_HEIGHT) {
+        mode = 1;
+        gUpdateVisibleTiles = 1;
+    }
+
     ScrollVramFunc func = funcs[mode];
 
     /* Bottom layer → BG1 */
@@ -1470,19 +1482,18 @@ static bool Port_WidescreenMapWindowPending(int height) {
  * camera scroll update so the rows and the offsets they belong to are both
  * produced by the same update. */
 void Port_Widescreen_SyncMapWindow(void) {
-    if (gMain.task != TASK_GAME)
-        return;
-    const int targetHeight = Port_WidescreenTallAperture();
-    if (targetHeight <= PORT_VIEWPORT_NATIVE_HEIGHT ||
-        Port_Viewport_Get()->world.height <= PORT_VIEWPORT_NATIVE_HEIGHT)
-        return;
-    if (sWsUpload.roomKey != Port_WidescreenRoomKey())
-        return;
-    if (Port_WidescreenMapSnapshotMatches(targetHeight) ||
-        Port_WidescreenMapWindowPending(targetHeight))
-        return;
-    Port_WidescreenStageMapWindow(targetHeight);
+    if (gMain.task == TASK_GAME) {
+        const int targetHeight = Port_WidescreenTallAperture();
+        if (targetHeight > PORT_VIEWPORT_NATIVE_HEIGHT &&
+            Port_Viewport_Get()->world.height > PORT_VIEWPORT_NATIVE_HEIGHT &&
+            sWsUpload.roomKey == Port_WidescreenRoomKey() &&
+            !Port_WidescreenMapSnapshotMatches(targetHeight) &&
+            !Port_WidescreenMapWindowPending(targetHeight))
+            Port_WidescreenStageMapWindow(targetHeight);
+    }
 }
+
+void ReapplyBgAnimationsInRange(u32 vramOffset, u32 size);
 
 /* Classify only on the simulation side. Content width is sampled once at
  * room entry, after map loading and before camera setup, and held throughout
@@ -1588,7 +1599,21 @@ void Port_Widescreen_PublishScene(void) {
          * palette fades, rather than mixing two rooms in the rolling tile
          * buffer. It can use the same staged aperture as steady gameplay
          * once all independent room, entity and upload gates pass. */
+        /* Room loads and area changes keep the same staged tall window. Once
+         * the rows for this room/camera are resident (or queued for this
+         * frame's DMA), the aperture no longer needs to wait for
+         * GAMEMAIN_UPDATE: waiting letterboxes the whole load/show transition
+         * to 160 rows and then pops the extra rows in, which reads as the
+         * bottom map border flickering. Non-resident rooms still fall back
+         * naturally because the residency test fails until the upload lands. */
+        const bool residentTallWindow =
+            sWsValidatedKey == Port_WidescreenRoomKey() &&
+            (Port_WidescreenMapSnapshotMatches(tallAperture) ||
+             Port_WidescreenMapWindowPending(tallAperture));
         int steadyOrBlackArrival = gMain.substate == GAMEMAIN_UPDATE ||
+            ((gMain.substate == GAMEMAIN_CHANGEAREA || gMain.substate == GAMEMAIN_INITROOM ||
+              gMain.substate == GAMEMAIN_CHANGEROOM) &&
+             residentTallWindow) ||
             (gMain.substate == GAMEMAIN_CHANGEROOM && gRoomTransition.type == TRANSITION_FADE_BLACK &&
              gFadeControl.active && gFadeControl.type == FADE_INSTANT && effectAllowsTall);
         if (Port_WidescreenManagersSafe(tallAperture) && gUnk_03003DE0 == 0 &&
@@ -1709,21 +1734,27 @@ void Port_Widescreen_PublishScene(void) {
     {
         static int trace = -1;
         static uint32_t lastCaps;
+        static int lastWorldH = -1;
         static unsigned tick;
         if (trace < 0)
             trace = getenv("TMC_WS_TRACE") != NULL;
-        if (trace && (scene.capabilities != lastCaps || (++tick % 120) == 0)) {
+        const unsigned frameNo = (unsigned)gRoomTransition.frameCount;
+        if (trace && (scene.capabilities != lastCaps || geometry->world.height != lastWorldH ||
+                      (++tick % 120) == 0)) {
             fprintf(stderr,
-                    "[ws] area=0x%02x room=0x%02x canvas=%dx%d world=%dx%d+%d,%d caps=0x%04x tall=0x%02x "
-                    "target=%d up=%d/%d,%d,%d tile=%d,%d req=%d shake=%d\n",
-                    (unsigned)gRoomControls.area, (unsigned)gRoomControls.room,
+                    "[ws] f=%u area=0x%02x room=0x%02x canvas=%dx%d world=%dx%d+%d,%d caps=0x%04x tall=0x%02x "
+                    "target=%d up=%d/%d,%d,%d tile=%d,%d req=%d shake=%d act=%u sub=%u ntl=%u\n",
+                    frameNo, (unsigned)gRoomControls.area, (unsigned)gRoomControls.room,
                     geometry->canvas.width, geometry->canvas.height,
                     geometry->world.width, geometry->world.height,
                     geometry->world.x, geometry->world.y, scene.capabilities, tallStatus,
                     targetHeight, (int)sWsUpload.height, (int)sWsUpload.rows, (int)sWsUpload.filled,
                     (int)sWsUpload.uploaded, sWsUpload.tileX, sWsUpload.tileY,
-                    Port_WidescreenTallRows(), (int)gRoomControls.shake_duration);
+                    Port_WidescreenTallRows(), (int)gRoomControls.shake_duration,
+                    (unsigned)gRoomControls.scrollAction, (unsigned)gMain.substate,
+                    (unsigned)gUI.nextToLoad);
             lastCaps = scene.capabilities;
+            lastWorldH = geometry->world.height;
         }
     }
     Port_Viewport_PublishScene(scene);
@@ -1746,12 +1777,126 @@ void Port_Widescreen_PublishScene(void) {
     }
 }
 
+/* ---- Tall bottom-band art pin ------------------------------------------
+ * The bottom 32 px of the room map are the void border. Those cells alias
+ * tiles that the town's regional tilesets and BG animations also use, so the
+ * first frames of the extra tall rows (below the GBA viewport) render the
+ * live group/frame instead of the border art. Capture the base group's static
+ * bank and the creamiest animation frame, then pin those chars on the band's
+ * cells while they are margin-only. Visible cells always keep the live art. */
+#define BAND_BANK_BYTES 0x1000u
+static u8 sBandBankA[BAND_BANK_BYTES];
+static u8 sBandBankB[BAND_BANK_BYTES];
+static bool sBandBankAValid, sBandBankBValid;
+static u8 sBandAnim[0x60];
+static bool sBandAnimValid;
+static int sBandAnimScore = -1;
+
+static void Port_Widescreen_BandReset(void) {
+    sBandBankAValid = sBandBankBValid = false;
+    sBandAnimValid = false;
+    sBandAnimScore = -1;
+}
+
+void Port_Widescreen_NoteTownGfxGroup(u32 group, u32 destOffset, u32 size) {
+    if (gRoomControls.area != AREA_FESTIVAL_TOWN || group != 4 || size != BAND_BANK_BYTES)
+        return;
+    if (destOffset == 0x2000u) {
+        memcpy(sBandBankA, gVram + 0x2000u, BAND_BANK_BYTES);
+        sBandBankAValid = true;
+    } else if (destOffset == 0xA000u) {
+        memcpy(sBandBankB, gVram + 0xA000u, BAND_BANK_BYTES);
+        sBandBankBValid = true;
+    }
+}
+
+void Port_Widescreen_NoteBgAnimationGfx(u32 vramOffset, u32 tiles, const u8* data) {
+    if (vramOffset != 0x2800u || tiles < 3 || data == NULL)
+        return;
+    int score = 0;
+    for (int i = 0; i < 0x60; ++i) {
+        if ((data[i] & 0xFu) == 0xFu)
+            ++score;
+        if ((data[i] >> 4) == 0xFu)
+            ++score;
+    }
+    if (score > sBandAnimScore) {
+        sBandAnimScore = score;
+        memcpy(sBandAnim, data, sizeof(sBandAnim));
+        sBandAnimValid = true;
+    }
+}
+
+static void Port_Widescreen_PinBandChars(void) {
+    if (gMain.task != TASK_GAME || gRoomControls.area != AREA_FESTIVAL_TOWN)
+        return;
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    if (geometry->world.height <= PORT_VIEWPORT_NATIVE_HEIGHT ||
+        sWsUpload.height <= PORT_VIEWPORT_NATIVE_HEIGHT)
+        return;
+    if (!sBandBankAValid && !sBandBankBValid && !sBandAnimValid)
+        return;
+    const int roomHeight = gRoomControls.height;
+    if (roomHeight < 64)
+        return;
+    const int bandTop = roomHeight - 32;
+    const int scroll = (int)(u16)(gRoomControls.scroll_y - gRoomControls.origin_y);
+    const int tileY = scroll >> 4;
+    const unsigned rows = Port_Widescreen_MapBufferSize() / 64u;
+    const u16* buffers[2] = { gBG1Buffer, gBG2Buffer };
+    const u32 controls[2] = {
+        gMapBottom.bgSettings ? gMapBottom.bgSettings->control : 0xFFFFFFFFu,
+        gMapTop.bgSettings ? gMapTop.bgSettings->control : 0xFFFFFFFFu
+    };
+    u8 visible[2][128];
+    memset(visible, 0, sizeof(visible));
+    for (int layer = 0; layer < 2; ++layer) {
+        if (controls[layer] == 0xFFFFFFFFu)
+            continue;
+        for (unsigned r = 0; r < rows; ++r) {
+            const int mapY = tileY * 16 - 8 + (int)r * 8;
+            if (mapY >= scroll + 160)
+                continue; /* margin row */
+            for (int c = 0; c < 32; ++c) {
+                const unsigned tile = buffers[layer][r * 32 + c] & 0x3FFu;
+                visible[layer][tile >> 3] |= (u8)(1u << (tile & 7u));
+            }
+        }
+    }
+    for (int layer = 0; layer < 2; ++layer) {
+        if (controls[layer] == 0xFFFFFFFFu)
+            continue;
+        const u32 charBase = ((controls[layer] >> 2) & 3u) * 0x4000u;
+        for (unsigned r = 0; r < rows; ++r) {
+            const int mapY = tileY * 16 - 8 + (int)r * 8;
+            if (mapY + 7 < bandTop || mapY >= roomHeight)
+                continue;
+            if (mapY + 7 < scroll + 160)
+                continue; /* fully inside the viewport */
+            for (int c = 0; c < 32; ++c) {
+                const unsigned tile = buffers[layer][r * 32 + c] & 0x3FFu;
+                if (visible[layer][tile >> 3] & (1u << (tile & 7u)))
+                    continue;
+                const unsigned off = charBase + tile * 32u;
+                if (off >= 0x2800u && off < 0x2800u + 0x60u && sBandAnimValid) {
+                    memcpy(gVram + off, sBandAnim + (off - 0x2800u), 32);
+                } else if (off >= 0x2000u && off < 0x2000u + BAND_BANK_BYTES && sBandBankAValid) {
+                    memcpy(gVram + off, sBandBankA + (off - 0x2000u), 32);
+                } else if (off >= 0xA000u && off < 0xA000u + BAND_BANK_BYTES && sBandBankBValid) {
+                    memcpy(gVram + off, sBandBankB + (off - 0xA000u), 32);
+                }
+            }
+        }
+    }
+}
+
 void Port_Widescreen_BeforePresent(void) {
     if (sWsFixedInstalled ||
         (gMain.task == TASK_GAME && gMain.state == GAMETASK_MAIN && gMain.substate == GAMEMAIN_SUBTASK) ||
         sWsValidatedKey != UINT64_MAX || sWsStageHeight > 0 ||
         Port_Viewport_Get()->world.height > PORT_VIEWPORT_NATIVE_HEIGHT)
         Port_Widescreen_PublishScene();
+    Port_Widescreen_PinBandChars();
 }
 
 void Port_Widescreen_RoomLoaded(void) {
@@ -1759,6 +1904,10 @@ void Port_Widescreen_RoomLoaded(void) {
     sWsStageHeight = 0;
     Port_Viewport_UploadReset(&sWsUpload);
     sWsContentKey = UINT64_MAX;
+    /* Room tileset groups are loaded during init; a group can land on an
+     * active BG-animation slot. Re-upload the current frames once the room is
+     * fully set up so the first tall frames never show the clobbered slot. */
+    ReapplyBgAnimationsInRange(0, 0x18000);
     /* Every view-dependent manager must re-prove its group coverage. */
     Port_TallScene_InvalidateManagerResidency();
     Port_VillageGroups_Reset();

@@ -13,6 +13,15 @@
 #undef static_assert
 #include <assert.h>
 
+void ReapplyBgAnimationsInRange(u32 vramOffset, u32 size) {
+    (void)vramOffset;
+    (void)size;
+}
+void Port_Widescreen_NoteTownGfxGroup(u32 group, u32 destOffset, u32 size) {
+    (void)group;
+    (void)destOffset;
+    (void)size;
+}
 RoomControls gRoomControls;
 RoomVars gRoomVars;
 PauseMenuOptions gPauseMenuOptions;

@@ -49,7 +49,8 @@ int Port_Widescreen_EffectiveViewWidth(void);
 /* Only unrelated task/HUD dependencies are stubbed; shadow publication runs
  * the production UpdateShadows body, including its area and BG gates. */
 enum { TASK_TITLE = 0, TASK_FILE_SELECT = 1, TASK_GAME = 2, TASK_GAMEOVER = 3, TASK_STAFFROLL = 4,
-       GAMETASK_MAIN = 2, GAMEMAIN_CHANGEROOM = 1, GAMEMAIN_UPDATE = 2,
+       GAMETASK_MAIN = 2, GAMEMAIN_INITROOM = 0, GAMEMAIN_CHANGEROOM = 1, GAMEMAIN_UPDATE = 2,
+       GAMEMAIN_CHANGEAREA = 3,
        TRANSITION_FADE_BLACK = 5, FADE_INSTANT = 4, AREA_MINISH_WOODS = 0x0b, AREA_HYRULE_FIELD = 0x0a,
        AREA_CAVE_OF_FLAMES = 0x60, MANAGER = 9, ENTER_ROOM_TEXTBOX_MANAGER = 1 };
 enum { GAMEMAIN_SUBTASK = 7, SUBTASK_PAUSEMENU = 1, SUBTASK_MAPHINT = 3, SUBTASK_KINSTONEMENU = 4,
@@ -64,7 +65,7 @@ static int port_hdma_has_active_channels(void) { return 0; }
 static int port_hdma_can_continue_brightness(const void* io, size_t size) { (void)io; (void)size; return 0; }
 static u8 gIoMem[0x400];
 static struct { int task, state, substate; } gMain;
-static struct { int type; } gRoomTransition;
+static struct { int type, frameCount; } gRoomTransition;
 static struct { int active, type; } gFadeControl;
 static struct { int nextToLoad, lastState; } gUI;
 static struct { int menuType, field_0x0, field_0x3; } gMenu;
@@ -98,6 +99,8 @@ static bool Port_WidescreenMapSnapshotMatches(int height);
 static void Port_WidescreenStageMapWindow(int targetHeight);
 static bool Port_WidescreenMapWindowPending(int height);
 void Port_Widescreen_MapUploaded(void);
+static void ReapplyBgAnimationsInRange(u32 a, u32 b) { (void)a; (void)b; }
+static void Port_Widescreen_PinBandChars(void) {}
 #include "widescreen_helpers.h"
 static int errors;
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #cond); ++errors; } } while (0)

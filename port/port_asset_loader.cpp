@@ -1805,8 +1805,10 @@ extern "C" bool32 Port_LoadTextsFromAssets(void) {
 
 extern "C" void Port_LogTextLookup(u32 langIndex, u32 textIndex) {
     const std::string key = "text-lookup:" + std::to_string(langIndex) + ":" + std::to_string(textIndex);
-
-    if (!EnsureAssetGroupCache() || !gAssetGroupCache.hasTextData ||
+    /* The lookup log is diagnostic only and must never pay for the asset-group
+     * cache init: on non-USA ROMs nothing else primes it, and doing it here
+     * stalls the first dialogue for hundreds of ms on SD storage. */
+    if (!gAssetGroupCache.ready || !gAssetGroupCache.hasTextData ||
         langIndex >= gAssetGroupCache.textFilesById.size()) {
         AssetLogOnce(key, "text 0x%04X lang %u <- ROM", textIndex & 0xFFFF, langIndex);
         return;

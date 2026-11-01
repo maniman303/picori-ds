@@ -58,6 +58,7 @@ int Port_Widescreen_TargetViewWidth(void) { return Port_Viewport_Get()->canvas.w
 void sub_0807D280(u16* a, u16* b) { (void)a; (void)b; }
 void sub_0807D46C(u16* a, u16* b) { (void)a; (void)b; }
 void sub_0807D6D8(u16* a, u16* b) { (void)a; (void)b; }
+static void Port_Widescreen_PinBandChars(void) {}
 #include "tall_aperture_functions.inc"
 
 /* The production scene body calls the village hook; this fixture does not link
@@ -102,7 +103,9 @@ int main(void) {
     assert(Port_Viewport_Get()->world.height == 192);
     gFadeControl.type |= FADE_MOSAIC;
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160);
+    /* A resident tall window outlives the fade flavor: the staged rows still
+     * belong to this room and camera tile. */
+    assert(Port_Viewport_Get()->world.height == 192);
     gFadeControl.type = FADE_INSTANT;
     Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192); /* residency retained */
@@ -122,11 +125,11 @@ int main(void) {
     assert(Port_Viewport_Get()->world.height == 192);
     gRoomTransition.type = TRANSITION_FADE_WHITE_SLOW;
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160);
+    assert(Port_Viewport_Get()->world.height == 192);
     gRoomTransition.type = TRANSITION_FADE_BLACK;
     gFadeControl.active = 0;
     Port_Widescreen_PublishScene();
-    assert(Port_Viewport_Get()->world.height == 160);
+    assert(Port_Viewport_Get()->world.height == 192);
     gMain.substate = GAMEMAIN_UPDATE;
     Port_Widescreen_PublishScene(); Port_Widescreen_MapUploaded(); Port_Widescreen_PublishScene();
     assert(Port_Viewport_Get()->world.height == 192);

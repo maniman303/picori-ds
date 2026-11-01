@@ -28,6 +28,10 @@ const uint32_t* Port_PPU_GetComposedFrame(int* width, int* height, int* pitchPix
 int Port_CapturePresentationPNG(const char* path);
 const char* Port_PPU_PresentationCapturePath(void);
 void Port_PPU_CompletePresentationCapture(SDL_Surface* surface);
+#ifdef TMC_REPRO_HARNESS
+/* Presentation-cadence series capture (see port_ppu.cpp). */
+const char* Port_PPU_PresentationSeriesPath(void);
+#endif
 
 // Decoupled pacing: whether the next PresentFrame is the first present of
 // the current game tick. Temporal effects (LCD persistence) fold their
