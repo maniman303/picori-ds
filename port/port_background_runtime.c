@@ -61,6 +61,16 @@ void Port_BackgroundRuntime_Publish(PortBackgroundContext context, const PortVie
     sSnapshot.rgba = Port_BackgroundCache_Current(&sCache, &sSnapshot.width, &sSnapshot.height);
 }
 
+/* FadeVBlank mutates palette RAM after the frame publish. Refresh only the
+ * committed palette state so the next presentation's margins use the same
+ * fade the native raster will present, instead of the previous upload's
+ * values (which could leave a white border around a black native frame). */
+void Port_BackgroundRuntime_RefreshFades(void) {
+    memcpy(sSnapshot.palette_fades, Port_Background_CommittedPaletteFades(), sizeof(sSnapshot.palette_fades));
+    sSnapshot.valid_palette_fades = Port_Background_ValidPaletteFades();
+    memcpy(sSnapshot.brightness, Port_Background_CommittedBrightness(), sizeof(sSnapshot.brightness));
+}
+
 const PortBackgroundRuntimeSnapshot* Port_BackgroundRuntime_Get(void) { return &sSnapshot; }
 
 

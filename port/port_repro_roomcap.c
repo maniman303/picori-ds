@@ -187,6 +187,37 @@ void Port_ReproRoomCap_Tick(unsigned int frame) {
             unsigned dispcnt = (unsigned)(gIoMem[0] | (gIoMem[1] << 8));
             /* Wait until file-select is fully presented: OBJ layer on (bit 12). */
             int objon = (dispcnt & 0x1000) != 0;
+            /* TMC_ROOMCAP_FSEL_NAV=1: walk the file-select rows (DOWN x3,
+             * then A) to open the EU language screen, and press B again to
+             * make the title/border/slots slide back. Callers capture the
+             * slide frames with TMC_CAPTURE_FRAME; the usual two-shot
+             * capture/exit is skipped. */
+            {
+                static int nav = -1;
+                static int nav_base = 0;
+                if (nav < 0) {
+                    const char* nv = getenv("TMC_ROOMCAP_FSEL_NAV");
+                    nav = (nv && *nv && strcmp(nv, "0") != 0) ? 1 : 0;
+                }
+                if (nav) {
+                    if (!nav_base && gMain.task == TASK_FILE_SELECT && frame > 200 && objon)
+                        nav_base = (int)frame;
+                    if (nav_base) {
+                        static const struct { int at; int hold; unsigned short mask; } seq[] = {
+                            {20, 4, DPAD_DOWN}, {40, 4, DPAD_DOWN}, {60, 4, DPAD_DOWN}, {80, 4, A_BUTTON},
+                            {150, 4, B_BUTTON},
+                        };
+                        for (size_t s = 0; s < sizeof(seq) / sizeof(seq[0]); ++s) {
+                            if ((int)frame >= nav_base + seq[s].at &&
+                                (int)frame < nav_base + seq[s].at + seq[s].hold) {
+                                *(volatile unsigned short*)(gIoMem + KEYINPUT_REG) =
+                                    (unsigned short)(*(volatile unsigned short*)(gIoMem + KEYINPUT_REG) & ~seq[s].mask);
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
             /* Anim trace: once OBJ is on and stable, trace UpdateAnimationSingleFrame
              * for ~3 frames, then dump call counter. */
             if (getenv("TMC_ROOMCAP_FSEL_ANIMTRACE") && gMain.task == TASK_FILE_SELECT && frame > 200 && objon) {

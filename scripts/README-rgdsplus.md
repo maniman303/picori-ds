@@ -53,10 +53,20 @@ chain). 4:3 (256 × 192) is release-enabled and was measured on the device; 32:9
 remains runtime-disabled by its independent scene, streaming and layout gates.
 Optional upscale pools retain a `569 * 160` source-pixel budget; see
 `docs/presentation-allocation-audit.md`.
-The USA asset baseline and `multi_region=y` match Picori's checked-in
-offset headers; the EU ROM is detected at runtime. No ROM or generated assets
-are needed on the build host. The embedded extractor generates assets on the
-device's first launch. `default.logic` is staged for the randomizer.
+The build uses the **EU asset/offset baseline** (`--game_version=EU`) with
+`multi_region=y`, matching the EU ROM that deployment installs. USA and JP ROMs
+are still detected at runtime. The generated EU headers are not checked in, so
+prepare them once on the build host before running the release helper:
+
+```sh
+# EU ROM in the repository root:
+python3 build.py --eur            # or configure EU and run the xmake asset tasks
+```
+
+`build-rgdsplus.sh` stops with instructions if `build/EU/assets/map_offsets.h`
+or `gfx_offsets.h` is missing. No ROM or generated assets are shipped in the
+package; the embedded extractor generates runtime assets on the device's first
+launch. `default.logic` is staged for the randomizer.
 
 Object files live in `build/rgdsplus-aarch64`; xmake's current project config
 is changed to ARM64. The existing target writes its unstripped executable to

@@ -18,6 +18,7 @@
 #include "port_widescreen.h"
 #include "port_effect_geometry.h"
 #include "port_oam.h"
+#include "port_background_runtime.h"
 #endif
 
 extern void CreateSparkle(Entity* entity);
@@ -253,6 +254,13 @@ void WaitForNextFrame(void) {
 #endif
     }
     FadeVBlank();
+#ifdef PC_PORT
+    /* Publish the fade just uploaded to palette RAM: the next presentation's
+     * margins must use the same fade as the native raster, not the previous
+     * upload (a one-frame lag shows a white border around a black frame at
+     * the title → file-select hand-off). */
+    Port_BackgroundRuntime_RefreshFades();
+#endif
 }
 
 void PlayerUpdate(PlayerEntity* this) {

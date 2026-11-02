@@ -14,10 +14,28 @@ done
 # Never resolve target libraries through the host's amd64 pkg-config files.
 export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
 unset PKG_CONFIG_PATH XMAKE_USE_SYSTEM_SDL3 IN_NIX_SHELL
+
+# The release targets the EU ROM (scripts/deploy-rgdsplus.sh), so compile
+# against the EU asset/offset baseline instead of the committed USA headers.
+# The generated EU headers are not checked in; build them once on the host
+# with the EU ROM (python3 build.py --eur, or the xmake asset tasks).
+EU_ASSETS=build/EU/assets
+if [ ! -f "$EU_ASSETS/map_offsets.h" ] || [ ! -f "$EU_ASSETS/gfx_offsets.h" ]; then
+    printf 'Missing EU generated asset headers in %s.\n' "$EU_ASSETS" >&2
+    printf 'Place the EU ROM at baserom_eu.gba and run once on this host:\n' >&2
+    printf '  python3 build.py --eur\n' >&2
+    printf '(or configure --game_version=EU and run xmake extract_assets,\n' >&2
+    printf ' convert_assets and build_assets).\n' >&2
+    exit 2
+fi
+
 xmake f -y -p linux -a arm64 -m release --toolchain=cross \
     --cross=aarch64-linux-gnu- -o build/rgdsplus-aarch64 \
-    --game_version=USA --multi_region=y --pc_avx2=n --gpu_renderer=y \
+    --game_version=EU --multi_region=y --pc_avx2=n --gpu_renderer=y \
     --widescreen_width=576 --ra=n --repro_harness=n --pc_static_dependencies=y
+# The target output path is shared with native configs. Remove a previous
+# non-AArch64 binary so xmake relinks instead of reusing it as up to date.
+rm -f build/pc/tmc_pc
 xmake build -y -j "${BUILD_JOBS:-2}" tmc_pc
 
 OUT="$ROOT/dist/rgdsplus"

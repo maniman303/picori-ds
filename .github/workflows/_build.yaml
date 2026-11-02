@@ -393,6 +393,7 @@ jobs:
           python3 tools/edge_fade_regression_test.py
           python3 tools/ppu_group_cells_regression_test.py
           python3 tools/oam_position_regression_test.py
+          python3 tools/obj_margin_overlay_regression_test.py
           python3 tools/door_visibility_regression_test.py
 
       - name: Resolve MinGW POSIX path (Windows)

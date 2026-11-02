@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- The RG DS Plus release helper (`scripts/build-rgdsplus.sh`) now compiles
+  against the EU asset/offset baseline (`--game_version=EU`) to match the EU
+  ROM deployment installs, and fails early with preparation instructions when
+  the generated `build/EU/assets` headers are missing.
+- Widescreen screen-wide fades now stay consistent across the whole canvas.
+  When a fixed screen's image background is missing, every active palette fade
+  (logo → title, the title's intro white flashes and the title → file-select
+  white-out) continues the native edge colour into the margins instead of
+  fading the black fallback alone, which showed a different white balance or a
+  dark letterbox around the fading native image. The margin fade state is also
+  refreshed after `FadeVBlank`, so margins use the same fade step the native
+  raster presents instead of the previous upload (which left a white border
+  around a black native frame at the title → file-select hand-off). Procedural
+  fields (boot logos) and real margin artwork keep their existing composition.
+- File-select language screen: the "choose a file" heading/border and the save
+  slots now slide past the native 240-pixel border into the widescreen margins
+  instead of being clipped at it, and fade out/in with the slide so wide
+  canvases never leave a stranded sprite at the target position. Travel
+  distance and native behaviour are unchanged.
 - Fixed the one-frame white border around the title → file-select black
   transition on tall canvases. Forced blank now covers the whole composed
   canvas, and a uniformly coloured native fade frame clamps its margins to the

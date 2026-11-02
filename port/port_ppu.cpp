@@ -37,6 +37,25 @@ extern "C" void kmp_set_blocktime(int msec);
 #endif
 #endif
 
+/* A screen-wide palette fade (the engine's white/black fades) is applied to
+ * every palette bank of the published fixed screen. The native frame carries
+ * it, but the fail-closed margin base (missing artwork / solid backdrop) is
+ * unrelated scene data, so fading it alone produces a dark letterbox frame
+ * around the still-white native image. Detect the fade from the committed
+ * engine state instead of from pixel uniformity, which only holds at the
+ * peak of the fade. */
+static bool Port_PPU_FullCanvasFadeActive(const PortBackgroundRuntimeSnapshot* bg) {
+    if (!bg || !bg->effect_policy_valid || !bg->effect_policy.banks)
+        return false;
+    const uint16_t banks = bg->effect_policy.banks;
+    if ((bg->valid_palette_fades & banks) != banks)
+        return false;
+    PortPaletteFade resolved;
+    if (Port_Background_ResolvePaletteFade(banks, bg->palette_fades, &resolved) != PORT_PALETTE_FADE_UNIFORM)
+        return false;
+    return resolved.intensity > 0;
+}
+
 /* Manual access to gMain (the engine's Main struct): including main.h
  * would pull in player.h, which uses `this` as a C parameter name and
  * doesn't compile as C++. Treat the symbol as opaque bytes and read the
@@ -238,6 +257,10 @@ static SDL_Texture* Port_PPU_EnsureTexture(SDL_Texture** slot, int* curW, int* c
 
 static int sComposedWidth, sComposedHeight;
 
+/* Set by Port_PPU_ComposeBackground: the last composition used real margin
+ * artwork (faded by the composer) rather than the fail-closed solid fill. */
+static bool sComposeArtworkAvailable;
+
 static const uint32_t* Port_PPU_SelectPresentFrame(int* outW, int* outH, int* outPitchBytes) {
     const int visibleW = sComposedWidth ? sComposedWidth : virtuappu_mode1_frame_width();
     if (outW)
@@ -414,6 +437,7 @@ static void Port_PPU_ExtendTitleEffectMargins(const PortViewportGeometry* geomet
 /* The PPU buffer already has the bounded canvas capacity. Move native rows
  * backwards in place so no second full-frame allocation is needed. */
 static bool Port_PPU_ComposeBackground(void) {
+    sComposeArtworkAvailable = false;
     const PortViewportGeometry* geometry = Port_Viewport_Get();
     const PortOamMenuHeading* heading = Port_Oam_MenuHeading();
     const bool fixed = (geometry->scene.capabilities & PORT_SCENE_FIXED_SCREEN) != 0;
@@ -643,6 +667,7 @@ static bool Port_PPU_ComposeBackground(void) {
     }
     sComposedWidth = geometry->canvas.width;
     sComposedHeight = geometry->canvas.height;
+    sComposeArtworkAvailable = haveArt && bg->rgba != nullptr;
     return true;
 }
 
@@ -2003,6 +2028,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
         Port_Config_GetConsoleParity(), liveWorld, presentation->canvas.width,
         presentation->canvas.height, presentation->world.width, presentation->world.height);
     virtuappu_mode1_bind_obj_positions(signedPositions ? Port_Oam_Positions() : nullptr);
+    virtuappu_mode1_bind_obj_opacity(signedPositions ? Port_Oam_Opacities() : nullptr);
     Port_PPU_UpdateWorldRect();
 
     {
@@ -2154,19 +2180,40 @@ extern "C" void Port_PPU_PresentFrame(void) {
     if (Port_PPU_ComposeBackground()) {
         sSuperValid = false;
         /* Fixed screens and native fallbacks are one native composition with
-         * margins. When a full-canvas fade (any uniform colour) owns the
-         * screen, continue the native edge colour into the margins instead of
-         * leaving a stale-artwork border. Normal fixed screens (including
-         * missing artwork) keep their existing fail-closed composition. */
+         * margins. While a screen-wide palette fade is active (title light
+         * flashes, logo/title hand-off, title → file-select), continue the
+         * native edge colour into the margins instead of fading the fail-
+         * closed backdrop alone, which would show a different white balance or
+         * a dark letterbox around the fading native image. Pixel uniformity
+         * remains a trigger for blank or forced frames that carry no committed
+         * fade. */
         const PortViewportGeometry* geometry = Port_Viewport_Get();
         const bool fixedOrFallback =
             (geometry->scene.capabilities & (PORT_SCENE_FIXED_SCREEN | PORT_SCENE_NATIVE_FALLBACK)) != 0;
-        if (fixedOrFallback &&
-            Port_PPU_RectIsUniformColor(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
-                                        geometry->nativeContent)) {
+        const bool nativeUniform = Port_PPU_RectIsUniformColor(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                                               geometry->nativeContent);
+        const PortBackgroundRuntimeSnapshot* background = Port_BackgroundRuntime_Get();
+        /* Only image contexts without a decoded canvas image fall back to the
+         * solid margin base; procedural fields (boot logos, black cards) and
+         * real artwork already carry the correct colour through a fade. */
+        const bool missingArt = background &&
+            background->source == PORT_BACKGROUND_SOURCE_IMAGE && background->rgba == nullptr;
+        const bool fullCanvasFade = missingArt && Port_PPU_FullCanvasFadeActive(background);
+        const bool extendMargins = !sComposeArtworkAvailable && (nativeUniform || fullCanvasFade);
+        if (fixedOrFallback && extendMargins) {
             Port_EdgeFade_ApplySolid(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
                                      geometry->canvas.width, geometry->canvas.height,
                                      geometry->nativeContent, nullptr, 0);
+        }
+        /* Fixed menus can slide their title/border/slots past the native
+         * border. Re-render the OBJ layer at canvas size and composite only
+         * the added margins so those sprites continue smoothly into the
+         * widescreen sides instead of ending at the native crop. */
+        if (fixedOrFallback && signedPositions) {
+            virtuappu_mode1_overlay_obj_margins(virtuappu_frame_buffer, virtuappu_mode1_frame_pitch(),
+                                                geometry->canvas.width, geometry->canvas.height,
+                                                geometry->nativeContent.x, geometry->nativeContent.y,
+                                                Port_Oam_Positions(), Port_Oam_Opacities());
         }
     }
     Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() *

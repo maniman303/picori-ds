@@ -24,6 +24,10 @@ void Port_Oam_InvalidateLatchedRange(unsigned offset, unsigned length);
 /* A tall scene may use only visible slots with matching signed metadata. */
 bool Port_Oam_VisibleSlotsTagged(const uint16_t* oam);
 const VirtuaPPUObjPosition* Port_Oam_Positions(void);
+/* Per-slot opacity latched with the positions. Every slot defaults to 255
+ * (opaque); the port lowers it only for sprites it is fading out. */
+const uint8_t* Port_Oam_Opacities(void);
+void Port_Oam_SetBuildOpacity(unsigned slot, uint8_t opacity);
 
 /* The direct menu heading can be clipped completely before OAM emission.
  * Retain its source and signed pose with the OAM build/VBlank lifetime. */

@@ -256,6 +256,21 @@ bool virtuappu_mode1_composite_overlay_line(int line, int source_x_offset, int w
 bool virtuappu_mode1_sample_below_bg(int line, int x, int source_bg, unsigned visible_bgs,
                                      unsigned* layer, uint32_t* color);
 void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffer, uint8_t* priority_buffer);
+/* Optional per-OAM-slot opacity (0..255, 128 entries) bound for the next
+ * frame. Writes into the same per-pixel alpha the OBJ compositor consumes, so
+ * a port-side fade blends the sprite with the layer beneath it. NULL restores
+ * fully opaque OBJ rendering. */
+void virtuappu_mode1_bind_obj_opacity(const uint8_t* opacities);
+/* Draw the bound OBJ layer over the added margins of an already composed
+ * canvas (native content is never touched). `positions` are the native signed
+ * OAM positions and are shifted by (native_x, native_y) into canvas space.
+ * `opacities` may be NULL for fully opaque sprites. Returns true when at least
+ * one margin pixel was drawn. Allocation-free; intended for fixed-menu
+ * canvases where sprites slide past the native border. */
+bool virtuappu_mode1_overlay_obj_margins(uint32_t* canvas, int pitch, int width, int height,
+                                         int native_x, int native_y,
+                                         const VirtuaPPUObjPosition* positions,
+                                         const uint8_t* opacities);
 void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH],
                                     uint8_t bg_priority[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH],
                                     uint32_t obj_layer[MODE1_GBA_WIDTH], uint8_t obj_priority[MODE1_GBA_WIDTH],

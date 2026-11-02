@@ -5,11 +5,14 @@
 
 static VirtuaPPUObjPosition sBuild[MODE1_GBA_OAM_COUNT];
 static VirtuaPPUObjPosition sLatched[MODE1_GBA_OAM_COUNT];
+static uint8_t sOpacityBuild[MODE1_GBA_OAM_COUNT];
+static uint8_t sOpacityLatched[MODE1_GBA_OAM_COUNT];
 static PortOamMenuHeading sHeadingBuild, sHeadingLatched;
 static bool sCanvasContext;
 
 void Port_Oam_BeginFrame(void) {
     memset(sBuild, 0, sizeof(sBuild));
+    memset(sOpacityBuild, 0xFF, sizeof(sOpacityBuild));
     memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
     sCanvasContext = false;
 }
@@ -50,6 +53,13 @@ void Port_Oam_Record(unsigned slot, uint16_t attr0, uint16_t attr1, int x, int y
         position.y = (int16_t)y;
     }
     sBuild[slot] = position;
+    sOpacityBuild[slot] = 0xFF;
+}
+
+void Port_Oam_SetBuildOpacity(unsigned slot, uint8_t opacity) {
+    if (slot >= MODE1_GBA_OAM_COUNT)
+        return;
+    sOpacityBuild[slot] = opacity;
 }
 
 void Port_Oam_Latch(unsigned count) {
@@ -57,18 +67,26 @@ void Port_Oam_Latch(unsigned count) {
         count = MODE1_GBA_OAM_COUNT;
     memcpy(sLatched, sBuild, count * sizeof(sBuild[0]));
     memset(sLatched + count, 0, (MODE1_GBA_OAM_COUNT - count) * sizeof(sLatched[0]));
+    memcpy(sOpacityLatched, sOpacityBuild, count * sizeof(sOpacityLatched[0]));
+    memset(sOpacityLatched + count, 0xFF, (MODE1_GBA_OAM_COUNT - count) * sizeof(sOpacityLatched[0]));
     sHeadingLatched = sHeadingBuild;
 }
 
 void Port_Oam_Invalidate(void) {
     memset(sBuild, 0, sizeof(sBuild));
     memset(sLatched, 0, sizeof(sLatched));
+    memset(sOpacityBuild, 0xFF, sizeof(sOpacityBuild));
+    memset(sOpacityLatched, 0xFF, sizeof(sOpacityLatched));
     memset(&sHeadingBuild, 0, sizeof(sHeadingBuild));
     memset(&sHeadingLatched, 0, sizeof(sHeadingLatched));
 }
 
 const VirtuaPPUObjPosition* Port_Oam_Positions(void) {
     return sLatched;
+}
+
+const uint8_t* Port_Oam_Opacities(void) {
+    return sOpacityLatched;
 }
 
 void Port_Oam_InvalidateLatchedRange(unsigned offset, unsigned length) {

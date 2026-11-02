@@ -20,6 +20,7 @@ u32 gFrameObjLists[50016];
 PortVoxelOamTag gPortVoxelOamTagsBuild[128];
 static PortVoxelOamTag sVoxelCtx;
 static int sRenderingPlayer;
+static u8 sSpriteOpacity = 255;
 static u8 sSizeTable[240];
 static int viewWidth = 256, viewHeight = 192, voxel;
 static u8 io[0x400], vram[0x18000];

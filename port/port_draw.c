@@ -26,6 +26,7 @@
 
 #include "port_widescreen.h"
 #include "port_viewport.h"
+#include "port_runtime_config.h"
 #include "port_rom.h"
 #include "port_voxel.h"
 #include "port_oam.h"
@@ -40,6 +41,28 @@ static void RenderSpritePieces(const u8* data, s16 baseX, s16 baseY, u32 flags, 
 
 /* Set true only while rendering the player; drives the swamp-sink body clip. */
 static int sRenderingPlayer = 0;
+
+/* Port-only opacity applied to the current entity's OAM slots. Fixed-screen
+ * menus slide their title/border/slots past the native border on the language
+ * screen; the PPU keeps drawing them into the side margins and this value
+ * fades them out as they leave so a very wide margin never shows a stranded
+ * sprite. 255 keeps the native opaque path. */
+#define PORT_FIXED_SLIDE_FADE_PX 64
+static u8 sSpriteOpacity = 255;
+
+static u8 Port_DrawFixedSlideOpacity(s32 x) {
+    const PortViewportGeometry* geometry = Port_Viewport_Get();
+    if (x >= 0 || !geometry ||
+        Port_Viewport_Composition(geometry) != PORT_COMPOSITION_FIXED_SCREEN ||
+        geometry->canvas.width <= geometry->nativeContent.width ||
+        geometry->nativeContent.width <= 0)
+        return 255;
+    if (Port_Config_GetConsoleParity())
+        return 255;
+    if (x <= -PORT_FIXED_SLIDE_FADE_PX)
+        return 0;
+    return (u8)(((x + PORT_FIXED_SLIDE_FADE_PX) * 255) / PORT_FIXED_SLIDE_FADE_PX);
+}
 extern PlayerState gPlayerState;
 /* Region-select a ROM offset by the loaded ROM's game code (defined below). */
 static u32 RegionRomOffset(u32 usa, u32 eu, u32 jp);
@@ -466,6 +489,19 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
                                      : Port_Widescreen_EffectiveViewWidth();
         const s32 viewH = canvas_oam ? Port_Viewport_Get()->canvas.height
                                      : Port_Widescreen_EffectiveViewHeight();
+        /* Fixed menus keep world sprites in OAM while they slide past the
+         * native border: the PPU draws the native part and the margin overlay
+         * draws the rest, so cull at the canvas edge (which can be wider than
+         * the native 240 columns) instead of the native crop. */
+        s32 viewLeft = 0;
+        s32 viewRight = viewW;
+        if (!canvas_oam) {
+            const PortViewportGeometry* geometry = Port_Viewport_Get();
+            if (geometry && Port_Viewport_Composition(geometry) == PORT_COMPOSITION_FIXED_SCREEN) {
+                viewLeft = -geometry->nativeContent.x;
+                viewRight = geometry->canvas.width - geometry->nativeContent.x;
+            }
+        }
         y -= (s32)se[1]; /* subtract y anchor */
         if (y >= viewH) {
             continue;
@@ -486,7 +522,7 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
                     continue;
                 parked = true;
             }
-        } else if (y + (s32)se[3] <= 0 || x >= viewW || x + (s32)se[2] <= 0) {
+        } else if (y + (s32)se[3] <= 0 || x >= viewRight || x + (s32)se[2] <= viewLeft) {
             continue;
         }
 
@@ -506,6 +542,8 @@ static void RenderSpritePieces(const u8* data, /* pointer to frame data (count b
 
         memcpy(ip, &oamWord, sizeof(oamWord));
         Port_Oam_Record(updated, (u16)oamWord, (u16)(oamWord >> 16), x, y, parked);
+        if (sSpriteOpacity < 255)
+            Port_Oam_SetBuildOpacity(updated, sSpriteOpacity);
         ip += 4;
 
         /* Build attr2: tile number + priority + palette */
@@ -937,6 +975,7 @@ static void ProcessEntityForDraw(Entity* entity) {
     u16 extra;
 
     ResolveEntitySpriteParams(entity, &x, &y, &flags, &extra);
+    sSpriteOpacity = Port_DrawFixedSlideOpacity(x);
     sVoxelCtx.kind = PORT_VOXEL_OAM_ENTITY;
     sVoxelCtx.layer = entity->collisionLayer;
     sVoxelCtx.groundY = (s16)(y - entity->z.HALF.HI);
@@ -1039,7 +1078,9 @@ static void ProcessDrawList(EntityDrawList* list) {
     for (u32 i = 0; i < list->count; i++) {
         if (gOAMControls.updated >= 0x80)
             return;
+        sSpriteOpacity = 255;
         ProcessEntityForDraw(list->entries[i]);
+        sSpriteOpacity = 255;
         sVoxelCtx.kind = PORT_VOXEL_OAM_HUD;
     }
 }
@@ -1200,6 +1241,7 @@ void ram_DrawEntities(void) {
 
         /* Render deferred shadow/underlay sprites */
         sVoxelCtx.kind = PORT_VOXEL_OAM_DECAL;
+        sSpriteOpacity = 255;
         ProcessDeferredList();
         sVoxelCtx.kind = PORT_VOXEL_OAM_HUD;
 

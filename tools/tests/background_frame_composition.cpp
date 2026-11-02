@@ -18,6 +18,7 @@ static uint8_t* gRomData = rom;
 static uint16_t gBgPltt[256], gObjPltt[256];
 static uint32_t gFrameObjLists[1];
 static int sComposedWidth, sComposedHeight;
+static bool sComposeArtworkAvailable;
 static int activeHdma, fixedBrightnessHdma;
 static uint8_t lineIo[0x400];
 static bool useLineIo;

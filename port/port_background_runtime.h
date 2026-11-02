@@ -38,6 +38,9 @@ void Port_BackgroundRuntime_RequestReload(void);
  * Decode and I/O are confined to a changed key at this boundary. */
 void Port_BackgroundRuntime_Publish(PortBackgroundContext context, const PortViewportGeometry* geometry,
                                     uint32_t renderer_generation, bool verified_effect_coverage);
+/* Refresh the committed palette fade state after FadeVBlank so the next
+ * presentation's margins match the palette RAM the native raster uses. */
+void Port_BackgroundRuntime_RefreshFades(void);
 const PortBackgroundRuntimeSnapshot* Port_BackgroundRuntime_Get(void);
 /* Resolve from the latched descriptor and explicit native raster inputs.
  * The caller supplies verified coverage and the actual second layer; no game

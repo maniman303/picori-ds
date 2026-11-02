@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "virtuappu.h"
 
@@ -181,11 +182,16 @@ static int mode1_ui_mask_width;
 static int mode1_world_x, mode1_world_y, mode1_world_w, mode1_world_h;
 static bool mode1_world_enabled;
 static const VirtuaPPUObjPosition* mode1_obj_positions;
+static const uint8_t* mode1_obj_opacities;
 static int mode1_oam_x(Mode1OAMAttr attr);
 static int mode1_oam_y(Mode1OAMAttr attr);
 
 void virtuappu_mode1_bind_obj_positions(const VirtuaPPUObjPosition* positions) {
     mode1_obj_positions = positions;
+}
+
+void virtuappu_mode1_bind_obj_opacity(const uint8_t* opacities) {
+    mode1_obj_opacities = opacities;
 }
 
 bool virtuappu_mode1_has_obj_positions(void) {
@@ -533,6 +539,12 @@ VPPU_TLS const uint8_t* virtuappu_mode1_io_thread_override = NULL;
  * each OpenMP render thread, which processes a whole scanline at a time, has
  * its own copy; render_obj_line clears it at the top of every line. */
 VPPU_TLS uint8_t virtuappu_mode1_obj_semitrans[MODE1_GBA_WIDTH];
+/* Per-scanline port-side OBJ opacity (0..255) for the winning OBJ pixel.
+ * 255 (the default for unbound tables) means fully opaque and keeps the legacy
+ * compositor path byte-identical. A value below 255 blends the sprite with the
+ * layer beneath it, independent of BLDCNT, so host effects can fade a menu
+ * sprite without changing the game's blend registers. */
+VPPU_TLS uint8_t virtuappu_mode1_obj_alpha[MODE1_GBA_WIDTH];
 /* Per-line canvas tag for the OBJ pixel that won the priority test. Used by
  * the host margin fade to keep HUD sprites out of the live-world border. */
 VPPU_TLS uint8_t virtuappu_mode1_obj_canvas[MODE1_GBA_WIDTH];
@@ -1029,6 +1041,7 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
     memset(virtuappu_mode1_obj_semitrans, 0, (size_t)mode1_frame_width);
     memset(virtuappu_mode1_obj_canvas, 0, (size_t)mode1_frame_width);
     memset(virtuappu_mode1_obj_window, 0, (size_t)mode1_frame_width);
+    memset(virtuappu_mode1_obj_alpha, 0xFF, (size_t)mode1_frame_width);
 
     for (i = MODE1_GBA_OAM_COUNT - 1; i >= 0; --i) {
         Mode1OAMAttr attr;
@@ -1273,8 +1286,119 @@ void virtuappu_mode1_render_obj_line(int line, bool obj_1d, uint32_t* line_buffe
             priority_buffer[screen_x] = priority;
             virtuappu_mode1_obj_semitrans[screen_x] = (mode1_oam_mode(attr) == 1u) ? 1u : 0u;
             virtuappu_mode1_obj_canvas[screen_x] = canvas_position ? 1u : 0u;
+            virtuappu_mode1_obj_alpha[screen_x] = mode1_obj_opacities ? mode1_obj_opacities[i] : 255u;
         }
     }
+}
+
+/* Re-render the OBJ layer at canvas size and composite only the added margin
+ * columns over an already composed fixed-screen canvas. The sprite source
+ * (OAM, VRAM, palettes) and signed positions are the live ones; the temporary
+ * geometry only widens the OBJ raster target so a sprite sliding past the
+ * native border keeps drawing into the margin instead of ending at it. */
+bool virtuappu_mode1_overlay_obj_margins(uint32_t* canvas, int pitch, int width, int height,
+                                         int native_x, int native_y,
+                                         const VirtuaPPUObjPosition* positions,
+                                         const uint8_t* opacities) {
+    VirtuaPPUObjPosition shifted[MODE1_GBA_OAM_COUNT];
+    static uint32_t obj_row[MODE1_GBA_WIDTH];
+    static uint8_t obj_priority[MODE1_GBA_WIDTH];
+    const VirtuaPPUObjPosition* prev_positions;
+    const uint8_t* prev_opacities;
+    const uint8_t* prev_io;
+    int prev_width, prev_height, prev_pitch;
+    bool any = false;
+    bool drew = false;
+
+    if (!canvas || !positions || width < 240 || width > MODE1_GBA_WIDTH || height < 160 ||
+        height > MODE1_MAX_RENDER_HEIGHT || pitch < width || native_x < 0 || native_y < 0 ||
+        native_x > width - 240 || native_y > height - 160)
+        return false;
+
+    for (int i = 0; i < MODE1_GBA_OAM_COUNT; ++i) {
+        shifted[i] = positions[i];
+        if (!(positions[i].flags & VIRTUAPPU_OBJ_POSITION_VALID))
+            continue;
+        /* The native raster is one 240x160 image shifted into the canvas, so
+         * every recorded position is in that native space (the CANVAS tag
+         * only suppresses the live-world aperture offset, which is off here). */
+        {
+            const int sx = (int)positions[i].x + native_x;
+            const int sy = (int)positions[i].y + native_y;
+            if (sx < INT16_MIN || sx > INT16_MAX || sy < INT16_MIN || sy > INT16_MAX) {
+                shifted[i].flags |= VIRTUAPPU_OBJ_POSITION_HIDDEN;
+                continue;
+            }
+            shifted[i].x = (int16_t)sx;
+            shifted[i].y = (int16_t)sy;
+        }
+        shifted[i].flags |= VIRTUAPPU_OBJ_POSITION_CANVAS;
+        any = true;
+    }
+    if (!any)
+        return false;
+
+    prev_positions = mode1_obj_positions;
+    prev_opacities = mode1_obj_opacities;
+    prev_io = virtuappu_mode1_io_thread_override;
+    prev_width = mode1_frame_width;
+    prev_height = mode1_frame_height;
+    prev_pitch = mode1_frame_pitch;
+
+    mode1_obj_positions = shifted;
+    mode1_obj_opacities = opacities;
+    mode1_frame_width = width;
+    mode1_frame_height = height;
+    mode1_frame_pitch = pitch;
+
+    for (int y = 0; y < height; ++y) {
+        int source_line = y - native_y;
+        const uint8_t* io;
+        uint16_t dispcnt;
+        uint32_t* row = canvas + (size_t)y * (size_t)pitch;
+
+        if (source_line < 0) source_line = 0;
+        if (source_line > MODE1_GBA_HEIGHT - 1) source_line = MODE1_GBA_HEIGHT - 1;
+        io = virtuappu_mode1_frame_io_for_line(source_line);
+        if (!io)
+            continue;
+        dispcnt = (uint16_t)(io[0] | (uint16_t)io[1] << 8);
+        if (!(dispcnt & MODE1_DISP_OBJ_ON))
+            continue;
+
+        virtuappu_mode1_io_thread_override = io;
+        memset(obj_row, 0, (size_t)width * sizeof(obj_row[0]));
+        memset(obj_priority, 0xFF, (size_t)width);
+        virtuappu_mode1_render_obj_line(y, (dispcnt & MODE1_DISP_OBJ_1D) != 0, obj_row, obj_priority);
+
+        for (int x = 0; x < width; ++x) {
+            uint32_t color;
+            unsigned alpha;
+            if (x >= native_x && x < native_x + 240)
+                continue;
+            color = obj_row[x];
+            if (color == 0)
+                continue;
+            alpha = virtuappu_mode1_obj_alpha[x];
+            if (alpha == 0)
+                continue;
+            if (alpha >= 255u) {
+                row[x] = color;
+            } else {
+                const int eva = ((int)alpha * 16 + 127) / 255;
+                row[x] = mode1_alpha_blend(color, row[x], eva, 16 - eva);
+            }
+            drew = true;
+        }
+    }
+
+    mode1_obj_positions = prev_positions;
+    mode1_obj_opacities = prev_opacities;
+    virtuappu_mode1_io_thread_override = prev_io;
+    mode1_frame_width = prev_width;
+    mode1_frame_height = prev_height;
+    mode1_frame_pitch = prev_pitch;
+    return drew;
 }
 
 void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_COUNT][MODE1_GBA_WIDTH],
@@ -1478,7 +1602,17 @@ void virtuappu_mode1_composite_line(int line, uint32_t bg_layers[MODE1_GBA_BG_CO
 #undef MODE1_CONSIDER
         }
 
-        if (allow_sfx) {
+        /* Port-side per-OBJ opacity: blend the winning sprite with the layer
+         * beneath it regardless of BLDCNT. Only a bound opacity below fully
+         * opaque takes this path, so native rendering stays byte-identical. */
+        bool obj_opacity_blended = false;
+        if (top_layer == 4 && virtuappu_mode1_obj_alpha[x] < 255u) {
+            const int eva_op = ((int)virtuappu_mode1_obj_alpha[x] * 16 + 127) / 255;
+            top_color = mode1_alpha_blend(top_color, bottom_color, eva_op, 16 - eva_op);
+            obj_opacity_blended = true;
+        }
+
+        if (allow_sfx && !obj_opacity_blended) {
             if (top_layer == 4 && virtuappu_mode1_obj_semitrans[x]) {
                 /* Semi-transparent OBJ (attr0 mode 1): GBA forces it to be an
                  * alpha-blend 1st target regardless of BLDCNT's effect mode and
@@ -2221,6 +2355,7 @@ void virtuappu_mode1_render_frame(const PPUMemory* ppu) {
              * stale mask. Hardware: no OBJ rendering pass -> empty OBJ window. */
             memset(virtuappu_mode1_obj_window, 0, (size_t)mode1_frame_width);
             memset(virtuappu_mode1_obj_semitrans, 0, (size_t)mode1_frame_width);
+            memset(virtuappu_mode1_obj_alpha, 0xFF, (size_t)mode1_frame_width);
         }
 
         virtuappu_mode1_composite_line(line, bg_layers, NULL, obj_layer, obj_priority, line_dispcnt);
