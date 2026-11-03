@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Added object overrides for fixed-screen UI. A PNG in
+  `assets/override/objects/<name>.png` (or a language-specific
+  `<name>_<language>.png`) replaces or overlays the original object, centred
+  on the object's original on-screen bounds. The PNG can be larger than the
+  original object, and a missing/invalid file falls back to the game artwork.
+  The file-select "choose a file" heading is the first object using the
+  system: its ribbon and localized text share one OAM frame in the game, so
+  the shipped 164x24 frame has a transparent text window and is composited
+  over the original. One `file_select_header.png` now serves EU
+  English/French/German/Spanish/Italian, USA English and JP Japanese while the
+  game keeps drawing the correct localized text, and all combinations were
+  verified byte-identical. Full builds stage missing object overrides into
+  `dist/<region>/assets/override/objects/` (existing dist files win), and
+  development builds fall back to the repository `assets/override/objects/`
+  tree. F8 → Display has a new object-artwork reload button.
 - The RG DS Plus release helper (`scripts/build-rgdsplus.sh`) now compiles
   against the EU asset/offset baseline (`--game_version=EU`) to match the EU
   ROM deployment installs, and fails early with preparation instructions when

@@ -16,6 +16,10 @@
 #include "gfx.h"
 #include "vram.h"
 #include "port_offset_remap.h"
+#ifdef PC_PORT
+#include "save.h"
+#include "port_object_override.h"
+#endif
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -498,6 +502,24 @@ void FileScreenObjects_Type18(FileScreenObjectsEntity* this) {
         this->unk_68 = -96;
     }
     sub_0808EF6C(this);
+#ifdef PC_PORT
+    /* The heading is one OAM frame: the ribbon and the localized text share
+     * the same tiles. The shared override asset is a ribbon frame with a
+     * transparent text window, composited over the original so the game's
+     * text (and its language) stays in place. Other heading frames keep the
+     * original artwork. */
+    if (super->frameIndex == 0x28) {
+        s32 bounds_x, bounds_y, bounds_width, bounds_height;
+        if (Port_Draw_MeasureFrame(super->spriteIndex, super->frameIndex, 0,
+                                   &bounds_x, &bounds_y, &bounds_width, &bounds_height)) {
+            Port_ObjectOverride_SubmitOverlay(PORT_OBJECT_FILE_SELECT_HEADER, -1,
+                                              (int)super->x.HALF.HI + bounds_x,
+                                              (int)super->y.HALF.HI + bounds_y,
+                                              (int)bounds_width, (int)bounds_height, 7);
+        }
+    }
+    super->spriteSettings.draw = 2;
+#endif
 }
 
 void FileScreenObjects_Type19(FileScreenObjectsEntity* this) {

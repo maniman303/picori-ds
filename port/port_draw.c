@@ -30,6 +30,7 @@
 #include "port_rom.h"
 #include "port_voxel.h"
 #include "port_oam.h"
+#include "port_object_override.h"
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -353,6 +354,73 @@ static const u8* LookupFrameData(u16 spriteIndex, u8 frameIndex) {
     }
 
     return base + off2;
+}
+
+/* Measure the drawn bounds of one sprite frame without emitting OAM. Used by
+ * object overrides so a replacement PNG can be centred on the original object.
+ * The size table and anchor offsets are the same ones RenderSpritePieces uses. */
+bool Port_Draw_MeasureFrame(uint32_t sprite_index, uint32_t frame_index, uint32_t flags,
+                            int32_t* out_x, int32_t* out_y, int32_t* out_width, int32_t* out_height) {
+    const u8* data;
+    u32 table_off;
+    const u8* size_tab;
+    s32 x0 = 0x7FFFFFFF, y0 = 0x7FFFFFFF, x1 = -0x7FFFFFFF, y1 = -0x7FFFFFFF;
+    u8 count;
+
+    if (!sSizeTableLoaded || !out_x || !out_y || !out_width || !out_height)
+        return false;
+    data = LookupFrameData((u16)sprite_index, (u8)frame_index);
+    if (!data)
+        return false;
+    count = *data++;
+    if (count == 0)
+        return false;
+    {
+        const u8* fob_base = (const u8*)gFrameObjLists;
+        const u8* fob_end = fob_base + Port_FrameObjListsSizeForRegion();
+        if (data >= fob_base && data < fob_end) {
+            const size_t max_pieces = (size_t)(fob_end - data) / 5u;
+            if ((size_t)count > max_pieces)
+                count = (u8)max_pieces;
+            if (count == 0)
+                return false;
+        }
+    }
+    if (flags & 0x300) {
+        table_off = (flags & 0x300) != 0x100 ? 0xC0 : 0;
+    } else {
+        const u32 v = (flags >> 24) & 0x30;
+        table_off = v + (v << 1);
+    }
+    size_tab = &sSizeTable[table_off];
+    for (u8 i = 0; i < count; ++i, data += 5) {
+        s32 xoff = (s8)data[0];
+        s32 yoff = (s8)data[1];
+        const u8 shape_info = data[2];
+        const u32 size_index = (shape_info & 0xF0) >> 2;
+        const u8* size;
+        s32 x, y;
+        if ((size_t)table_off + size_index + 3 >= sizeof(sSizeTable))
+            continue;
+        size = &size_tab[size_index];
+        if (!(flags & 0x300)) {
+            if (flags & 0x20000000u) yoff = -yoff;
+            if (flags & 0x10000000u) xoff = -xoff;
+        }
+        x = xoff - (s32)size[0];
+        y = yoff - (s32)size[1];
+        if (x < x0) x0 = x;
+        if (y < y0) y0 = y;
+        if (x + (s32)size[2] > x1) x1 = x + (s32)size[2];
+        if (y + (s32)size[3] > y1) y1 = y + (s32)size[3];
+    }
+    if (x0 >= x1 || y0 >= y1)
+        return false;
+    *out_x = x0;
+    *out_y = y0;
+    *out_width = x1 - x0;
+    *out_height = y1 - y0;
+    return true;
 }
 
 /* ---- Core sprite piece renderer (port of sub_080B2874) ----

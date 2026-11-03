@@ -206,6 +206,14 @@ image, choose **F8 → Display → Reload background artwork** to refresh the ca
 without restarting. See [the background plan](docs/aspect-ratio-and-background-overrides-plan.md)
 for filenames and dimensions.
 
+Fixed-screen objects such as the file-select heading can also be replaced or
+decorated with PNGs in `assets/override/objects/`. The PNG centre is aligned
+with the original object centre, so a larger canvas can extend the artwork.
+The shipped heading frame has a transparent text window, so one shared asset
+works for every language while the game draws the localized text. See
+[object overrides](docs/object-overrides.md) for naming, placement, language
+variants and extraction.
+
 Named dialogue and menu rendering checks are documented in
 [docs/render-scene-checks.md](docs/render-scene-checks.md).
 

@@ -456,6 +456,11 @@ static void DrawRibbonDisplayTab(void) {
     }
     RandoUi_HelpTooltip("Reloads custom background images on the next game frame. "
                        "Use this after adding or editing artwork in assets/override.");
+    if (ImGui::Button("Reload object artwork")) {
+        Port_ObjectOverride_RequestReload();
+    }
+    RandoUi_HelpTooltip("Reloads custom object PNGs from assets/override/objects. "
+                       "Use this after adding or editing an object override.");
 
     bool holdAdv = Port_Config_GetHoldToAdvanceText();
     if (ImGui::Checkbox("Hold to advance text", &holdAdv)) {

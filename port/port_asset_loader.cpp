@@ -1,4 +1,5 @@
 #include "port_background_runtime.h"
+#include "port_object_override.h"
 #include "port_asset_loader.h"
 #include "port_asset_pipeline.hpp"
 #include "port_asset_pak_loader.hpp"
@@ -1197,6 +1198,7 @@ bool EnsureAssetGroupCache() {
                                                    ? gAssetGroupCache.assetsRoot.parent_path()
                                                    : gAssetGroupCache.assetsRoot;
     Port_BackgroundRuntime_Init(artworkRoot.string().c_str());
+    Port_ObjectOverride_Init(artworkRoot.string().c_str());
     gAssetGroupCache.ready = true;
     return true;
 }

@@ -16,6 +16,7 @@
 #include "port_background_runtime.h"
 #include "port_background_compose.h"
 #include "port_edge_fade.h"
+#include "port_object_override.h"
 
 #include <cpu/mode1.h>
 #include <virtuappu.h>
@@ -2177,7 +2178,8 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * raw game data. No-ops when disabled. Operates on the normalized render
      * height and pitch; present-side upscale/xBRZ run
      * afterwards on the transformed pixels. */
-    if (Port_PPU_ComposeBackground()) {
+    const bool composed = Port_PPU_ComposeBackground();
+    if (composed) {
         sSuperValid = false;
         /* Fixed screens and native fallbacks are one native composition with
          * margins. While a screen-wide palette fade is active (title light
@@ -2215,6 +2217,18 @@ extern "C" void Port_PPU_PresentFrame(void) {
                                                 geometry->nativeContent.x, geometry->nativeContent.y,
                                                 Port_Oam_Positions(), Port_Oam_Opacities());
         }
+    }
+    {
+        /* Object overrides are composited after the native/margin layers so
+         * they can replace fixed-screen objects at any aspect ratio, then the
+         * LCD/colour post-process treats them like every other pixel. */
+        const PortViewportGeometry* geometry = Port_Viewport_Get();
+        const int override_width = composed ? geometry->canvas.width : virtuappu_mode1_frame_width();
+        const int override_height = composed ? geometry->canvas.height : virtuappu_mode1_frame_height();
+        Port_ObjectOverride_Draw(virtuappu_frame_buffer, override_width, override_height,
+                                 virtuappu_mode1_frame_pitch(),
+                                 composed ? geometry->nativeContent.x : 0,
+                                 composed ? geometry->nativeContent.y : 0);
     }
     Port_PPU_ApplyDisplayPostProcess(virtuappu_mode1_frame_pitch() *
                                      (sComposedHeight ? sComposedHeight : virtuappu_mode1_frame_height()));

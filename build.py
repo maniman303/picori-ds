@@ -556,6 +556,33 @@ def _prepare_developer_rom(version: str) -> bool:
     ok(f"{src.name} → build/pc/baserom.gba")
     return True
 
+def stage_object_overrides(dist_dir: Path) -> None:
+    """Ship the repository's extracted object overrides as defaults.
+
+    A PNG already present in the dist override folder wins, so local edits
+    survive rebuilds; only missing defaults are added.
+    """
+    source = REPO_ROOT / "assets" / "override" / "objects"
+    if not source.is_dir():
+        return
+    target = dist_dir / "assets" / "override" / "objects"
+    added = 0
+    for path in sorted(source.glob("*.png")):
+        if not path.is_file():
+            continue
+        dest = target / path.name
+        if dest.exists():
+            continue
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dest)
+        added += 1
+    if added:
+        try:
+            shown = target.relative_to(REPO_ROOT)
+        except ValueError:
+            shown = target
+        ok(f"object overrides → {shown} ({added} files)")
+
 def stage_voxel_shapes(dist_dir: Path) -> None:
     """Ship the 3D view's default tile shapes, merged under a local copy.
 
@@ -791,6 +818,7 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
         # binary by tools/generate_sounds_embed.py) handles audio.
         stage_rando_logic(dist_dir)
         stage_voxel_shapes(dist_dir)
+        stage_object_overrides(dist_dir)
         info("Slim mode — ROM assets/, assets_src/, and sounds.json are NOT copied.")
         info("tmc_pc will self-extract assets on first launch using the embedded extractor.")
         (dist_dir / ".assets_fingerprint").write_text(assets_fingerprint + "\n")
@@ -805,6 +833,7 @@ def build_version(version: str, env: dict, non_interactive: bool = False,
     _stage_dist_asset_trees(dist_dir, version)
     stage_rando_logic(dist_dir)
     stage_voxel_shapes(dist_dir)
+    stage_object_overrides(dist_dir)
 
     sounds_src = REPO_ROOT / "assets" / "sounds.json"
     if sounds_src.exists():

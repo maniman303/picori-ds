@@ -58,7 +58,9 @@ void FlushSprites(void) {
     gOAMControls.updated = 0;
 #ifdef PC_PORT
     extern void Port_Oam_BeginFrame(void);
+    extern void Port_ObjectOverride_BeginFrame(void);
     Port_Oam_BeginFrame();
+    Port_ObjectOverride_BeginFrame();
 #endif
 }
 
